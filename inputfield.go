@@ -2,6 +2,7 @@ package tview
 
 import (
 	"math"
+	"regexp"
 	"strconv"
 
 	"github.com/gdamore/tcell"
@@ -76,7 +77,8 @@ type InputField struct {
 	accept func(text string, ch rune) bool
 
 	// An optional function which is called when the user indicated that they
-	// are done entering text. The key which was pressed is provided.
+	// are done entering text. The key which was pressed is provided (tab,
+	// shift-tab, enter, or escape).
 	done func(tcell.Key)
 }
 
@@ -154,6 +156,7 @@ func (i *InputField) SetAcceptanceFunc(handler func(textToCheck string, lastChar
 //   - KeyEnter: Done entering text.
 //   - KeyEscape: Abort text input.
 //   - KeyTab: Move to the next field.
+//   - KeyBacktab: Move to the previous field.
 func (i *InputField) SetDoneFunc(handler func(key tcell.Key)) *InputField {
 	i.done = handler
 	return i
@@ -179,17 +182,9 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	labelStyle := tcell.StyleDefault.Background(i.backgroundColor).Foreground(i.labelColor)
-	for _, ch := range i.label {
-		if x >= rightLimit {
-			return
-		}
-		screen.SetContent(x, y, ch, nil, labelStyle)
-		x++
-	}
+	x += Print(screen, i.label, x, y, rightLimit-x, AlignLeft, i.labelColor)
 
 	// Draw input area.
-	inputStyle := tcell.StyleDefault.Background(i.fieldBackgroundColor).Foreground(i.fieldTextColor)
 	fieldLength := i.fieldLength
 	if fieldLength == 0 {
 		fieldLength = math.MaxInt64
@@ -197,20 +192,17 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	if rightLimit-x < fieldLength {
 		fieldLength = rightLimit - x
 	}
-	text := []rune(i.text)
-	index := 0
-	if fieldLength-1 < len(text) {
-		index = len(text) - fieldLength + 1
+	fieldStyle := tcell.StyleDefault.Background(i.fieldBackgroundColor)
+	for index := 0; index < fieldLength; index++ {
+		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
 	}
-	for fieldLength > 0 {
-		ch := ' '
-		if index < len(text) {
-			ch = text[index]
-		}
-		screen.SetContent(x, y, ch, nil, inputStyle)
-		x++
-		index++
-		fieldLength--
+
+	// Draw entered text.
+	fieldLength-- // We need one cell for the cursor.
+	if fieldLength < len([]rune(i.text)) {
+		Print(screen, i.text, x+fieldLength-1, y, fieldLength, AlignRight, i.fieldTextColor)
+	} else {
+		Print(screen, i.text, x, y, fieldLength, AlignLeft, i.fieldTextColor)
 	}
 
 	// Set cursor.
@@ -255,12 +247,15 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey) {
 			i.text = newText
 		case tcell.KeyCtrlU: // Delete all.
 			i.text = ""
+		case tcell.KeyCtrlW: // Delete last word.
+			lastWord := regexp.MustCompile(`\s*\S+\s*$`)
+			i.text = lastWord.ReplaceAllString(i.text, "")
 		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete last character.
 			if len([]rune(i.text)) == 0 {
 				break
 			}
 			i.text = i.text[:len([]rune(i.text))-1]
-		case tcell.KeyEnter, tcell.KeyTab, tcell.KeyEscape: // We're done.
+		case tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if i.done != nil {
 				i.done(key)
 			}

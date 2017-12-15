@@ -1,9 +1,20 @@
 package main
 
-import "github.com/rivo/tview"
+import (
+	"github.com/gdamore/tcell"
+	"github.com/rivo/tview"
+)
 
 func main() {
-	form := tview.NewForm().AddItem("First name", "", 20, nil).AddItem("Last name", "", 20, nil).AddItem("Age", "", 4, nil)
+	app := tview.NewApplication()
+
+	form := tview.NewFrame(tview.NewForm().
+		AddItem("First name", "", 20, nil).
+		AddItem("Last name", "", 20, nil).
+		AddItem("Age", "", 4, nil).
+		AddButton("Save", func() { app.Stop() }).
+		AddButton("Cancel", nil)).
+		AddText("Customer details", true, tview.AlignLeft, tcell.ColorRed)
 	form.SetBorder(true)
 
 	box := tview.NewFlex(tview.FlexColumn, []tview.Primitive{
@@ -25,7 +36,6 @@ func main() {
 	final := tview.NewFlex(tview.FlexRow, []tview.Primitive{box})
 	final.AddItem(inputField, 3)
 
-	app := tview.NewApplication()
 	app.SetRoot(final, true).SetFocus(form)
 
 	if err := app.Run(); err != nil {

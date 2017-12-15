@@ -13,11 +13,15 @@ type Form struct {
 	// The items of the form (one row per item).
 	items []*InputField
 
+	// The buttons of the form.
+	buttons []*Button
+
 	// The number of empty rows between items.
 	itemPadding int
 
-	// The index of the item which has focus.
-	focusedItem int
+	// The index of the item or button which has focus. (Items are counted first,
+	// buttons are counted last.)
+	focusedElement int
 
 	// The label color.
 	labelColor tcell.Color
@@ -77,6 +81,13 @@ func (f *Form) AddItem(label, value string, fieldLength int, accept func(textToC
 	return f
 }
 
+// AddButton adds a new button to the form. The "selected" function is called
+// when the user selects this button. It may be nil.
+func (f *Form) AddButton(label string, selected func()) *Form {
+	f.buttons = append(f.buttons, NewButton(label).SetSelectedFunc(selected))
+	return f
+}
+
 // Draw draws this primitive onto the screen.
 func (f *Form) Draw(screen tcell.Screen) {
 	f.Box.Draw(screen)
@@ -92,6 +103,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 		width -= 2
 		bottomLimit -= 2
 	}
+	rightLimit := x + width
 
 	// Find the longest label.
 	var labelLength int
@@ -106,7 +118,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	// Set up and draw the input fields.
 	for _, inputField := range f.items {
 		if y >= bottomLimit {
-			break
+			return // Stop here.
 		}
 		label := strings.TrimSpace(inputField.GetLabel())
 		inputField.SetLabelColor(f.labelColor).
@@ -118,34 +130,71 @@ func (f *Form) Draw(screen tcell.Screen) {
 		inputField.Draw(screen)
 		y += 1 + f.itemPadding
 	}
+
+	// Draw the buttons.
+	if f.itemPadding == 0 {
+		y++
+	}
+	if y >= bottomLimit {
+		return // Stop here.
+	}
+	for _, button := range f.buttons {
+		space := rightLimit - x
+		if space < 1 {
+			return // No space for this button anymore.
+		}
+		buttonWidth := len([]rune(button.GetLabel())) + 4
+		if buttonWidth > space {
+			buttonWidth = space
+		}
+		button.SetRect(x, y, buttonWidth, 1)
+		button.Draw(screen)
+
+		x += buttonWidth + 2
+	}
 }
 
 // Focus is called by the application when the primitive receives focus.
 func (f *Form) Focus(app *Application) {
 	f.Box.Focus(app)
 
-	if len(f.items) == 0 {
+	if len(f.items)+len(f.buttons) == 0 {
 		return
 	}
 
-	// Hand on the focus to one of our items.
-	if f.focusedItem < 0 || f.focusedItem >= len(f.items) {
-		f.focusedItem = 0
+	// Hand on the focus to one of our child elements.
+	if f.focusedElement < 0 || f.focusedElement >= len(f.items)+len(f.buttons) {
+		f.focusedElement = 0
 	}
 	f.hasFocus = false
-	inputField := f.items[f.focusedItem]
-	inputField.SetDoneFunc(func(key tcell.Key) {
+	handler := func(key tcell.Key) {
 		switch key {
 		case tcell.KeyTab:
-			f.focusedItem++
-			f.Focus(app)
+			f.focusedElement++
+		case tcell.KeyBacktab:
+			f.focusedElement--
+			if f.focusedElement < 0 {
+				f.focusedElement = len(f.items) + len(f.buttons) - 1
+			}
+		case tcell.KeyEscape:
+			f.focusedElement = 0
 		}
-	})
-	app.SetFocus(inputField)
+		f.Focus(app)
+	}
+	if f.focusedElement < len(f.items) {
+		// We're selecting an item.
+		inputField := f.items[f.focusedElement]
+		inputField.SetDoneFunc(handler)
+		app.SetFocus(inputField)
+	} else {
+		// We're selecting a button.
+		button := f.buttons[f.focusedElement-len(f.items)]
+		button.SetBlurFunc(handler)
+		app.SetFocus(button)
+	}
 }
 
 // InputHandler returns the handler for this primitive.
 func (f *Form) InputHandler() func(event *tcell.EventKey) {
-	return func(event *tcell.EventKey) {
-	}
+	return func(event *tcell.EventKey) {}
 }
