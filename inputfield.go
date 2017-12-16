@@ -52,7 +52,7 @@ func init() {
 // InputField is a one-line box (three lines if there is a title) where the
 // user can enter text.
 type InputField struct {
-	Box
+	*Box
 
 	// The text that was entered.
 	text string
@@ -85,7 +85,7 @@ type InputField struct {
 // NewInputField returns a new input field.
 func NewInputField() *InputField {
 	return &InputField{
-		Box:                  *NewBox(),
+		Box:                  NewBox(),
 		labelColor:           tcell.ColorYellow,
 		fieldBackgroundColor: tcell.ColorBlue,
 		fieldTextColor:       tcell.ColorWhite,
@@ -206,7 +206,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 
 	// Set cursor.
-	if i.hasFocus {
+	if i.focus.HasFocus() {
 		i.setCursor(screen)
 	}
 }

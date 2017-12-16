@@ -6,7 +6,7 @@ import (
 
 // Button is labeled box that triggers an action when selected.
 type Button struct {
-	Box
+	*Box
 
 	// The text to be displayed before the input area.
 	label string
@@ -32,7 +32,7 @@ type Button struct {
 func NewButton(label string) *Button {
 	box := NewBox().SetBackgroundColor(tcell.ColorBlue)
 	return &Button{
-		Box:                      *box,
+		Box:                      box,
 		label:                    label,
 		labelColor:               tcell.ColorWhite,
 		labelColorActivated:      tcell.ColorBlue,
@@ -93,7 +93,7 @@ func (b *Button) SetBlurFunc(handler func(key tcell.Key)) *Button {
 func (b *Button) Draw(screen tcell.Screen) {
 	// Draw the box.
 	backgroundColor := b.backgroundColor
-	if b.hasFocus {
+	if b.focus.HasFocus() {
 		b.backgroundColor = b.backgroundColorActivated
 	}
 	b.Box.Draw(screen)
@@ -107,12 +107,12 @@ func (b *Button) Draw(screen tcell.Screen) {
 		width -= 2
 	}
 	labelColor := b.labelColor
-	if b.hasFocus {
+	if b.focus.HasFocus() {
 		labelColor = b.labelColorActivated
 	}
 	Print(screen, b.label, x, y, width, AlignCenter, labelColor)
 
-	if b.hasFocus {
+	if b.focus.HasFocus() {
 		screen.HideCursor()
 	}
 }

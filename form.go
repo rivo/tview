@@ -8,7 +8,7 @@ import (
 
 // Form is a Box which contains multiple input fields, one per row.
 type Form struct {
-	Box
+	*Box
 
 	// The items of the form (one row per item).
 	items []*InputField
@@ -35,13 +35,19 @@ type Form struct {
 
 // NewForm returns a new form.
 func NewForm() *Form {
-	return &Form{
-		Box:                  *NewBox(),
+	box := NewBox()
+
+	f := &Form{
+		Box:                  box,
 		itemPadding:          1,
 		labelColor:           tcell.ColorYellow,
 		fieldBackgroundColor: tcell.ColorBlue,
 		fieldTextColor:       tcell.ColorWhite,
 	}
+
+	f.focus = f
+
+	return f
 }
 
 // SetItemPadding sets the number of empty rows between form items.
@@ -156,8 +162,6 @@ func (f *Form) Draw(screen tcell.Screen) {
 
 // Focus is called by the application when the primitive receives focus.
 func (f *Form) Focus(app *Application) {
-	f.Box.Focus(app)
-
 	if len(f.items)+len(f.buttons) == 0 {
 		return
 	}
@@ -166,10 +170,9 @@ func (f *Form) Focus(app *Application) {
 	if f.focusedElement < 0 || f.focusedElement >= len(f.items)+len(f.buttons) {
 		f.focusedElement = 0
 	}
-	f.hasFocus = false
 	handler := func(key tcell.Key) {
 		switch key {
-		case tcell.KeyTab:
+		case tcell.KeyTab, tcell.KeyEnter:
 			f.focusedElement++
 		case tcell.KeyBacktab:
 			f.focusedElement--
@@ -197,4 +200,19 @@ func (f *Form) Focus(app *Application) {
 // InputHandler returns the handler for this primitive.
 func (f *Form) InputHandler() func(event *tcell.EventKey) {
 	return func(event *tcell.EventKey) {}
+}
+
+// HasFocus returns whether or not this primitive has focus.
+func (f *Form) HasFocus() bool {
+	for _, item := range f.items {
+		if item.focus.HasFocus() {
+			return true
+		}
+	}
+	for _, button := range f.buttons {
+		if button.focus.HasFocus() {
+			return true
+		}
+	}
+	return false
 }

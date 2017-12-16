@@ -12,10 +12,10 @@ type frameText struct {
 	Color  tcell.Color // The text color.
 }
 
-// Frame is a wrapper which adds a border around another primitive. The top and
-// the bottom border may also contain text.
+// Frame is a wrapper which adds a border around another box. The top area
+// (header) and the bottom area (footer) may also contain text.
 type Frame struct {
-	Box
+	*Box
 
 	// The contained primitive.
 	primitive Primitive
@@ -30,8 +30,10 @@ type Frame struct {
 // NewFrame returns a new frame around the given primitive. The primitive's
 // size will be changed to fit within this frame.
 func NewFrame(primitive Primitive) *Frame {
-	return &Frame{
-		Box:       *NewBox(),
+	box := NewBox()
+
+	f := &Frame{
+		Box:       box,
 		primitive: primitive,
 		top:       1,
 		bottom:    1,
@@ -40,6 +42,10 @@ func NewFrame(primitive Primitive) *Frame {
 		left:      1,
 		right:     1,
 	}
+
+	f.focus = f
+
+	return f
 }
 
 // AddText adds text to the frame. Set "header" to true if the text is to appear
@@ -129,7 +135,7 @@ func (f *Frame) Draw(screen tcell.Screen) {
 
 	// Set the size of the contained primitive.
 	if topMax > top {
-		top = topMax + 1 + f.header
+		top = topMax + f.header
 	}
 	if bottomMin < bottom {
 		bottom = bottomMin - f.footer
@@ -152,4 +158,13 @@ func (f *Frame) Focus(app *Application) {
 func (f *Frame) InputHandler() func(event *tcell.EventKey) {
 	return func(event *tcell.EventKey) {
 	}
+}
+
+// HasFocus returns whether or not this primitive has focus.
+func (f *Frame) HasFocus() bool {
+	focusable, ok := f.primitive.(Focusable)
+	if ok {
+		return focusable.HasFocus()
+	}
+	return false
 }
