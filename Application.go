@@ -45,7 +45,9 @@ func (a *Application) Run() error {
 	// We catch panics to clean up because they mess up the terminal.
 	defer func() {
 		if p := recover(); p != nil {
-			a.screen.Fini()
+			if a.screen != nil {
+				a.screen.Fini()
+			}
 			panic(p)
 		}
 	}()
@@ -59,6 +61,9 @@ func (a *Application) Run() error {
 
 	// Start event loop.
 	for {
+		if a.screen == nil {
+			break
+		}
 		event := a.screen.PollEvent()
 		if event == nil {
 			break // The screen was finalized.
@@ -66,14 +71,16 @@ func (a *Application) Run() error {
 		switch event := event.(type) {
 		case *tcell.EventKey:
 			if event.Key() == tcell.KeyCtrlC {
-				a.Stop()
+				a.Stop() // Ctrl-C closes the application.
 			}
 			a.Lock()
-			p := a.focus
+			p := a.focus // Pass other key events to the currently focused primitive.
 			a.Unlock()
 			if p != nil {
 				if handler := p.InputHandler(); handler != nil {
-					handler(event)
+					handler(event, func(p Primitive) {
+						a.SetFocus(p)
+					})
 					a.Draw()
 				}
 			}
@@ -93,7 +100,11 @@ func (a *Application) Run() error {
 
 // Stop stops the application, causing Run() to return.
 func (a *Application) Stop() {
+	if a.screen == nil {
+		return
+	}
 	a.screen.Fini()
+	a.screen = nil
 }
 
 // Draw refreshes the screen. It calls the Draw() function of the application's
@@ -102,7 +113,7 @@ func (a *Application) Draw() *Application {
 	a.Lock()
 	defer a.Unlock()
 
-	// Maybe we're not ready yet.
+	// Maybe we're not ready yet or not anymore.
 	if a.screen == nil {
 		return a
 	}
@@ -151,7 +162,9 @@ func (a *Application) SetFocus(p Primitive) *Application {
 	}
 	a.focus = p
 	a.Unlock()
-	p.Focus(a)
+	p.Focus(func(p Primitive) {
+		a.SetFocus(p)
+	})
 
 	return a
 }

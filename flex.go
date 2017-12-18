@@ -99,14 +99,14 @@ func (f *Flex) SetRect(x, y, width, height int) {
 }
 
 // InputHandler returns nil.
-func (f *Flex) InputHandler() func(event *tcell.EventKey) {
+func (f *Flex) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return nil
 }
 
 // Focus is called when this primitive receives focus.
-func (f *Flex) Focus(app *Application) {
+func (f *Flex) Focus(delegate func(p Primitive)) {
 	if len(f.items) > 0 {
-		app.SetFocus(f.items[0].Item)
+		delegate(f.items[0].Item)
 	}
 }
 

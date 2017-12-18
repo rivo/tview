@@ -150,14 +150,13 @@ func (f *Frame) Draw(screen tcell.Screen) {
 }
 
 // Focus is called when this primitive receives focus.
-func (f *Frame) Focus(app *Application) {
-	app.SetFocus(f.primitive)
+func (f *Frame) Focus(delegate func(p Primitive)) {
+	delegate(f.primitive)
 }
 
 // InputHandler returns the handler for this primitive.
-func (f *Frame) InputHandler() func(event *tcell.EventKey) {
-	return func(event *tcell.EventKey) {
-	}
+func (f *Frame) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return func(event *tcell.EventKey, setFocus func(p Primitive)) {}
 }
 
 // HasFocus returns whether or not this primitive has focus.

@@ -132,6 +132,16 @@ func (i *InputField) SetFieldTextColor(color tcell.Color) *InputField {
 	return i
 }
 
+// SetFormAttributes sets attributes shared by all form items.
+func (i *InputField) SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	i.label = label
+	i.labelColor = labelColor
+	i.backgroundColor = bgColor
+	i.fieldTextColor = fieldTextColor
+	i.fieldBackgroundColor = fieldBgColor
+	return i
+}
+
 // SetFieldLength sets the length of the input area. A value of 0 means extend
 // as much as possible.
 func (i *InputField) SetFieldLength(length int) *InputField {
@@ -160,6 +170,16 @@ func (i *InputField) SetAcceptanceFunc(handler func(textToCheck string, lastChar
 func (i *InputField) SetDoneFunc(handler func(key tcell.Key)) *InputField {
 	i.done = handler
 	return i
+}
+
+// SetFinishedFunc calls SetDoneFunc().
+func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
+	return i.SetDoneFunc(handler)
+}
+
+// GetFocusable returns the item's Focusable.
+func (i *InputField) GetFocusable() Focusable {
+	return i.focus
 }
 
 // Draw draws this primitive onto the screen.
@@ -233,8 +253,8 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (i *InputField) InputHandler() func(event *tcell.EventKey) {
-	return func(event *tcell.EventKey) {
+func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyRune: // Regular character.

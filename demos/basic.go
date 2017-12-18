@@ -10,24 +10,24 @@ func main() {
 	var list *tview.List
 
 	frame := tview.NewFrame(tview.NewForm().
-		AddItem("First name", "", 20, nil).
-		AddItem("Last name", "", 20, nil).
-		AddItem("Age", "", 4, nil).
+		AddInputField("First name", "", 20, nil).
+		AddInputField("Last name", "", 20, nil).
+		AddInputField("Age", "", 4, nil).
+		AddDropDown("Select", []string{"One", "Two", "Three"}, 1, func(text string, index int) {
+			if text == "Three" {
+				app.Stop()
+			}
+		}).
 		AddButton("Save", func() { app.Stop() }).
 		AddButton("Cancel", nil).
 		AddButton("Go to list", func() { app.SetFocus(list) })).
 		AddText("Customer details", true, tview.AlignLeft, tcell.ColorRed).
 		AddText("Customer details", false, tview.AlignCenter, tcell.ColorRed)
-	frame.SetBorder(true)
+	frame.SetBorder(true).SetTitle("Customers")
 
 	list = tview.NewList().
-		AddItem("Edit a form", "You can do whatever you want", 'e').
-		AddItem("Quit the program", "Do it!", 0).
-		SetSelectedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
-			if shortcut == 'e' {
-				app.SetFocus(frame)
-			}
-		})
+		AddItem("Edit a form", "You can do whatever you want", 'e', func() { app.SetFocus(frame) }).
+		AddItem("Quit the program", "Do it!", 0, func() { app.Stop() })
 	list.SetBorder(true)
 
 	flex := tview.NewFlex(tview.FlexColumn, []tview.Primitive{

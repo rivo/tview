@@ -11,6 +11,7 @@ type listItem struct {
 	MainText      string // The main text of the list item.
 	SecondaryText string // A secondary text to be shown underneath the main text.
 	Shortcut      rune   // The key to select the list item directly, 0 if there is no shortcut.
+	Selected      func() // The optional function which is called when the item is selected.
 }
 
 // List displays rows of items, each of which can be selected.
@@ -26,8 +27,7 @@ type List struct {
 	// Whether or not to show the secondary item texts.
 	showSecondaryText bool
 
-	// The item main text color. Selected items have their background and text
-	// color switched.
+	// The item main text color.
 	mainTextColor tcell.Color
 
 	// The item secondary text color.
@@ -36,29 +36,44 @@ type List struct {
 	// The item shortcut text color.
 	shortcutColor tcell.Color
 
-	// An optional function which is called when a list item was selected.
+	// The text color for selected items.
+	selectedTextColor tcell.Color
+
+	// The background color for selected items.
+	selectedBackgroundColor tcell.Color
+
+	// An optional function which is called when a list item was selected. This
+	// function will be called even if the list item defines its own callback.
 	selected func(index int, mainText, secondaryText string, shortcut rune)
 }
 
 // NewList returns a new form.
 func NewList() *List {
 	return &List{
-		Box:                NewBox(),
-		showSecondaryText:  true,
-		mainTextColor:      tcell.ColorWhite,
-		secondaryTextColor: tcell.ColorGreen,
-		shortcutColor:      tcell.ColorYellow,
+		Box:                     NewBox(),
+		showSecondaryText:       true,
+		mainTextColor:           tcell.ColorWhite,
+		secondaryTextColor:      tcell.ColorGreen,
+		shortcutColor:           tcell.ColorYellow,
+		selectedTextColor:       tcell.ColorBlack,
+		selectedBackgroundColor: tcell.ColorWhite,
 	}
 }
 
-// SetMainTextColorColor sets the color of the items' main text.
-func (l *List) SetMainTextColorColor(color tcell.Color) *List {
+// SetCurrentItem sets the currently selected item by its index.
+func (l *List) SetCurrentItem(index int) *List {
+	l.currentItem = index
+	return l
+}
+
+// SetMainTextColor sets the color of the items' main text.
+func (l *List) SetMainTextColor(color tcell.Color) *List {
 	l.mainTextColor = color
 	return l
 }
 
-// SetSecondaryTextColorColor sets the color of the items' secondary text.
-func (l *List) SetSecondaryTextColorColor(color tcell.Color) *List {
+// SetSecondaryTextColor sets the color of the items' secondary text.
+func (l *List) SetSecondaryTextColor(color tcell.Color) *List {
 	l.secondaryTextColor = color
 	return l
 }
@@ -66,6 +81,18 @@ func (l *List) SetSecondaryTextColorColor(color tcell.Color) *List {
 // SetShortcutColor sets the color of the items' shortcut.
 func (l *List) SetShortcutColor(color tcell.Color) *List {
 	l.shortcutColor = color
+	return l
+}
+
+// SetSelectedTextColor sets the text color of selected items.
+func (l *List) SetSelectedTextColor(color tcell.Color) *List {
+	l.selectedTextColor = color
+	return l
+}
+
+// SetSelectedBackgroundColor sets the background color of selected items.
+func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
+	l.selectedBackgroundColor = color
 	return l
 }
 
@@ -90,12 +117,24 @@ func (l *List) SetSelectedFunc(handler func(int, string, string, rune)) *List {
 //
 // The shortcut is a key binding. If the specified rune is entered, the item
 // is selected immediately. Set to 0 for no binding.
-func (l *List) AddItem(mainText, secondaryText string, shortcut rune) *List {
+//
+// The "selected" callback will be invoked when the user selects the item. You
+// may provide nil if no such item is needed or if all events are handled
+// through the selected callback set with SetSelectedFunc().
+func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected func()) *List {
 	l.items = append(l.items, &listItem{
 		MainText:      mainText,
 		SecondaryText: secondaryText,
 		Shortcut:      shortcut,
+		Selected:      selected,
 	})
+	return l
+}
+
+// ClearItems removes all items from the list.
+func (l *List) ClearItems() *List {
+	l.items = nil
+	l.currentItem = 0
 	return l
 }
 
@@ -141,11 +180,11 @@ func (l *List) Draw(screen tcell.Screen) {
 		color := l.mainTextColor
 		if l.focus.HasFocus() && index == l.currentItem {
 			textLength := len([]rune(item.MainText))
-			style := tcell.StyleDefault.Background(l.mainTextColor)
+			style := tcell.StyleDefault.Background(l.selectedBackgroundColor)
 			for bx := 0; bx < textLength && bx < width; bx++ {
 				screen.SetContent(x+bx, y, ' ', nil, style)
 			}
-			color = l.backgroundColor
+			color = l.selectedTextColor
 		}
 		Print(screen, item.MainText, x, y, width, AlignLeft, color)
 		y++
@@ -163,8 +202,8 @@ func (l *List) Draw(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (l *List) InputHandler() func(event *tcell.EventKey) {
-	return func(event *tcell.EventKey) {
+func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		switch key := event.Key(); key {
 		case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
 			l.currentItem++
@@ -179,8 +218,11 @@ func (l *List) InputHandler() func(event *tcell.EventKey) {
 		case tcell.KeyPgUp:
 			l.currentItem -= 5
 		case tcell.KeyEnter:
+			item := l.items[l.currentItem]
+			if item.Selected != nil {
+				item.Selected()
+			}
 			if l.selected != nil {
-				item := l.items[l.currentItem]
 				l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 			}
 		case tcell.KeyRune:
@@ -200,8 +242,11 @@ func (l *List) InputHandler() func(event *tcell.EventKey) {
 					break
 				}
 			}
+			item := l.items[l.currentItem]
+			if item.Selected != nil {
+				item.Selected()
+			}
 			if l.selected != nil {
-				item := l.items[l.currentItem]
 				l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 			}
 		}

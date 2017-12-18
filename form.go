@@ -6,12 +6,33 @@ import (
 	"github.com/gdamore/tcell"
 )
 
+// FormItem is the interface all form items must implement to be able to be
+// included in a form.
+type FormItem interface {
+	Primitive
+
+	// GetLabel returns the item's label text.
+	GetLabel() string
+
+	// SetFormAttributes sets a number of item attributes at once.
+	SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem
+
+	// SetEnteredFunc sets the handler function for when the user finished
+	// entering data into the item. The handler may receive events for the
+	// Enter key (we're done), the Escape key (cancel input), the Tab key (move to
+	// next field), and the Backtab key (move to previous field).
+	SetFinishedFunc(handler func(key tcell.Key)) FormItem
+
+	// GetFocusable returns the item's Focusable.
+	GetFocusable() Focusable
+}
+
 // Form is a Box which contains multiple input fields, one per row.
 type Form struct {
 	*Box
 
 	// The items of the form (one row per item).
-	items []*InputField
+	items []FormItem
 
 	// The buttons of the form.
 	buttons []*Button
@@ -74,16 +95,27 @@ func (f *Form) SetFieldTextColor(color tcell.Color) *Form {
 	return f
 }
 
-// AddItem adds a new item to the form. It has a label, an optional initial
-// value, a field length (a value of 0 extends it as far as possible), and
-// an optional accept function to validate the item's value (set to nil to
+// AddInputField adds an input field to the form. It has a label, an optional
+// initial value, a field length (a value of 0 extends it as far as possible),
+// and an optional accept function to validate the item's value (set to nil to
 // accept any text).
-func (f *Form) AddItem(label, value string, fieldLength int, accept func(textToCheck string, lastChar rune) bool) *Form {
+func (f *Form) AddInputField(label, value string, fieldLength int, accept func(textToCheck string, lastChar rune) bool) *Form {
 	f.items = append(f.items, NewInputField().
 		SetLabel(label).
 		SetText(value).
 		SetFieldLength(fieldLength).
 		SetAcceptanceFunc(accept))
+	return f
+}
+
+// AddDropDown adds a drop-down element to the form. It has a label, options,
+// and an (optional) callback function which is invoked when an option was
+// selected.
+func (f *Form) AddDropDown(label string, options []string, initialOption int, selected func(option string, optionIndex int)) *Form {
+	f.items = append(f.items, NewDropDown().
+		SetLabel(label).
+		SetCurrentOption(initialOption).
+		SetOptions(options, selected))
 	return f
 }
 
@@ -113,8 +145,8 @@ func (f *Form) Draw(screen tcell.Screen) {
 
 	// Find the longest label.
 	var labelLength int
-	for _, inputField := range f.items {
-		label := strings.TrimSpace(inputField.GetLabel())
+	for _, item := range f.items {
+		label := strings.TrimSpace(item.GetLabel())
 		if len([]rune(label)) > labelLength {
 			labelLength = len([]rune(label))
 		}
@@ -122,18 +154,23 @@ func (f *Form) Draw(screen tcell.Screen) {
 	labelLength++ // Add one space.
 
 	// Set up and draw the input fields.
-	for _, inputField := range f.items {
+	for _, item := range f.items {
 		if y >= bottomLimit {
 			return // Stop here.
 		}
-		label := strings.TrimSpace(inputField.GetLabel())
-		inputField.SetLabelColor(f.labelColor).
-			SetFieldBackgroundColor(f.fieldBackgroundColor).
-			SetFieldTextColor(f.fieldTextColor).
-			SetLabel(label+strings.Repeat(" ", labelLength-len([]rune(label)))).
-			SetBackgroundColor(f.backgroundColor).
-			SetRect(x, y, width, 1)
-		inputField.Draw(screen)
+		label := strings.TrimSpace(item.GetLabel())
+		item.SetFormAttributes(
+			label+strings.Repeat(" ", labelLength-len([]rune(label))),
+			f.labelColor,
+			f.backgroundColor,
+			f.fieldTextColor,
+			f.fieldBackgroundColor,
+		).SetRect(x, y, width, 1)
+		if item.GetFocusable().HasFocus() {
+			defer item.Draw(screen)
+		} else {
+			item.Draw(screen)
+		}
 		y += 1 + f.itemPadding
 	}
 
@@ -161,7 +198,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 }
 
 // Focus is called by the application when the primitive receives focus.
-func (f *Form) Focus(app *Application) {
+func (f *Form) Focus(delegate func(p Primitive)) {
 	if len(f.items)+len(f.buttons) == 0 {
 		return
 	}
@@ -182,30 +219,31 @@ func (f *Form) Focus(app *Application) {
 		case tcell.KeyEscape:
 			f.focusedElement = 0
 		}
-		f.Focus(app)
+		f.Focus(delegate)
 	}
+
 	if f.focusedElement < len(f.items) {
 		// We're selecting an item.
-		inputField := f.items[f.focusedElement]
-		inputField.SetDoneFunc(handler)
-		app.SetFocus(inputField)
+		item := f.items[f.focusedElement]
+		item.SetFinishedFunc(handler)
+		delegate(item)
 	} else {
 		// We're selecting a button.
 		button := f.buttons[f.focusedElement-len(f.items)]
 		button.SetBlurFunc(handler)
-		app.SetFocus(button)
+		delegate(button)
 	}
 }
 
 // InputHandler returns the handler for this primitive.
-func (f *Form) InputHandler() func(event *tcell.EventKey) {
-	return func(event *tcell.EventKey) {}
+func (f *Form) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return func(event *tcell.EventKey, setFocus func(p Primitive)) {}
 }
 
 // HasFocus returns whether or not this primitive has focus.
 func (f *Form) HasFocus() bool {
 	for _, item := range f.items {
-		if item.focus.HasFocus() {
+		if item.GetFocusable().HasFocus() {
 			return true
 		}
 	}

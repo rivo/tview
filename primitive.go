@@ -22,12 +22,17 @@ type Primitive interface {
 	// A value of nil may also be returned, in which case this primitive cannot
 	// receive focus and will not process any key events.
 	//
+	// The handler will receive the key event and a function that allows it to
+	// set the focus to a different primitive, so that future key events are sent
+	// to that primitive.
+	//
 	// The Application's Draw() function will be called automatically after the
 	// handler returns.
-	InputHandler() func(event *tcell.EventKey)
+	InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive))
 
 	// Focus is called by the application when the primitive receives focus.
-	Focus(app *Application)
+	// Implementers may call delegate() to pass the focus on to another primitive.
+	Focus(delegate func(p Primitive))
 
 	// Blur is called by the application when the primitive loses focus.
 	Blur()

@@ -145,7 +145,7 @@ func (b *Box) SetRect(x, y, width, height int) {
 }
 
 // InputHandler returns nil.
-func (b *Box) InputHandler() func(event *tcell.EventKey) {
+func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return nil
 }
 
@@ -181,7 +181,7 @@ func (b *Box) SetTitleColor(color tcell.Color) *Box {
 }
 
 // Focus is called when this primitive receives focus.
-func (b *Box) Focus(app *Application) {
+func (b *Box) Focus(delegate func(p Primitive)) {
 	b.hasFocus = true
 }
 
