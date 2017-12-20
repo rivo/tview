@@ -168,3 +168,9 @@ func (a *Application) SetFocus(p Primitive) *Application {
 
 	return a
 }
+
+// GetFocus returns the primitive which has the current focus. If none has it,
+// nil is returned.
+func (a *Application) GetFocus() Primitive {
+	return a.focus
+}

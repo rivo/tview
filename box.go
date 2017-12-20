@@ -21,8 +21,9 @@ const (
 	BoxEllipsis            = '\u2026'
 )
 
-// Box implements Rect with a background and optional elements such as a border
-// and a title.
+// Box implements Primitive with a background and optional elements such as a
+// border and a title. Most subclasses keep their content contained in the box
+// but don't necessarily have to.
 type Box struct {
 	// The position of the rect.
 	x, y, width, height int
@@ -193,4 +194,9 @@ func (b *Box) Blur() {
 // HasFocus returns whether or not this primitive has focus.
 func (b *Box) HasFocus() bool {
 	return b.hasFocus
+}
+
+// GetFocusable returns the item's Focusable.
+func (b *Box) GetFocusable() Focusable {
+	return b.focus
 }

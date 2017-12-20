@@ -16,24 +16,43 @@ type flexItem struct {
 
 // Flex is a basic implementation of a flexbox layout.
 type Flex struct {
-	x, y, width, height int        // The size and position of this primitive.
-	items               []flexItem // The items to be positioned.
-	direction           int        // FlexRow or FlexColumn.
+	*Box
+
+	// The items to be positioned.
+	items []flexItem
+
+	// FlexRow or FlexColumn.
+	direction int
+
+	// If set to true, will use the entire screen as its available space instead
+	// its box dimensions.
+	fullScreen bool
 }
 
 // NewFlex returns a new flexbox layout container with the given primitives.
 // The items all have no fixed size. If more control is needed, call AddItem().
 // The direction argument must be FlexRow or FlexColumn.
-func NewFlex(direction int, items []Primitive) *Flex {
-	box := &Flex{
-		width:     15,
-		height:    10,
-		direction: direction,
+func NewFlex() *Flex {
+	f := &Flex{
+		Box:       NewBox(),
+		direction: FlexColumn,
 	}
-	for _, item := range items {
-		box.items = append(box.items, flexItem{Item: item})
-	}
-	return box
+	f.focus = f
+	return f
+}
+
+// SetDirection sets the direction in which the contained primitives are
+// distributed. This can be either FlexColumn (default) or FlexRow.
+func (f *Flex) SetDirection(direction int) *Flex {
+	f.direction = direction
+	return f
+}
+
+// SetFullScreen sets the flag which, when true, causes the flex layout to use
+// the entire screen space instead of whatever size it is currently assigned to.
+func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
+	f.fullScreen = fullScreen
+	return f
 }
 
 // AddItem adds a new item to the container. fixedSize is a size that may not be
@@ -46,6 +65,15 @@ func (f *Flex) AddItem(item Primitive, fixedSize int) *Flex {
 // Draw draws this primitive onto the screen.
 func (f *Flex) Draw(screen tcell.Screen) {
 	// Calculate size and position of the items.
+
+	// Do we use the entire screen?
+	if f.fullScreen {
+		f.x = 0
+		f.y = 0
+		width, height := screen.Size()
+		f.width = width
+		f.height = height
+	}
 
 	// How much space can we distribute?
 	var variables int
@@ -80,27 +108,12 @@ func (f *Flex) Draw(screen tcell.Screen) {
 		}
 		pos += size
 
-		item.Item.Draw(screen)
+		if item.Item.GetFocusable().HasFocus() {
+			defer item.Item.Draw(screen)
+		} else {
+			item.Item.Draw(screen)
+		}
 	}
-}
-
-// GetRect returns the current position of the primitive, x, y, width, and
-// height.
-func (f *Flex) GetRect() (int, int, int, int) {
-	return f.x, f.y, f.width, f.height
-}
-
-// SetRect sets a new position of the primitive.
-func (f *Flex) SetRect(x, y, width, height int) {
-	f.x = x
-	f.y = y
-	f.width = width
-	f.height = height
-}
-
-// InputHandler returns nil.
-func (f *Flex) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return nil
 }
 
 // Focus is called when this primitive receives focus.
@@ -110,6 +123,12 @@ func (f *Flex) Focus(delegate func(p Primitive)) {
 	}
 }
 
-// Blur is called when this primitive loses focus.
-func (f *Flex) Blur() {
+// HasFocus returns whether or not this primitive has focus.
+func (f *Flex) HasFocus() bool {
+	for _, item := range f.items {
+		if item.Item.GetFocusable().HasFocus() {
+			return true
+		}
+	}
+	return false
 }

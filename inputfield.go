@@ -177,11 +177,6 @@ func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return i.SetDoneFunc(handler)
 }
 
-// GetFocusable returns the item's Focusable.
-func (i *InputField) GetFocusable() Focusable {
-	return i.focus
-}
-
 // Draw draws this primitive onto the screen.
 func (i *InputField) Draw(screen tcell.Screen) {
 	i.Box.Draw(screen)

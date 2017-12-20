@@ -64,6 +64,12 @@ func (f *Frame) AddText(text string, header bool, align int, color tcell.Color) 
 	return f
 }
 
+// ClearText removes all text from the frame.
+func (f *Frame) ClearText() *Frame {
+	f.text = nil
+	return f
+}
+
 // SetBorders sets the width of the frame borders as well as "header" and
 // "footer", the vertical space between the header and footer text and the
 // contained primitive (does not apply if there is no text).
@@ -140,10 +146,10 @@ func (f *Frame) Draw(screen tcell.Screen) {
 	if bottomMin < bottom {
 		bottom = bottomMin - f.footer
 	}
-	if top >= bottom {
+	if top > bottom {
 		return // No space for the primitive.
 	}
-	f.primitive.SetRect(left, top, right+1-left, bottom-top)
+	f.primitive.SetRect(left, top, right+1-left, bottom+1-top)
 
 	// Finally, draw the contained primitive.
 	f.primitive.Draw(screen)

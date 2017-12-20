@@ -169,11 +169,6 @@ func (d *DropDown) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return d.SetDoneFunc(handler)
 }
 
-// GetFocusable returns the item's Focusable.
-func (d *DropDown) GetFocusable() Focusable {
-	return d.focus
-}
-
 // Draw draws this primitive onto the screen.
 func (d *DropDown) Draw(screen tcell.Screen) {
 	d.Box.Draw(screen)

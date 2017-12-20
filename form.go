@@ -22,9 +22,6 @@ type FormItem interface {
 	// Enter key (we're done), the Escape key (cancel input), the Tab key (move to
 	// next field), and the Backtab key (move to previous field).
 	SetFinishedFunc(handler func(key tcell.Key)) FormItem
-
-	// GetFocusable returns the item's Focusable.
-	GetFocusable() Focusable
 }
 
 // Form is a Box which contains multiple input fields, one per row.
@@ -36,6 +33,12 @@ type Form struct {
 
 	// The buttons of the form.
 	buttons []*Button
+
+	// The alignment of the buttons.
+	buttonsAlign int
+
+	// Border padding.
+	paddingTop, paddingBottom, paddingLeft, paddingRight int
 
 	// The number of empty rows between items.
 	itemPadding int
@@ -52,6 +55,15 @@ type Form struct {
 
 	// The text color of the input area.
 	fieldTextColor tcell.Color
+
+	// The background color of the buttons.
+	buttonBackgroundColor tcell.Color
+
+	// The color of the button text.
+	buttonTextColor tcell.Color
+
+	// An optional function which is called when the user hits Escape.
+	cancel func()
 }
 
 // NewForm returns a new form.
@@ -59,15 +71,27 @@ func NewForm() *Form {
 	box := NewBox()
 
 	f := &Form{
-		Box:                  box,
-		itemPadding:          1,
-		labelColor:           tcell.ColorYellow,
-		fieldBackgroundColor: tcell.ColorBlue,
-		fieldTextColor:       tcell.ColorWhite,
+		Box:                   box,
+		itemPadding:           1,
+		paddingTop:            1,
+		paddingBottom:         1,
+		paddingLeft:           1,
+		paddingRight:          1,
+		labelColor:            tcell.ColorYellow,
+		fieldBackgroundColor:  tcell.ColorBlue,
+		fieldTextColor:        tcell.ColorWhite,
+		buttonBackgroundColor: tcell.ColorBlue,
+		buttonTextColor:       tcell.ColorWhite,
 	}
 
 	f.focus = f
 
+	return f
+}
+
+// SetPadding sets the size of the borders around the form items.
+func (f *Form) SetPadding(top, bottom, left, right int) *Form {
+	f.paddingTop, f.paddingBottom, f.paddingLeft, f.paddingRight = top, bottom, left, right
 	return f
 }
 
@@ -95,6 +119,25 @@ func (f *Form) SetFieldTextColor(color tcell.Color) *Form {
 	return f
 }
 
+// SetButtonsAlign sets how the buttons align horizontally, one of AlignLeft
+// (the default), AlignCenter, and AlignRight.
+func (f *Form) SetButtonsAlign(align int) *Form {
+	f.buttonsAlign = align
+	return f
+}
+
+// SetButtonBackgroundColor sets the background color of the buttons.
+func (f *Form) SetButtonBackgroundColor(color tcell.Color) *Form {
+	f.buttonBackgroundColor = color
+	return f
+}
+
+// SetButtonTextColor sets the color of the button texts.
+func (f *Form) SetButtonTextColor(color tcell.Color) *Form {
+	f.buttonTextColor = color
+	return f
+}
+
 // AddInputField adds an input field to the form. It has a label, an optional
 // initial value, a field length (a value of 0 extends it as far as possible),
 // and an optional accept function to validate the item's value (set to nil to
@@ -119,10 +162,28 @@ func (f *Form) AddDropDown(label string, options []string, initialOption int, se
 	return f
 }
 
+// AddCheckbox adds a checkbox to the form. It has a label, an initial state,
+// and an (optional) callback function which is invoked when the state of the
+// checkbox was changed by the user.
+func (f *Form) AddCheckbox(label string, checked bool, changed func(checked bool)) *Form {
+	f.items = append(f.items, NewCheckbox().
+		SetLabel(label).
+		SetChecked(checked).
+		SetChangedFunc(changed))
+	return f
+}
+
 // AddButton adds a new button to the form. The "selected" function is called
 // when the user selects this button. It may be nil.
 func (f *Form) AddButton(label string, selected func()) *Form {
 	f.buttons = append(f.buttons, NewButton(label).SetSelectedFunc(selected))
+	return f
+}
+
+// SetCancelFunc sets a handler which is called when the user hits the Escape
+// key.
+func (f *Form) SetCancelFunc(callback func()) *Form {
+	f.cancel = callback
 	return f
 }
 
@@ -134,13 +195,18 @@ func (f *Form) Draw(screen tcell.Screen) {
 	x := f.x
 	y := f.y
 	width := f.width
-	bottomLimit := f.y + f.height
+	height := f.height
 	if f.border {
 		x++
 		y++
 		width -= 2
-		bottomLimit -= 2
+		height -= 2
 	}
+	x += f.paddingLeft
+	y += f.paddingTop
+	width -= f.paddingLeft + f.paddingRight
+	height -= f.paddingTop + f.paddingBottom
+	bottomLimit := y + height
 	rightLimit := x + width
 
 	// Find the longest label.
@@ -174,23 +240,46 @@ func (f *Form) Draw(screen tcell.Screen) {
 		y += 1 + f.itemPadding
 	}
 
-	// Draw the buttons.
+	// How wide are the buttons?
+	buttonWidths := make([]int, len(f.buttons))
+	buttonsWidth := 0
+	for index, button := range f.buttons {
+		width := len([]rune(button.GetLabel())) + 4
+		buttonWidths[index] = width
+		buttonsWidth += width + 2
+	}
+	buttonsWidth -= 2
+
+	// Where do we place them?
+	if x+buttonsWidth < rightLimit {
+		if f.buttonsAlign == AlignRight {
+			x = rightLimit - buttonsWidth
+		} else if f.buttonsAlign == AlignCenter {
+			x = (x + rightLimit - buttonsWidth) / 2
+		}
+	}
+
+	// Draw them.
 	if f.itemPadding == 0 {
 		y++
 	}
 	if y >= bottomLimit {
 		return // Stop here.
 	}
-	for _, button := range f.buttons {
+	for index, button := range f.buttons {
 		space := rightLimit - x
 		if space < 1 {
-			return // No space for this button anymore.
+			break // No space for this button anymore.
 		}
-		buttonWidth := len([]rune(button.GetLabel())) + 4
+		buttonWidth := buttonWidths[index]
 		if buttonWidth > space {
 			buttonWidth = space
 		}
-		button.SetRect(x, y, buttonWidth, 1)
+		button.SetLabelColor(f.buttonTextColor).
+			SetLabelColorActivated(f.buttonBackgroundColor).
+			SetBackgroundColorActivated(f.buttonTextColor).
+			SetBackgroundColor(f.buttonBackgroundColor).
+			SetRect(x, y, buttonWidth, 1)
 		button.Draw(screen)
 
 		x += buttonWidth + 2
@@ -211,15 +300,21 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 		switch key {
 		case tcell.KeyTab, tcell.KeyEnter:
 			f.focusedElement++
+			f.Focus(delegate)
 		case tcell.KeyBacktab:
 			f.focusedElement--
 			if f.focusedElement < 0 {
 				f.focusedElement = len(f.items) + len(f.buttons) - 1
 			}
+			f.Focus(delegate)
 		case tcell.KeyEscape:
-			f.focusedElement = 0
+			if f.cancel != nil {
+				f.cancel()
+			} else {
+				f.focusedElement = 0
+				f.Focus(delegate)
+			}
 		}
-		f.Focus(delegate)
 	}
 
 	if f.focusedElement < len(f.items) {
