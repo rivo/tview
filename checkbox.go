@@ -119,16 +119,8 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	c.Box.Draw(screen)
 
 	// Prepare
-	x := c.x
-	y := c.y
-	rightLimit := x + c.width
-	height := c.height
-	if c.border {
-		x++
-		y++
-		rightLimit -= 2
-		height -= 2
-	}
+	x, y, width, height := c.GetInnerRect()
+	rightLimit := x + width
 	if height < 1 || rightLimit <= x {
 		return
 	}

@@ -28,6 +28,9 @@ type Box struct {
 	// The position of the rect.
 	x, y, width, height int
 
+	// Border padding.
+	paddingTop, paddingBottom, paddingLeft, paddingRight int
+
 	// The box's background color.
 	backgroundColor tcell.Color
 
@@ -61,6 +64,78 @@ func NewBox() *Box {
 		titleColor:  tcell.ColorWhite,
 	}
 	b.focus = b
+	return b
+}
+
+// SetPadding sets the size of the borders around the box content.
+func (b *Box) SetBorderPadding(top, bottom, left, right int) *Box {
+	b.paddingTop, b.paddingBottom, b.paddingLeft, b.paddingRight = top, bottom, left, right
+	return b
+}
+
+// GetRect returns the current position of the rectangle, x, y, width, and
+// height.
+func (b *Box) GetRect() (int, int, int, int) {
+	return b.x, b.y, b.width, b.height
+}
+
+// GetInnerRect returns the position of the inner rectangle, without the border
+// and without any padding.
+func (b *Box) GetInnerRect() (int, int, int, int) {
+	x, y, width, height := b.GetRect()
+	if b.border {
+		x++
+		y++
+		width -= 2
+		height -= 2
+	}
+	return x + b.paddingLeft,
+		y + b.paddingTop,
+		width - b.paddingLeft - b.paddingRight,
+		height - b.paddingTop - b.paddingBottom
+}
+
+// SetRect sets a new position of the rectangle.
+func (b *Box) SetRect(x, y, width, height int) {
+	b.x = x
+	b.y = y
+	b.width = width
+	b.height = height
+}
+
+// InputHandler returns nil.
+func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return nil
+}
+
+// SetBackgroundColor sets the box's background color.
+func (b *Box) SetBackgroundColor(color tcell.Color) *Box {
+	b.backgroundColor = color
+	return b
+}
+
+// SetBorder sets the flag indicating whether or not the box should have a
+// border.
+func (b *Box) SetBorder(show bool) *Box {
+	b.border = show
+	return b
+}
+
+// SetBorderColor sets the box's border color.
+func (b *Box) SetBorderColor(color tcell.Color) *Box {
+	b.borderColor = color
+	return b
+}
+
+// SetTitle sets the box's title.
+func (b *Box) SetTitle(title string) *Box {
+	b.title = title
+	return b
+}
+
+// SetTitleColor sets the box's title color.
+func (b *Box) SetTitleColor(color tcell.Color) *Box {
+	b.titleColor = color
 	return b
 }
 
@@ -129,56 +204,6 @@ func (b *Box) Draw(screen tcell.Screen) {
 			}
 		}
 	}
-}
-
-// GetRect returns the current position of the rectangle, x, y, width, and
-// height.
-func (b *Box) GetRect() (int, int, int, int) {
-	return b.x, b.y, b.width, b.height
-}
-
-// SetRect sets a new position of the rectangle.
-func (b *Box) SetRect(x, y, width, height int) {
-	b.x = x
-	b.y = y
-	b.width = width
-	b.height = height
-}
-
-// InputHandler returns nil.
-func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return nil
-}
-
-// SetBackgroundColor sets the box's background color.
-func (b *Box) SetBackgroundColor(color tcell.Color) *Box {
-	b.backgroundColor = color
-	return b
-}
-
-// SetBorder sets the flag indicating whether or not the box should have a
-// border.
-func (b *Box) SetBorder(show bool) *Box {
-	b.border = show
-	return b
-}
-
-// SetBorderColor sets the box's border color.
-func (b *Box) SetBorderColor(color tcell.Color) *Box {
-	b.borderColor = color
-	return b
-}
-
-// SetTitle sets the box's title.
-func (b *Box) SetTitle(title string) *Box {
-	b.title = title
-	return b
-}
-
-// SetTitleColor sets the box's title color.
-func (b *Box) SetTitleColor(color tcell.Color) *Box {
-	b.titleColor = color
-	return b
 }
 
 // Focus is called when this primitive receives focus.

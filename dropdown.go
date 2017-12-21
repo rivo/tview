@@ -173,17 +173,9 @@ func (d *DropDown) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 func (d *DropDown) Draw(screen tcell.Screen) {
 	d.Box.Draw(screen)
 
-	// Prepare
-	x := d.x
-	y := d.y
-	rightLimit := x + d.width
-	height := d.height
-	if d.border {
-		x++
-		y++
-		rightLimit -= 2
-		height -= 2
-	}
+	// Prepare.
+	x, y, width, height := d.GetInnerRect()
+	rightLimit := x + width
 	if height < 1 || rightLimit <= x {
 		return
 	}

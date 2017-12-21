@@ -182,16 +182,8 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	i.Box.Draw(screen)
 
 	// Prepare
-	x := i.x
-	y := i.y
-	rightLimit := x + i.width
-	height := i.height
-	if i.border {
-		x++
-		y++
-		rightLimit -= 2
-		height -= 2
-	}
+	x, y, width, height := i.GetInnerRect()
+	rightLimit := x + width
 	if height < 1 || rightLimit <= x {
 		return
 	}

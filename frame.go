@@ -83,16 +83,9 @@ func (f *Frame) Draw(screen tcell.Screen) {
 	f.Box.Draw(screen)
 
 	// Calculate start positions.
-	left := f.x
-	right := f.x + f.width - 1
-	top := f.y
-	bottom := f.y + f.height - 1
-	if f.border {
-		left++
-		right--
-		top++
-		bottom--
-	}
+	left, top, width, height := f.GetInnerRect()
+	right := left + width - 1
+	bottom := top + height - 1
 	left += f.left
 	right -= f.right
 	top += f.top

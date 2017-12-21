@@ -100,12 +100,9 @@ func (b *Button) Draw(screen tcell.Screen) {
 	b.backgroundColor = backgroundColor
 
 	// Draw label.
-	x := b.x + b.width/2
-	y := b.y + b.height/2
-	width := b.width
-	if b.border {
-		width -= 2
-	}
+	x, y, width, height := b.GetInnerRect()
+	x = x + width/2
+	y = y + height/2
 	labelColor := b.labelColor
 	if b.focus.HasFocus() {
 		labelColor = b.labelColorActivated

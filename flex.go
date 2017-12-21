@@ -76,10 +76,11 @@ func (f *Flex) Draw(screen tcell.Screen) {
 	}
 
 	// How much space can we distribute?
+	x, y, width, height := f.GetInnerRect()
 	var variables int
-	distSize := f.width
+	distSize := width
 	if f.direction == FlexRow {
-		distSize = f.height
+		distSize = height
 	}
 	for _, item := range f.items {
 		if item.FixedSize > 0 {
@@ -90,9 +91,9 @@ func (f *Flex) Draw(screen tcell.Screen) {
 	}
 
 	// Calculate positions and draw items.
-	pos := f.x
+	pos := x
 	if f.direction == FlexRow {
-		pos = f.y
+		pos = y
 	}
 	for _, item := range f.items {
 		size := item.FixedSize
@@ -102,9 +103,9 @@ func (f *Flex) Draw(screen tcell.Screen) {
 			variables--
 		}
 		if f.direction == FlexColumn {
-			item.Item.SetRect(pos, f.y, size, f.height)
+			item.Item.SetRect(pos, y, size, height)
 		} else {
-			item.Item.SetRect(f.x, pos, f.width, size)
+			item.Item.SetRect(x, pos, width, size)
 		}
 		pos += size
 

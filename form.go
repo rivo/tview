@@ -37,9 +37,6 @@ type Form struct {
 	// The alignment of the buttons.
 	buttonsAlign int
 
-	// Border padding.
-	paddingTop, paddingBottom, paddingLeft, paddingRight int
-
 	// The number of empty rows between items.
 	itemPadding int
 
@@ -68,15 +65,11 @@ type Form struct {
 
 // NewForm returns a new form.
 func NewForm() *Form {
-	box := NewBox()
+	box := NewBox().SetBorderPadding(1, 1, 1, 1)
 
 	f := &Form{
 		Box:                   box,
 		itemPadding:           1,
-		paddingTop:            1,
-		paddingBottom:         1,
-		paddingLeft:           1,
-		paddingRight:          1,
 		labelColor:            tcell.ColorYellow,
 		fieldBackgroundColor:  tcell.ColorBlue,
 		fieldTextColor:        tcell.ColorWhite,
@@ -86,12 +79,6 @@ func NewForm() *Form {
 
 	f.focus = f
 
-	return f
-}
-
-// SetPadding sets the size of the borders around the form items.
-func (f *Form) SetPadding(top, bottom, left, right int) *Form {
-	f.paddingTop, f.paddingBottom, f.paddingLeft, f.paddingRight = top, bottom, left, right
 	return f
 }
 
@@ -192,20 +179,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	f.Box.Draw(screen)
 
 	// Determine the dimensions.
-	x := f.x
-	y := f.y
-	width := f.width
-	height := f.height
-	if f.border {
-		x++
-		y++
-		width -= 2
-		height -= 2
-	}
-	x += f.paddingLeft
-	y += f.paddingTop
-	width -= f.paddingLeft + f.paddingRight
-	height -= f.paddingTop + f.paddingBottom
+	x, y, width, height := f.GetInnerRect()
 	bottomLimit := y + height
 	rightLimit := x + width
 

@@ -143,16 +143,8 @@ func (l *List) Draw(screen tcell.Screen) {
 	l.Box.Draw(screen)
 
 	// Determine the dimensions.
-	x := l.x
-	y := l.y
-	width := l.width
-	bottomLimit := l.y + l.height
-	if l.border {
-		x++
-		y++
-		width -= 2
-		bottomLimit -= 2
-	}
+	x, y, width, height := l.GetInnerRect()
+	bottomLimit := y + height
 
 	// Do we show any shortcuts?
 	var showShortcuts bool

@@ -30,11 +30,10 @@ func NewModal() *Modal {
 		textColor: tcell.ColorWhite,
 	}
 	m.form = NewForm().
-		SetPadding(0, 0, 0, 0).
 		SetButtonsAlign(AlignCenter).
 		SetButtonBackgroundColor(tcell.ColorBlack).
 		SetButtonTextColor(tcell.ColorWhite)
-	m.form.SetBackgroundColor(tcell.ColorBlue)
+	m.form.SetBackgroundColor(tcell.ColorBlue).SetBorderPadding(0, 0, 0, 0)
 	m.Frame = NewFrame(m.form)
 	m.Box.SetBorder(true).SetBackgroundColor(tcell.ColorBlue)
 	return m
