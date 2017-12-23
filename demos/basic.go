@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -45,26 +43,19 @@ func main() {
 		})
 	form.SetTitle("Customer").SetBorder(true)
 
-	textView := tview.NewTextView().
-		SetWrap(false).
-		SetDynamicColors(false).
+	textView := tview.NewTextView()
+	textView.SetWrap(true).
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetRegions(true).
 		SetChangedFunc(func() { app.Draw() }).
-		SetDoneFunc(func(key tcell.Key) { app.SetFocus(list) })
+		SetDoneFunc(func(key tcell.Key) { textView.ScrollToHighlight(); app.SetFocus(list) })
 	textView.SetBorder(true).SetTitle("Text view")
 	go func() {
-		url := "https://www.rentafounder.com"
-		fmt.Fprintf(textView, "Reading from: %s\n\n", url)
-		resp, err := http.Get(url)
-		if err != nil {
-			fmt.Fprint(textView, err)
-			return
+		for i := 0; i < 200; i++ {
+			fmt.Fprintf(textView, "[\"%d\"]%d\n", i, i)
 		}
-		defer resp.Body.Close()
-		n, err := io.Copy(textView, resp.Body)
-		if err != nil {
-			fmt.Fprint(textView, err)
-		}
-		fmt.Fprintf(textView, "\n\n%d bytes read", n)
+		textView.Highlight("199")
 	}()
 
 	list = tview.NewList().

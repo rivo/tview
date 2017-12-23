@@ -32,13 +32,16 @@ func NewApplication() *Application {
 // when Stop() was called.
 func (a *Application) Run() error {
 	var err error
+	a.Lock()
 
 	// Make a screen.
 	a.screen, err = tcell.NewScreen()
 	if err != nil {
+		a.Unlock()
 		return err
 	}
 	if err = a.screen.Init(); err != nil {
+		a.Unlock()
 		return err
 	}
 
@@ -57,6 +60,7 @@ func (a *Application) Run() error {
 		width, height := a.screen.Size()
 		a.root.SetRect(0, 0, width, height)
 	}
+	a.Unlock()
 	a.Draw()
 
 	// Start event loop.
@@ -86,8 +90,8 @@ func (a *Application) Run() error {
 			}
 		case *tcell.EventResize:
 			if a.rootAutoSize && a.root != nil {
-				width, height := a.screen.Size()
 				a.Lock()
+				width, height := a.screen.Size()
 				a.root.SetRect(0, 0, width, height)
 				a.Unlock()
 				a.Draw()
@@ -114,14 +118,12 @@ func (a *Application) Draw() *Application {
 	defer a.Unlock()
 
 	// Maybe we're not ready yet or not anymore.
-	if a.screen == nil {
+	if a.screen == nil || a.root == nil {
 		return a
 	}
 
 	// Draw all primitives.
-	if a.root != nil {
-		a.root.Draw(a.screen)
-	}
+	a.root.Draw(a.screen)
 
 	// Sync screen.
 	a.screen.Show()

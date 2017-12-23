@@ -67,7 +67,7 @@ func NewBox() *Box {
 	return b
 }
 
-// SetPadding sets the size of the borders around the box content.
+// SetBorderPadding sets the size of the borders around the box content.
 func (b *Box) SetBorderPadding(top, bottom, left, right int) *Box {
 	b.paddingTop, b.paddingBottom, b.paddingLeft, b.paddingRight = top, bottom, left, right
 	return b
