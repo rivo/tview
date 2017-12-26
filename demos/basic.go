@@ -19,6 +19,11 @@ func main() {
 	pages := tview.NewPages()
 	list := tview.NewList()
 
+	app.SetKeyCapture(tcell.KeyCtrlQ, 0, func(p tview.Primitive) bool {
+		app.Stop()
+		return false
+	})
+
 	form := tview.NewForm().
 		AddInputField("First name", "", 20, nil).
 		AddInputField("Last name", "", 20, nil).
