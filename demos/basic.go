@@ -114,13 +114,13 @@ func main() {
 		AddItem("Quit the program", "Do it!", 0, func() { app.Stop() })
 
 	flex := tview.NewFlex().
-		AddItem(form, 0).
+		AddItem(form, 0, 1).
 		AddItem(tview.NewFlex().
 			SetDirection(tview.FlexRow).
-			AddItem(frame, 0).
-			AddItem(textView, 0), 0).
-		AddItem(table, 0).
-		AddItem(tview.NewBox().SetBorder(true).SetTitle("Fifth"), 20)
+			AddItem(frame, 0, 1).
+			AddItem(textView, 0, 1), 0, 1).
+		AddItem(table, 0, 1).
+		AddItem(tview.NewBox().SetBorder(true).SetTitle("Fifth"), 20, 1)
 
 	inputField := tview.NewInputField().
 		SetLabel("Type something: ").
@@ -131,12 +131,12 @@ func main() {
 	final := tview.NewFlex().
 		SetFullScreen(true).
 		SetDirection(tview.FlexRow).
-		AddItem(flex, 0).
-		AddItem(inputField, 3)
+		AddItem(flex, 0, 1).
+		AddItem(inputField, 3, 1)
 
 	pages.AddPage("flex", final, true)
 
-	app.SetRoot(pages).SetFocus(list)
+	app.SetRoot(pages, true).SetFocus(list)
 
 	if err := app.Run(); err != nil {
 		panic(err)

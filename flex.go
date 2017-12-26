@@ -10,8 +10,9 @@ const (
 
 // flexItem holds layout options for one item.
 type flexItem struct {
-	Item      Primitive // The item to be positioned.
-	FixedSize int       // The item's fixed size which may not be changed, 0 if it has no fixed size.
+	Item       Primitive // The item to be positioned.
+	FixedSize  int       // The item's fixed size which may not be changed, 0 if it has no fixed size.
+	Proportion int       // The item's proportion.
 }
 
 // Flex is a basic implementation of a flexbox layout.
@@ -55,10 +56,14 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 	return f
 }
 
-// AddItem adds a new item to the container. fixedSize is a size that may not be
-// changed. A value of 0 means that its size may be changed.
-func (f *Flex) AddItem(item Primitive, fixedSize int) *Flex {
-	f.items = append(f.items, flexItem{Item: item, FixedSize: fixedSize})
+// AddItem adds a new item to the container. The "fixedSize" argument is a width
+// or height that may not be changed by the layout algorithm. A value of 0 means
+// that its size is flexible and may be changed. The "proportion" argument
+// defines the relative size of the item compared to other flexible-size items.
+// For example, items with a proportion of 2 will be twice as large as items
+// with a proportion of 1. Must be at least 1. Ignored if fixedSize > 0.
+func (f *Flex) AddItem(item Primitive, fixedSize, proportion int) *Flex {
+	f.items = append(f.items, flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion})
 	return f
 }
 
@@ -77,7 +82,7 @@ func (f *Flex) Draw(screen tcell.Screen) {
 
 	// How much space can we distribute?
 	x, y, width, height := f.GetInnerRect()
-	var variables int
+	var proportionSum int
 	distSize := width
 	if f.direction == FlexRow {
 		distSize = height
@@ -86,7 +91,7 @@ func (f *Flex) Draw(screen tcell.Screen) {
 		if item.FixedSize > 0 {
 			distSize -= item.FixedSize
 		} else {
-			variables++
+			proportionSum += item.Proportion
 		}
 	}
 
@@ -98,9 +103,9 @@ func (f *Flex) Draw(screen tcell.Screen) {
 	for _, item := range f.items {
 		size := item.FixedSize
 		if size <= 0 {
-			size = distSize / variables
+			size = distSize * item.Proportion / proportionSum
 			distSize -= size
-			variables--
+			proportionSum -= item.Proportion
 		}
 		if f.direction == FlexColumn {
 			item.Item.SetRect(pos, y, size, height)
