@@ -4,23 +4,6 @@ import (
 	"github.com/gdamore/tcell"
 )
 
-// Characters to draw the box border.
-const (
-	BoxVertBar             = '\u2500'
-	BoxHorBar              = '\u2502'
-	BoxTopLeftCorner       = '\u250c'
-	BoxTopRightCorner      = '\u2510'
-	BoxBottomRightCorner   = '\u2518'
-	BoxBottomLeftCorner    = '\u2514'
-	BoxDbVertBar           = '\u2550'
-	BoxDbHorBar            = '\u2551'
-	BoxDbTopLeftCorner     = '\u2554'
-	BoxDbTopRightCorner    = '\u2557'
-	BoxDbBottomRightCorner = '\u255d'
-	BoxDbBottomLeftCorner  = '\u255a'
-	BoxEllipsis            = '\u2026'
-)
-
 // Box implements Primitive with a background and optional elements such as a
 // border and a title. Most subclasses keep their content contained in the box
 // but don't necessarily have to.
@@ -47,6 +30,9 @@ type Box struct {
 	// The color of the title.
 	titleColor tcell.Color
 
+	// The alignment of the title.
+	titleAlign int
+
 	// Provides a way to find out if this box has focus. We always go through
 	// this interface because it may be overriden by implementing classes.
 	focus Focusable
@@ -62,6 +48,7 @@ func NewBox() *Box {
 		height:      10,
 		borderColor: tcell.ColorWhite,
 		titleColor:  tcell.ColorWhite,
+		titleAlign:  AlignCenter,
 	}
 	b.focus = b
 	return b
@@ -139,6 +126,13 @@ func (b *Box) SetTitleColor(color tcell.Color) *Box {
 	return b
 }
 
+// SetTitleAlign sets the alignment of the title, one of AlignLeft, AlignCenter,
+// or AlignRight.
+func (b *Box) SetTitleAlign(align int) *Box {
+	b.titleAlign = align
+	return b
+}
+
 // Draw draws this primitive onto the screen.
 func (b *Box) Draw(screen tcell.Screen) {
 	// Don't draw anything if there is no space.
@@ -161,19 +155,19 @@ func (b *Box) Draw(screen tcell.Screen) {
 		border := background.Foreground(b.borderColor)
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
 		if b.focus.HasFocus() {
-			vertical = BoxDbVertBar
-			horizontal = BoxDbHorBar
-			topLeft = BoxDbTopLeftCorner
-			topRight = BoxDbTopRightCorner
-			bottomLeft = BoxDbBottomLeftCorner
-			bottomRight = BoxDbBottomRightCorner
+			vertical = GraphicsDbVertBar
+			horizontal = GraphicsDbHorBar
+			topLeft = GraphicsDbTopLeftCorner
+			topRight = GraphicsDbTopRightCorner
+			bottomLeft = GraphicsDbBottomLeftCorner
+			bottomRight = GraphicsDbBottomRightCorner
 		} else {
-			vertical = BoxVertBar
-			horizontal = BoxHorBar
-			topLeft = BoxTopLeftCorner
-			topRight = BoxTopRightCorner
-			bottomLeft = BoxBottomLeftCorner
-			bottomRight = BoxBottomRightCorner
+			vertical = GraphicsHoriBar
+			horizontal = GraphicsVertBar
+			topLeft = GraphicsTopLeftCorner
+			topRight = GraphicsTopRightCorner
+			bottomLeft = GraphicsBottomLeftCorner
+			bottomRight = GraphicsBottomRightCorner
 		}
 		for x := b.x + 1; x < b.x+b.width-1; x++ {
 			screen.SetContent(x, b.y, vertical, nil, border)
@@ -190,18 +184,12 @@ func (b *Box) Draw(screen tcell.Screen) {
 
 		// Draw title.
 		if b.title != "" && b.width >= 4 {
-			title := background.Foreground(b.titleColor)
-			x := b.x
-			for index, ch := range b.title {
-				x++
-				if x >= b.x+b.width-1 {
-					break
-				}
-				if x == b.x+b.width-2 && index < len(b.title)-1 {
-					ch = BoxEllipsis
-				}
-				screen.SetContent(x, b.y, ch, nil, title)
+			width := b.width - 2
+			title := []rune(b.title)
+			if width < len(title) && width > 0 {
+				title = append(title[:width-1], GraphicsEllipsis)
 			}
+			Print(screen, string(title), b.x+1, b.y, width, b.titleAlign, b.titleColor)
 		}
 	}
 }

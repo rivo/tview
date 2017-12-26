@@ -83,15 +83,13 @@ func (f *Frame) Draw(screen tcell.Screen) {
 	f.Box.Draw(screen)
 
 	// Calculate start positions.
-	left, top, width, height := f.GetInnerRect()
-	right := left + width - 1
+	x, top, width, height := f.GetInnerRect()
 	bottom := top + height - 1
-	left += f.left
-	right -= f.right
+	x += f.left
 	top += f.top
 	bottom -= f.bottom
-	center := (left + right) / 2
-	if left >= right || top >= bottom {
+	width -= f.left + f.right
+	if width <= 0 || top >= bottom {
 		return // No space left.
 	}
 
@@ -121,15 +119,9 @@ func (f *Frame) Draw(screen tcell.Screen) {
 				bottomMin = y - 1
 			}
 		}
-		x := left
-		if text.Align == AlignCenter {
-			x = center
-		} else if text.Align == AlignRight {
-			x = right
-		}
 
 		// Draw text.
-		Print(screen, text.Text, x, y, right-left+1, text.Align, text.Color)
+		Print(screen, text.Text, x, y, width, text.Align, text.Color)
 	}
 
 	// Set the size of the contained primitive.
@@ -142,7 +134,7 @@ func (f *Frame) Draw(screen tcell.Screen) {
 	if top > bottom {
 		return // No space for the primitive.
 	}
-	f.primitive.SetRect(left, top, right+1-left, bottom+1-top)
+	f.primitive.SetRect(x, top, width, bottom+1-top)
 
 	// Finally, draw the contained primitive.
 	f.primitive.Draw(screen)

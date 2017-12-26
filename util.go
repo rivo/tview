@@ -14,12 +14,33 @@ const (
 	AlignRight
 )
 
-// Print prints text onto the screen at position (x,y). "align" is one of the
-// Align constants and will affect the direction starting at (x,y) into which
-// the text is printed. The screen's background color will be maintained. The
-// number of runes printed will not exceed "maxWidth".
+// Semigraphical runes.
+const (
+	GraphicsHoriBar             = '\u2500'
+	GraphicsVertBar             = '\u2502'
+	GraphicsTopLeftCorner       = '\u250c'
+	GraphicsTopRightCorner      = '\u2510'
+	GraphicsBottomRightCorner   = '\u2518'
+	GraphicsBottomLeftCorner    = '\u2514'
+	GraphicsDbVertBar           = '\u2550'
+	GraphicsDbHorBar            = '\u2551'
+	GraphicsDbTopLeftCorner     = '\u2554'
+	GraphicsDbTopRightCorner    = '\u2557'
+	GraphicsDbBottomRightCorner = '\u255d'
+	GraphicsDbBottomLeftCorner  = '\u255a'
+	GraphicsRightT              = '\u2524'
+	GraphicsLeftT               = '\u251c'
+	GraphicsTopT                = '\u252c'
+	GraphicsBottomT             = '\u2534'
+	GraphicsCross               = '\u253c'
+	GraphicsEllipsis            = '\u2026'
+)
+
+// Print prints text onto the screen into the given box at (x,y,maxWidth,1),
+// no exceeding that box.  "align" is one of AlignLeft, AlignCenter, or
+// AlignRight. The screen's background color will be maintained.
 //
-// Returns the number of runes printed.
+// Returns the number of actual runes printed.
 func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tcell.Color) int {
 	// We deal with runes, not with bytes.
 	runes := []rune(text)
@@ -27,35 +48,32 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 		return 0
 	}
 
-	// Shorten text if it's too long.
-	if len(runes) > maxWidth {
-		switch align {
-		case AlignCenter:
-			trim := (len(runes) - maxWidth) / 2
-			runes = runes[trim : maxWidth+trim]
-		case AlignRight:
-			runes = runes[len(runes)-maxWidth:]
-		default: // AlignLeft.
-			runes = runes[:maxWidth]
-		}
-	}
-
-	// Adjust x-position.
+	// AlignCenter is split into two parts.
 	if align == AlignCenter {
-		x -= len(runes) / 2
-	} else if align == AlignRight {
-		x -= len(runes) - 1
+		half := len(runes) / 2
+		halfWidth := maxWidth / 2
+		return Print(screen, string(runes[:half]), x, y, halfWidth, AlignRight, color) +
+			Print(screen, string(runes[half:]), x+halfWidth, y, maxWidth-halfWidth, AlignLeft, color)
 	}
 
 	// Draw text.
-	for _, ch := range runes {
-		_, _, style, _ := screen.GetContent(x, y)
+	drawn := 0
+	for pos, ch := range runes {
+		if pos >= maxWidth {
+			break
+		}
+		finalX := x + pos
+		if align == AlignRight {
+			ch = runes[len(runes)-1-pos]
+			finalX = x + maxWidth - 1 - pos
+		}
+		_, _, style, _ := screen.GetContent(finalX, y)
 		style = style.Foreground(color)
-		screen.SetContent(x, y, ch, nil, style)
-		x++
+		screen.SetContent(finalX, y, ch, nil, style)
+		drawn++
 	}
 
-	return len(runes)
+	return drawn
 }
 
 // PrintSimple prints white text to the screen at the given position.

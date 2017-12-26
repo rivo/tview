@@ -18,9 +18,6 @@ type Application struct {
 
 	// The root primitive to be seen on the screen.
 	root Primitive
-
-	// Whether or not the application resizes the root primitive.
-	rootAutoSize bool
 }
 
 // NewApplication creates and returns a new application.
@@ -56,10 +53,6 @@ func (a *Application) Run() error {
 	}()
 
 	// Draw the screen for the first time.
-	if a.rootAutoSize && a.root != nil {
-		width, height := a.screen.Size()
-		a.root.SetRect(0, 0, width, height)
-	}
 	a.Unlock()
 	a.Draw()
 
@@ -89,13 +82,7 @@ func (a *Application) Run() error {
 				}
 			}
 		case *tcell.EventResize:
-			if a.rootAutoSize && a.root != nil {
-				a.Lock()
-				width, height := a.screen.Size()
-				a.root.SetRect(0, 0, width, height)
-				a.Unlock()
-				a.Draw()
-			}
+			a.Draw()
 		}
 	}
 
@@ -133,16 +120,11 @@ func (a *Application) Draw() *Application {
 
 // SetRoot sets the root primitive for this application. This function must be
 // called or nothing will be displayed when the application starts.
-//
-// If autoSize is set to true, the application will set the root primitive's
-// position to (0,0) and its size to the screen's size. It will also resize and
-// redraw it when the screen resizes.
-func (a *Application) SetRoot(root Primitive, autoSize bool) *Application {
+func (a *Application) SetRoot(root Primitive) *Application {
 	a.Lock()
 	defer a.Unlock()
 
 	a.root = root
-	a.rootAutoSize = autoSize
 
 	return a
 }

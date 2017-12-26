@@ -49,8 +49,8 @@ type textViewIndex struct {
 //   - l, right arrow: Move right.
 //   - j, down arrow: Move down.
 //   - k, up arrow: Move up.
-//   - g, home: Move to the beginning.
-//   - G, end: Move to the end.
+//   - g, home: Move to the top.
+//   - G, end: Move to the bottom.
 //   - Ctrl-F, page down: Move down by one page.
 //   - Ctrl-B, page up: Move up by one page.
 //

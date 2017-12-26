@@ -207,7 +207,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	// Draw entered text.
 	fieldLength-- // We need one cell for the cursor.
 	if fieldLength < len([]rune(i.text)) {
-		Print(screen, i.text, x+fieldLength-1, y, fieldLength, AlignRight, i.fieldTextColor)
+		Print(screen, i.text, x, y, fieldLength, AlignRight, i.fieldTextColor)
 	} else {
 		Print(screen, i.text, x, y, fieldLength, AlignLeft, i.fieldTextColor)
 	}
@@ -261,7 +261,8 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			if len([]rune(i.text)) == 0 {
 				break
 			}
-			i.text = i.text[:len([]rune(i.text))-1]
+			runes := []rune(i.text)
+			i.text = string(runes[:len(runes)-1])
 		case tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if i.done != nil {
 				i.done(key)
