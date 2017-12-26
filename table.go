@@ -1,8 +1,6 @@
 package tview
 
 import (
-	"log"
-
 	"github.com/gdamore/tcell"
 )
 
@@ -251,7 +249,6 @@ func (t *Table) Draw(screen tcell.Screen) {
 	}
 
 	// Clamp row offsets.
-	log.Print(t.rowOffset, t.selectedRow, height)
 	if t.rowsSelectable {
 		if t.selectedRow >= t.fixedRows && t.selectedRow < t.fixedRows+t.rowOffset {
 			t.rowOffset = t.selectedRow - t.fixedRows
@@ -331,7 +328,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 	}
 	var skipped, lastTableWidth int
 ColumnLoop:
-	for column := 0; column <= t.lastColumn; column++ {
+	for column := 0; ; column++ {
 		// If we've moved beyond the right border, we stop or skip a column.
 		for tableWidth-1 >= width { // -1 because we include one extra column if the separator falls on the right end of the box.
 			// We've moved beyond the available space.
