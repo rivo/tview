@@ -23,9 +23,49 @@ type TableCell struct {
 
 	// Whether or not this cell may be selected.
 	Selectable bool
+
+	// The position and width of the cell the last time table was drawn.
+	x, y, width int
 }
 
-// Table visualizes two-dimensional data consisting of rows and columns.
+// GetLastPosition returns the position of the table cell the last time it was
+// drawn on screen. If the cell is not on screen, the return values are
+// undefined.
+//
+// Because the Table class will attempt to keep selected cells on screen, this
+// function is most useful in response to a "selected" event (see
+// SetSelectedFunc()).
+func (c *TableCell) GetLastPosition() (x, y, width int) {
+	return c.x, c.y, c.width
+}
+
+// Table visualizes two-dimensional data consisting of rows and columns. Each
+// Table cell is defined via SetCell() by the TableCell type. They can be added
+// dynamically to the table and changed any time.
+//
+// The most compact display of a table is without borders. Each row will then
+// occupy one row on screen and columns are seperated by the rune defined via
+// SetSeparator() (a space character by default).
+//
+// When borders are turned on (via SetBorders()), each table cell is surrounded
+// by lines. Therefore one table row will require two rows on screen.
+//
+// Columns will use as much horizontal space as they need. You can constrain
+// their size with the MaxWidth parameter of the TableCell type.
+//
+// Fixed Columns
+//
+// You can define fixed rows and rolumns via SetFixed(). They will always stay
+// in their place, even when the table is scrolled. Fixed rows are always the
+// top rows. Fixed columns are always the leftmost columns.
+//
+// Selections
+//
+// You can call SetSelectable() to set columns and/or rows to "selectable". If
+// the flag is set only for columns, entire columns can be selected by the user.
+// If it is set only for rows, entire rows can be selected. If both flags are
+// set, individual cells can be selected. The "selected" handler set via
+// SetSelectedFunc() is invoked when the user presses Enter on a selection.
 //
 // Navigation
 //
@@ -43,7 +83,7 @@ type TableCell struct {
 //
 // When there is no selection, this affects the entire table (except for fixed
 // rows and columns). When there is a selection, the user moves the selection.
-// The class will attempt to always keep the selection in view.
+// The class will attempt to keep the selection from moving out of the screen.
 type Table struct {
 	*Box
 
@@ -298,7 +338,8 @@ func (t *Table) Draw(screen tcell.Screen) {
 		t.selectedColumn = 0
 	}
 
-	// Determine the indices and widths of the columns which fit on the screen.
+	// Determine the indices and widths of the columns and rows which fit on the
+	// screen.
 	var (
 		columns, rows, widths   []int
 		tableHeight, tableWidth int
@@ -342,7 +383,7 @@ ColumnLoop:
 				break ColumnLoop // The selected column reached the leftmost point before disappearing.
 			}
 			if t.columnsSelectable && skipped >= t.columnOffset &&
-				(t.selectedColumn < column && lastTableWidth < width-1 || t.selectedColumn < column-1) {
+				(t.selectedColumn < column && lastTableWidth < width-1 && tableWidth < width-1 || t.selectedColumn < column-1) {
 				break ColumnLoop // We've skipped as many as requested and the selection is visible.
 			}
 			if len(columns) <= t.fixedColumns {
@@ -402,7 +443,7 @@ ColumnLoop:
 		columnWidth := widths[columnIndex]
 		columnSelected := t.columnsSelectable && !t.rowsSelectable && column == t.selectedColumn
 		for rowY, row := range rows {
-			// Is this row/column/cell selected?
+			// Is this row/cell selected?
 			rowSelected := t.rowsSelectable && !t.columnsSelectable && row == t.selectedRow
 			cellSelected := columnSelected || rowSelected || t.rowsSelectable && t.columnsSelectable && column == t.selectedColumn && row == t.selectedRow
 
@@ -446,20 +487,21 @@ ColumnLoop:
 
 			// Draw cell background.
 			bgStyle := tcell.StyleDefault.Background(bgColor)
-			for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
+			finalWidth := columnWidth
+			if columnX+1+columnWidth >= width {
+				finalWidth = width - columnX - 1
+			}
+			for pos := 0; pos < finalWidth; pos++ {
 				screen.SetContent(x+columnX+1+pos, y+rowY, ' ', nil, bgStyle)
 			}
+			cell.x, cell.y, cell.width = x+columnX+1, y+rowY, finalWidth
 
 			// Draw text.
-			w := columnWidth
-			if columnX+1+w >= width {
-				w = width - columnX - 1
-			}
 			text := []rune(cell.Text)
-			if w < len(text) && w > 0 {
-				text = append(text[:w-1], GraphicsEllipsis)
+			if finalWidth < len(text) && finalWidth > 0 {
+				text = append(text[:finalWidth-1], GraphicsEllipsis)
 			}
-			Print(screen, string(text), x+columnX+1, y+rowY, w, cell.Align, textColor)
+			Print(screen, string(text), x+columnX+1, y+rowY, finalWidth, cell.Align, textColor)
 		}
 
 		// Draw bottom border.
