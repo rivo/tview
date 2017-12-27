@@ -3,51 +3,9 @@ package tview
 import (
 	"math"
 	"regexp"
-	"strconv"
 
 	"github.com/gdamore/tcell"
 )
-
-var (
-	// InputFieldInteger accepts integers.
-	InputFieldInteger func(text string, ch rune) bool
-
-	// InputFieldFloat accepts floating-point numbers.
-	InputFieldFloat func(text string, ch rune) bool
-
-	// InputFieldMaxLength returns an input field accept handler which accepts
-	// input strings up to a given length. Use it like this:
-	//
-	//   inputField.SetAcceptanceFunc(InputFieldMaxLength(10)) // Accept up to 10 characters.
-	InputFieldMaxLength func(maxLength int) func(text string, ch rune) bool
-)
-
-// Package initialization.
-func init() {
-	// Initialize the predefined handlers.
-
-	InputFieldInteger = func(text string, ch rune) bool {
-		if text == "-" {
-			return true
-		}
-		_, err := strconv.Atoi(text)
-		return err == nil
-	}
-
-	InputFieldFloat = func(text string, ch rune) bool {
-		if text == "-" || text == "." {
-			return true
-		}
-		_, err := strconv.ParseFloat(text, 64)
-		return err == nil
-	}
-
-	InputFieldMaxLength = func(maxLength int) func(text string, ch rune) bool {
-		return func(text string, ch rune) bool {
-			return len([]rune(text)) <= maxLength
-		}
-	}
-}
 
 // InputField is a one-line box (three lines if there is a title) where the
 // user can enter text.
@@ -229,7 +187,7 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 		rightLimit -= 2
 	}
 	fieldLength := len([]rune(i.text))
-	if fieldLength > i.fieldLength-1 {
+	if i.fieldLength > 0 && fieldLength > i.fieldLength-1 {
 		fieldLength = i.fieldLength - 1
 	}
 	x += len([]rune(i.label)) + fieldLength

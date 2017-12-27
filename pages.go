@@ -1,6 +1,8 @@
 package tview
 
-import "github.com/gdamore/tcell"
+import (
+	"github.com/gdamore/tcell"
+)
 
 // page represents one page of a Pages object.
 type page struct {
@@ -17,6 +19,10 @@ type Pages struct {
 
 	// The contained pages.
 	pages []*page
+
+	// We keep a reference to the function which allows us to set the focus to
+	// a newly visible page.
+	setFocus func(p Primitive)
 
 	// An optional handler which is called whenever the visibility or the order of
 	// pages changes.
@@ -46,10 +52,11 @@ func (p *Pages) SetChangedFunc(handler func()) *Pages {
 // Visible pages will be drawn in the order they were added (unless that order
 // was changed in one of the other functions).
 func (p *Pages) AddPage(name string, item Primitive, visible bool) *Pages {
-	p.pages = append(p.pages, &page{Item: item, Name: name, Visible: true})
+	p.pages = append(p.pages, &page{Item: item, Name: name, Visible: visible})
 	if p.changed != nil {
 		p.changed()
 	}
+	p.refocus()
 	return p
 }
 
@@ -64,6 +71,7 @@ func (p *Pages) RemovePage(name string) *Pages {
 			break
 		}
 	}
+	p.refocus()
 	return p
 }
 
@@ -79,6 +87,7 @@ func (p *Pages) ShowPage(name string) *Pages {
 			break
 		}
 	}
+	p.refocus()
 	return p
 }
 
@@ -93,6 +102,7 @@ func (p *Pages) HidePage(name string) *Pages {
 			break
 		}
 	}
+	p.refocus()
 	return p
 }
 
@@ -109,6 +119,7 @@ func (p *Pages) SwitchToPage(name string) *Pages {
 	if p.changed != nil {
 		p.changed()
 	}
+	p.refocus()
 	return p
 }
 
@@ -127,6 +138,7 @@ func (p *Pages) SendToFront(name string) *Pages {
 			break
 		}
 	}
+	p.refocus()
 	return p
 }
 
@@ -145,6 +157,7 @@ func (p *Pages) SendToBack(name string) *Pages {
 			break
 		}
 	}
+	p.refocus()
 	return p
 }
 
@@ -158,6 +171,36 @@ func (p *Pages) HasFocus() bool {
 	return false
 }
 
+// Focus is called by the application when the primitive receives focus.
+func (p *Pages) Focus(delegate func(p Primitive)) {
+	p.setFocus = delegate
+	var topItem Primitive
+	for _, page := range p.pages {
+		if page.Visible {
+			topItem = page.Item
+		}
+	}
+	if topItem != nil {
+		delegate(topItem)
+	}
+}
+
+// refocus sets the focus to the topmost visible page but only if we have focus.
+func (p *Pages) refocus() {
+	if !p.HasFocus() || p.setFocus == nil {
+		return
+	}
+	var topItem Primitive
+	for _, page := range p.pages {
+		if page.Visible {
+			topItem = page.Item
+		}
+	}
+	if topItem != nil {
+		p.setFocus(topItem)
+	}
+}
+
 // Draw draws this primitive onto the screen.
 func (p *Pages) Draw(screen tcell.Screen) {
 	for _, page := range p.pages {
@@ -166,4 +209,9 @@ func (p *Pages) Draw(screen tcell.Screen) {
 		}
 		page.Item.Draw(screen)
 	}
+}
+
+// InputHandler returns the handler for this primitive.
+func (p *Pages) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return func(event *tcell.EventKey, setFocus func(p Primitive)) {}
 }

@@ -2,6 +2,7 @@ package tview
 
 import (
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/gdamore/tcell"
@@ -35,6 +36,47 @@ const (
 	GraphicsCross               = '\u253c'
 	GraphicsEllipsis            = '\u2026'
 )
+
+var (
+	// InputFieldInteger accepts integers.
+	InputFieldInteger func(text string, ch rune) bool
+
+	// InputFieldFloat accepts floating-point numbers.
+	InputFieldFloat func(text string, ch rune) bool
+
+	// InputFieldMaxLength returns an input field accept handler which accepts
+	// input strings up to a given length. Use it like this:
+	//
+	//   inputField.SetAcceptanceFunc(InputFieldMaxLength(10)) // Accept up to 10 characters.
+	InputFieldMaxLength func(maxLength int) func(text string, ch rune) bool
+)
+
+// Package initialization.
+func init() {
+	// Initialize the predefined handlers.
+
+	InputFieldInteger = func(text string, ch rune) bool {
+		if text == "-" {
+			return true
+		}
+		_, err := strconv.Atoi(text)
+		return err == nil
+	}
+
+	InputFieldFloat = func(text string, ch rune) bool {
+		if text == "-" || text == "." {
+			return true
+		}
+		_, err := strconv.ParseFloat(text, 64)
+		return err == nil
+	}
+
+	InputFieldMaxLength = func(maxLength int) func(text string, ch rune) bool {
+		return func(text string, ch rune) bool {
+			return len([]rune(text)) <= maxLength
+		}
+	}
+}
 
 // Print prints text onto the screen into the given box at (x,y,maxWidth,1),
 // no exceeding that box.  "align" is one of AlignLeft, AlignCenter, or

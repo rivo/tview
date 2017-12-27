@@ -23,6 +23,9 @@ type Application struct {
 	// The root primitive to be seen on the screen.
 	root Primitive
 
+	// Whether or not the application resizes the root primitive.
+	rootAutoSize bool
+
 	// Key overrides.
 	keyOverrides map[tcell.Key]func(p Primitive) bool
 
@@ -103,6 +106,10 @@ func (a *Application) Run() error {
 	}()
 
 	// Draw the screen for the first time.
+	if a.rootAutoSize && a.root != nil {
+		width, height := a.screen.Size()
+		a.root.SetRect(0, 0, width, height)
+	}
 	a.Unlock()
 	a.Draw()
 
@@ -158,6 +165,13 @@ func (a *Application) Run() error {
 				}
 			}
 		case *tcell.EventResize:
+			if a.rootAutoSize && a.root != nil {
+				a.Lock()
+				width, height := a.screen.Size()
+				a.root.SetRect(0, 0, width, height)
+				a.Unlock()
+				a.Draw()
+			}
 			a.Draw()
 		}
 	}
@@ -198,12 +212,23 @@ func (a *Application) Draw() *Application {
 
 // SetRoot sets the root primitive for this application. This function must be
 // called or nothing will be displayed when the application starts.
-func (a *Application) SetRoot(root Primitive) *Application {
+func (a *Application) SetRoot(root Primitive, autoSize bool) *Application {
 	a.Lock()
 	defer a.Unlock()
 
 	a.root = root
+	a.rootAutoSize = autoSize
 
+	return a
+}
+
+// ResizeToFullScreen resizes the given primitive such that it fills the entire
+// screen.
+func (a *Application) ResizeToFullScreen(p Primitive) *Application {
+	a.RLock()
+	width, height := a.screen.Size()
+	a.RUnlock()
+	p.SetRect(0, 0, width, height)
 	return a
 }
 

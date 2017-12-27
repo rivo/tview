@@ -272,6 +272,14 @@ func (t *TextView) Highlight(regionIDs ...string) *TextView {
 	return t
 }
 
+// GetHighlights returns the IDs of all currently highlighted regions.
+func (t *TextView) GetHighlights() (regionIDs []string) {
+	for id := range t.highlights {
+		regionIDs = append(regionIDs, id)
+	}
+	return
+}
+
 // ScrollToHighlight will cause the visible area to be scrolled so that the
 // highlighted regions appear in the visible area of the text view. This
 // repositioning happens the next time the text view is drawn. It happens only
@@ -450,6 +458,16 @@ func (t *TextView) reindexBuffer(width int) {
 		if t.regions {
 			regionIndices = regionPattern.FindAllStringIndex(str, -1)
 			regions = regionPattern.FindAllStringSubmatch(str, -1)
+		}
+
+		// We also keep a reference to empty lines.
+		if len(str) == 0 {
+			t.index = append(t.index, &textViewIndex{
+				Line:   index,
+				Pos:    0,
+				Color:  color,
+				Region: regionID,
+			})
 		}
 
 		// Break down the line.

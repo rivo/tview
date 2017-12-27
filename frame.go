@@ -12,7 +12,7 @@ type frameText struct {
 	Color  tcell.Color // The text color.
 }
 
-// Frame is a wrapper which adds a border around another box. The top area
+// Frame is a wrapper which adds a border around another primitive. The top area
 // (header) and the bottom area (footer) may also contain text.
 type Frame struct {
 	*Box

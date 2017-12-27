@@ -31,6 +31,7 @@ type Button struct {
 // NewButton returns a new input field.
 func NewButton(label string) *Button {
 	box := NewBox().SetBackgroundColor(tcell.ColorBlue)
+	box.SetRect(0, 0, len([]rune(label))+4, 1)
 	return &Button{
 		Box:                      box,
 		label:                    label,
@@ -92,21 +93,28 @@ func (b *Button) SetBlurFunc(handler func(key tcell.Key)) *Button {
 // Draw draws this primitive onto the screen.
 func (b *Button) Draw(screen tcell.Screen) {
 	// Draw the box.
+	borderColor := b.borderColor
 	backgroundColor := b.backgroundColor
 	if b.focus.HasFocus() {
 		b.backgroundColor = b.backgroundColorActivated
+		b.borderColor = b.labelColorActivated
+		defer func() {
+			b.borderColor = borderColor
+		}()
 	}
 	b.Box.Draw(screen)
 	b.backgroundColor = backgroundColor
 
 	// Draw label.
 	x, y, width, height := b.GetInnerRect()
-	y = y + height/2
-	labelColor := b.labelColor
-	if b.focus.HasFocus() {
-		labelColor = b.labelColorActivated
+	if width > 0 && height > 0 {
+		y = y + height/2
+		labelColor := b.labelColor
+		if b.focus.HasFocus() {
+			labelColor = b.labelColorActivated
+		}
+		Print(screen, b.label, x, y, width, AlignCenter, labelColor)
 	}
-	Print(screen, b.label, x, y, width, AlignCenter, labelColor)
 
 	if b.focus.HasFocus() {
 		screen.HideCursor()
