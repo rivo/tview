@@ -8,6 +8,7 @@ import (
 type page struct {
 	Name    string    // The page's name.
 	Item    Primitive // The page's primitive.
+	Resize  bool      // Whether or not to resize the page when it is drawn.
 	Visible bool      // Whether or not this page is visible.
 }
 
@@ -50,9 +51,11 @@ func (p *Pages) SetChangedFunc(handler func()) *Pages {
 // functions.
 //
 // Visible pages will be drawn in the order they were added (unless that order
-// was changed in one of the other functions).
-func (p *Pages) AddPage(name string, item Primitive, visible bool) *Pages {
-	p.pages = append(p.pages, &page{Item: item, Name: name, Visible: visible})
+// was changed in one of the other functions). If "resize" is set to true, the
+// primitive will be set to the size available to the Pages primitive whenever
+// the pages are drawn.
+func (p *Pages) AddPage(name string, item Primitive, resize, visible bool) *Pages {
+	p.pages = append(p.pages, &page{Item: item, Name: name, Resize: resize, Visible: visible})
 	if p.changed != nil {
 		p.changed()
 	}
@@ -206,6 +209,10 @@ func (p *Pages) Draw(screen tcell.Screen) {
 	for _, page := range p.pages {
 		if !page.Visible {
 			continue
+		}
+		if page.Resize {
+			x, y, width, height := p.GetInnerRect()
+			page.Item.SetRect(x, y, width, height)
 		}
 		page.Item.Draw(screen)
 	}

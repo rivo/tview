@@ -24,6 +24,7 @@ func main() {
 							app.Stop()
 						}
 					}),
+				false,
 				page == 0)
 		}(page)
 	}
