@@ -145,11 +145,6 @@ func (f *Frame) Focus(delegate func(p Primitive)) {
 	delegate(f.primitive)
 }
 
-// InputHandler returns the handler for this primitive.
-func (f *Frame) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {}
-}
-
 // HasFocus returns whether or not this primitive has focus.
 func (f *Frame) HasFocus() bool {
 	focusable, ok := f.primitive.(Focusable)

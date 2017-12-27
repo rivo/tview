@@ -239,10 +239,6 @@ func (a *Application) ResizeToFullScreen(p Primitive) *Application {
 // Blur() will be called on the previously focused primitive. Focus() will be
 // called on the new primitive.
 func (a *Application) SetFocus(p Primitive) *Application {
-	if p.InputHandler() == nil {
-		return a
-	}
-
 	a.Lock()
 	if a.focus != nil {
 		a.focus.Blur()

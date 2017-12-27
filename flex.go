@@ -1,6 +1,8 @@
 package tview
 
-import "github.com/gdamore/tcell"
+import (
+	"github.com/gdamore/tcell"
+)
 
 // Configuration values.
 const (
@@ -69,7 +71,7 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 // primitive receives focus. If multiple items have the "focus" flag set to
 // true, the first one will receive focus.
 func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *Flex {
-	f.items = append(f.items, flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion})
+	f.items = append(f.items, flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus})
 	return f
 }
 

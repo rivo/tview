@@ -217,8 +217,3 @@ func (p *Pages) Draw(screen tcell.Screen) {
 		page.Item.Draw(screen)
 	}
 }
-
-// InputHandler returns the handler for this primitive.
-func (p *Pages) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {}
-}

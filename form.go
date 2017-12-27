@@ -304,11 +304,6 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 	}
 }
 
-// InputHandler returns the handler for this primitive.
-func (f *Form) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {}
-}
-
 // HasFocus returns whether or not this primitive has focus.
 func (f *Form) HasFocus() bool {
 	for _, item := range f.items {
