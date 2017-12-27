@@ -13,6 +13,7 @@ type flexItem struct {
 	Item       Primitive // The item to be positioned.
 	FixedSize  int       // The item's fixed size which may not be changed, 0 if it has no fixed size.
 	Proportion int       // The item's proportion.
+	Focus      bool      // Whether or not this item attracts the layout's focus.
 }
 
 // Flex is a basic implementation of a flexbox layout.
@@ -61,8 +62,13 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 // that its size is flexible and may be changed. The "proportion" argument
 // defines the relative size of the item compared to other flexible-size items.
 // For example, items with a proportion of 2 will be twice as large as items
-// with a proportion of 1. Must be at least 1. Ignored if fixedSize > 0.
-func (f *Flex) AddItem(item Primitive, fixedSize, proportion int) *Flex {
+// with a proportion of 1. Must be at least 1 if fixedSize > 0 (ignored
+// otherwise)
+//
+// If "focus" is set to true, the item will receive focus when the Flex
+// primitive receives focus. If multiple items have the "focus" flag set to
+// true, the first one will receive focus.
+func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *Flex {
 	f.items = append(f.items, flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion})
 	return f
 }
@@ -124,8 +130,11 @@ func (f *Flex) Draw(screen tcell.Screen) {
 
 // Focus is called when this primitive receives focus.
 func (f *Flex) Focus(delegate func(p Primitive)) {
-	if len(f.items) > 0 {
-		delegate(f.items[0].Item)
+	for _, item := range f.items {
+		if item.Focus {
+			delegate(item.Item)
+			return
+		}
 	}
 }
 
