@@ -244,6 +244,9 @@ func (a *Application) SetFocus(p Primitive) *Application {
 		a.focus.Blur()
 	}
 	a.focus = p
+	if a.screen != nil {
+		a.screen.HideCursor()
+	}
 	a.Unlock()
 	p.Focus(func(p Primitive) {
 		a.SetFocus(p)

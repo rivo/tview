@@ -138,11 +138,6 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 		checkedRune = ' '
 	}
 	screen.SetContent(x, y, checkedRune, nil, fieldStyle)
-
-	// Hide cursor.
-	if c.focus.HasFocus() {
-		screen.HideCursor()
-	}
 }
 
 // InputHandler returns the handler for this primitive.

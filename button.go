@@ -115,10 +115,6 @@ func (b *Button) Draw(screen tcell.Screen) {
 		}
 		Print(screen, b.label, x, y, width, AlignCenter, labelColor)
 	}
-
-	if b.focus.HasFocus() {
-		screen.HideCursor()
-	}
 }
 
 // InputHandler returns the handler for this primitive.

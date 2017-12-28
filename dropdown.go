@@ -231,11 +231,6 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		d.list.SetRect(lx, ly, lwidth, lheight)
 		d.list.Draw(screen)
 	}
-
-	// No cursor for this primitive.
-	if d.focus.HasFocus() {
-		screen.HideCursor()
-	}
 }
 
 // InputHandler returns the handler for this primitive.
