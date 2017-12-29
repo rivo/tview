@@ -103,8 +103,9 @@ func (l *List) ShowSecondaryText(show bool) *List {
 }
 
 // SetSelectedFunc sets the function which is called when the user selects a
-// list item. The function receives the item's index in the list of items
-// (starting with 0), its main text, secondary text, and its shortcut rune.
+// list item by pressing Enter on the current selection. The function receives
+// the item's index in the list of items (starting with 0), its main text,
+// secondary text, and its shortcut rune.
 func (l *List) SetSelectedFunc(handler func(int, string, string, rune)) *List {
 	l.selected = handler
 	return l

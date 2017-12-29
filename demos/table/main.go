@@ -28,7 +28,7 @@ func main() {
 			word = (word + 1) % len(lorem)
 		}
 	}
-	table.SetSelected(0, 0).SetFixed(1, 1).SetDoneFunc(func(key tcell.Key) {
+	table.Select(0, 0).SetFixed(1, 1).SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEscape {
 			app.Stop()
 		}

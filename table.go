@@ -21,8 +21,8 @@ type TableCell struct {
 	// The color of the cell text.
 	Color tcell.Color
 
-	// Whether or not this cell may be selected.
-	Selectable bool
+	// If set to true, this cell cannot be selected.
+	NotSelectable bool
 
 	// The position and width of the cell the last time table was drawn.
 	x, y, width int
@@ -138,7 +138,6 @@ func NewTable() *Table {
 		Box:          NewBox(),
 		bordersColor: tcell.ColorWhite,
 		separator:    ' ',
-		trackEnd:     true,
 		lastColumn:   -1,
 	}
 }
@@ -195,10 +194,10 @@ func (t *Table) SetSelectable(rows, columns bool) *Table {
 	return t
 }
 
-// SetSelected sets the selected cell. Depending on the selection settings
+// Select sets the selected cell. Depending on the selection settings
 // specified via SetSelectable(), this may be an entire row or column, or even
 // ignored completely.
-func (t *Table) SetSelected(row, column int) *Table {
+func (t *Table) Select(row, column int) *Table {
 	t.selectedRow, t.selectedColumn = row, column
 	return t
 }
@@ -268,6 +267,27 @@ func (t *Table) GetCell(row, column int) *TableCell {
 	return t.cells[row][column]
 }
 
+// ScrollToBeginning scrolls the table to the beginning to that the top left
+// corner of the table is shown. Note that this position may be corrected if
+// there is a selection.
+func (t *Table) ScrollToBeginning() *Table {
+	t.trackEnd = false
+	t.columnOffset = 0
+	t.rowOffset = 0
+	return t
+}
+
+// ScrollToEnd scrolls the table to the beginning to that the bottom left corner
+// of the table is shown. Adding more rows to the table will cause it to
+// automatically scroll with the new data. Note that this position may be
+// corrected if there is a selection.
+func (t *Table) ScrollToEnd() *Table {
+	t.trackEnd = true
+	t.columnOffset = 0
+	t.rowOffset = len(t.cells)
+	return t
+}
+
 // Draw draws this primitive onto the screen.
 func (t *Table) Draw(screen tcell.Screen) {
 	t.Box.Draw(screen)
@@ -282,10 +302,31 @@ func (t *Table) Draw(screen tcell.Screen) {
 
 	// Return the cell at the specified position (nil if it doesn't exist).
 	getCell := func(row, column int) *TableCell {
-		if row >= len(t.cells) || column >= len(t.cells[row]) {
+		if row < 0 || column < 0 || row >= len(t.cells) || column >= len(t.cells[row]) {
 			return nil
 		}
 		return t.cells[row][column]
+	}
+
+	// If this cell is not selectable, find the next one.
+	if t.rowsSelectable || t.columnsSelectable {
+		if t.selectedColumn < 0 {
+			t.selectedColumn = 0
+		}
+		if t.selectedRow < 0 {
+			t.selectedRow = 0
+		}
+		for t.selectedRow < len(t.cells) {
+			cell := getCell(t.selectedRow, t.selectedColumn)
+			if cell == nil || !cell.NotSelectable {
+				break
+			}
+			t.selectedColumn++
+			if t.selectedColumn > t.lastColumn {
+				t.selectedColumn = 0
+				t.selectedRow++
+			}
+		}
 	}
 
 	// Clamp row offsets.
@@ -480,7 +521,7 @@ ColumnLoop:
 			// Determine colors.
 			bgColor := t.backgroundColor
 			textColor := cell.Color
-			if cellSelected {
+			if cellSelected && !cell.NotSelectable {
 				bgColor = cell.Color
 				textColor = t.backgroundColor
 			}
@@ -556,10 +597,56 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 
 		// Movement functions.
 		var (
+			getCell = func(row, column int) *TableCell {
+				if row < 0 || column < 0 || row >= len(t.cells) || column >= len(t.cells[row]) {
+					return nil
+				}
+				return t.cells[row][column]
+			}
+
+			previous = func() {
+				for t.selectedRow >= 0 {
+					cell := getCell(t.selectedRow, t.selectedColumn)
+					if cell == nil || !cell.NotSelectable {
+						return
+					}
+					t.selectedColumn--
+					if t.selectedColumn < 0 {
+						t.selectedColumn = t.lastColumn
+						t.selectedRow--
+					}
+				}
+			}
+
+			next = func() {
+				if t.selectedColumn > t.lastColumn {
+					t.selectedColumn = 0
+					t.selectedRow++
+					if t.selectedRow >= len(t.cells) {
+						t.selectedRow = len(t.cells) - 1
+					}
+				}
+				for t.selectedRow < len(t.cells) {
+					cell := getCell(t.selectedRow, t.selectedColumn)
+					if cell == nil || !cell.NotSelectable {
+						return
+					}
+					t.selectedColumn++
+					if t.selectedColumn > t.lastColumn {
+						t.selectedColumn = 0
+						t.selectedRow++
+					}
+				}
+				t.selectedColumn = t.lastColumn
+				t.selectedRow = len(t.cells) - 1
+				previous()
+			}
+
 			home = func() {
 				if t.rowsSelectable {
 					t.selectedRow = 0
 					t.selectedColumn = 0
+					next()
 				} else {
 					t.trackEnd = false
 					t.rowOffset = 0
@@ -571,6 +658,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				if t.rowsSelectable {
 					t.selectedRow = len(t.cells) - 1
 					t.selectedColumn = t.lastColumn
+					previous()
 				} else {
 					t.trackEnd = true
 					t.columnOffset = 0
@@ -583,6 +671,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 					if t.selectedRow >= len(t.cells) {
 						t.selectedRow = len(t.cells) - 1
 					}
+					next()
 				} else {
 					t.rowOffset++
 				}
@@ -594,6 +683,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 					if t.selectedRow < 0 {
 						t.selectedRow = 0
 					}
+					previous()
 				} else {
 					t.trackEnd = false
 					t.rowOffset--
@@ -606,6 +696,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 					if t.selectedColumn < 0 {
 						t.selectedColumn = 0
 					}
+					previous()
 				} else {
 					t.columnOffset--
 				}
@@ -617,6 +708,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 					if t.selectedColumn > t.lastColumn {
 						t.selectedColumn = t.lastColumn
 					}
+					next()
 				} else {
 					t.columnOffset++
 				}
@@ -628,6 +720,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 					if t.selectedRow >= len(t.cells) {
 						t.selectedRow = len(t.cells) - 1
 					}
+					next()
 				} else {
 					t.rowOffset += t.visibleRows
 				}
@@ -639,6 +732,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 					if t.selectedRow < 0 {
 						t.selectedRow = 0
 					}
+					previous()
 				} else {
 					t.trackEnd = false
 					t.rowOffset -= t.visibleRows
