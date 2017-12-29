@@ -13,11 +13,13 @@ import (
 // textColors maps color strings which may be embedded in text sent to a
 // TextView to their tcell counterparts.
 var textColors = map[string]tcell.Color{
-	"red":    tcell.ColorRed,
-	"white":  tcell.ColorWhite,
-	"yellow": tcell.ColorYellow,
-	"blue":   tcell.ColorBlue,
-	"green":  tcell.ColorGreen,
+	"red":     tcell.ColorRed,
+	"white":   tcell.ColorWhite,
+	"yellow":  tcell.ColorYellow,
+	"blue":    tcell.ColorBlue,
+	"green":   tcell.ColorGreen,
+	"cyan":    tcell.ColorDarkCyan,
+	"magenta": tcell.ColorDarkMagenta,
 }
 
 // Regular expressions commonly used throughout the TextView class.
@@ -70,7 +72,7 @@ type textViewIndex struct {
 //   This is a [red]warning[white]!
 //
 // will print the word "warning" in red. The following colors are currently
-// supported: white, yellow, blue, green, red.
+// supported: white, yellow, blue, green, red, cyan, magenta.
 //
 // Regions and Highlights
 //
