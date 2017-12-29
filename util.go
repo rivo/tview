@@ -2,6 +2,7 @@ package tview
 
 import (
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -53,8 +54,7 @@ var (
 
 // Package initialization.
 func init() {
-	// Initialize the predefined handlers.
-
+	// Initialize the predefined input field handlers.
 	InputFieldInteger = func(text string, ch rune) bool {
 		if text == "-" {
 			return true
@@ -62,7 +62,6 @@ func init() {
 		_, err := strconv.Atoi(text)
 		return err == nil
 	}
-
 	InputFieldFloat = func(text string, ch rune) bool {
 		if text == "-" || text == "." {
 			return true
@@ -70,12 +69,21 @@ func init() {
 		_, err := strconv.ParseFloat(text, 64)
 		return err == nil
 	}
-
 	InputFieldMaxLength = func(maxLength int) func(text string, ch rune) bool {
 		return func(text string, ch rune) bool {
 			return len([]rune(text)) <= maxLength
 		}
 	}
+
+	// Regular expressions.
+	var colors string
+	for color := range textColors {
+		if len(colors) > 0 {
+			colors += "|"
+		}
+		colors += color
+	}
+	colorPattern = regexp.MustCompile(`\[(` + colors + `)\]`)
 }
 
 // Print prints text onto the screen into the given box at (x,y,maxWidth,1),

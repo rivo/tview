@@ -22,7 +22,7 @@ var textColors = map[string]tcell.Color{
 
 // Regular expressions commonly used throughout the TextView class.
 var (
-	colorPattern  = regexp.MustCompile(`\[(white|yellow|blue|green|red)\]`)
+	colorPattern  *regexp.Regexp // Initialized in the init() function.
 	regionPattern = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
 )
 
@@ -54,7 +54,8 @@ type textViewIndex struct {
 //   - Ctrl-F, page down: Move down by one page.
 //   - Ctrl-B, page up: Move up by one page.
 //
-// If the text is not scrollable, any text above the top line is discarded.
+// If the text is not scrollable, any text above the top visible line is
+// discarded.
 //
 // Navigation can be intercepted by installing a callback function via
 // SetCaptureFunc() which receives all keyboard events and decides which ones
@@ -115,6 +116,9 @@ type TextView struct {
 
 	// The display width for which the index is created.
 	indexWidth int
+
+	// The width of the longest line in the index (not the buffer).
+	longestLine int
 
 	// The index of the first line shown in the text view.
 	lineOffset int
@@ -435,6 +439,7 @@ func (t *TextView) reindexBuffer(width int) {
 		regionID    string
 		highlighted bool
 	)
+	t.longestLine = 0
 	color := t.textColor
 	if !t.wrap {
 		width = math.MaxInt64
@@ -523,6 +528,11 @@ func (t *TextView) reindexBuffer(width int) {
 			if t.wrap && currentWidth >= width {
 				currentWidth = 0
 			}
+
+			// Do we have a new maximum width?
+			if currentWidth > t.longestLine {
+				t.longestLine = currentWidth
+			}
 		}
 	}
 
@@ -564,6 +574,14 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	}
 	if t.lineOffset < 0 {
 		t.lineOffset = 0
+	}
+
+	// Adjust column offset.
+	if t.columnOffset+width > t.longestLine {
+		t.columnOffset = t.longestLine - width
+	}
+	if t.columnOffset < 0 {
+		t.columnOffset = 0
 	}
 
 	// Draw the buffer.
@@ -695,9 +713,6 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.lineOffset--
 			case 'h': // Left.
 				t.columnOffset--
-				if t.columnOffset < 0 {
-					t.columnOffset = 0
-				}
 			case 'l': // Right.
 				t.columnOffset++
 			}
@@ -715,9 +730,6 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.lineOffset++
 		case tcell.KeyLeft:
 			t.columnOffset--
-			if t.columnOffset < 0 {
-				t.columnOffset = 0
-			}
 		case tcell.KeyRight:
 			t.columnOffset++
 		case tcell.KeyPgDn, tcell.KeyCtrlF:
