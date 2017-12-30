@@ -187,6 +187,9 @@ func NewTextView() *TextView {
 // scollable. If true, text is kept in a buffer and can be navigated.
 func (t *TextView) SetScrollable(scrollable bool) *TextView {
 	t.scrollable = scrollable
+	if !scrollable {
+		t.trackEnd = true
+	}
 	return t
 }
 
