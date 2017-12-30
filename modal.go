@@ -8,7 +8,10 @@ import (
 // for an immediate decision. It needs to have at least one button (added via
 // AddButtons()) or it will never disappear.
 type Modal struct {
-	*Frame
+	*Box
+
+	// The framed embedded in the modal.
+	frame *Frame
 
 	// The form embedded in the modal's frame.
 	form *Form
@@ -27,6 +30,7 @@ type Modal struct {
 // NewModal returns a new modal message window.
 func NewModal() *Modal {
 	m := &Modal{
+		Box:       NewBox(),
 		textColor: tcell.ColorWhite,
 	}
 	m.form = NewForm().
@@ -34,8 +38,12 @@ func NewModal() *Modal {
 		SetButtonBackgroundColor(tcell.ColorBlack).
 		SetButtonTextColor(tcell.ColorWhite)
 	m.form.SetBackgroundColor(tcell.ColorBlue).SetBorderPadding(0, 0, 0, 0)
-	m.Frame = NewFrame(m.form)
-	m.Box.SetBorder(true).SetBackgroundColor(tcell.ColorBlue)
+	m.frame = NewFrame(m.form).SetBorders(0, 0, 1, 0, 0, 0)
+	m.frame.SetBorder(true).
+		SetBackgroundColor(tcell.ColorBlue).
+		SetBorderPadding(1, 1, 1, 1).
+		SetBackgroundColor(tcell.ColorBlue)
+	m.focus = m
 	return m
 }
 
@@ -103,18 +111,20 @@ func (m *Modal) Draw(screen tcell.Screen) {
 	// width is now without the box border.
 
 	// Reset the text and find out how wide it is.
-	m.Frame.ClearText()
+	m.frame.ClearText()
 	lines := WordWrap(m.text, width)
 	for _, line := range lines {
-		m.Frame.AddText(line, true, AlignCenter, m.textColor)
+		m.frame.AddText(line, true, AlignCenter, m.textColor)
 	}
 
 	// Set the modal's position and size.
 	height := len(lines) + 6
+	width += 4
 	x := (screenWidth - width) / 2
 	y := (screenHeight - height) / 2
 	m.SetRect(x, y, width, height)
 
 	// Draw the frame.
-	m.Frame.Draw(screen)
+	m.frame.SetRect(x, y, width, height)
+	m.frame.Draw(screen)
 }
