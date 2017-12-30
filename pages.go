@@ -190,16 +190,19 @@ func (p *Pages) Focus(delegate func(p Primitive)) {
 
 // refocus sets the focus to the topmost visible page but only if we have focus.
 func (p *Pages) refocus() {
-	if !p.HasFocus() || p.setFocus == nil {
-		return
-	}
-	var topItem Primitive
+	var (
+		topItem  Primitive
+		hasFocus bool
+	)
 	for _, page := range p.pages {
+		if page.Item.GetFocusable().HasFocus() {
+			hasFocus = true
+		}
 		if page.Visible {
 			topItem = page.Item
 		}
 	}
-	if topItem != nil {
+	if hasFocus && p.setFocus != nil && topItem != nil {
 		p.setFocus(topItem)
 	}
 }
