@@ -138,7 +138,7 @@ func (d *DropDown) AddOption(text string, selected func()) *DropDown {
 // It will be called with the option's text and its index into the options
 // slice. The "selected" parameter may be nil.
 func (d *DropDown) SetOptions(texts []string, selected func(text string, index int)) *DropDown {
-	d.list.ClearItems()
+	d.list.Clear()
 	d.options = nil
 	for index, text := range texts {
 		func(t string, i int) {

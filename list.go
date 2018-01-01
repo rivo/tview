@@ -42,9 +42,16 @@ type List struct {
 	// The background color for selected items.
 	selectedBackgroundColor tcell.Color
 
+	// An optional function which is called when the user has navigated to a list
+	// item.
+	changed func(index int, mainText, secondaryText string, shortcut rune)
+
 	// An optional function which is called when a list item was selected. This
 	// function will be called even if the list item defines its own callback.
 	selected func(index int, mainText, secondaryText string, shortcut rune)
+
+	// An optional function which is called when the user presses the Escape key.
+	done func()
 }
 
 // NewList returns a new form.
@@ -63,6 +70,10 @@ func NewList() *List {
 // SetCurrentItem sets the currently selected item by its index.
 func (l *List) SetCurrentItem(index int) *List {
 	l.currentItem = index
+	if l.currentItem < len(l.items) && l.changed != nil {
+		item := l.items[l.currentItem]
+		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+	}
 	return l
 }
 
@@ -102,12 +113,30 @@ func (l *List) ShowSecondaryText(show bool) *List {
 	return l
 }
 
+// SetChangedFunc sets the function which is called when the user navigates to
+// a list item. The function receives the item's index in the list of items
+// (starting with 0), its main text, secondary text, and its shortcut rune.
+//
+// This function is also called when the first item is added or when
+// SetCurrentItem() is called.
+func (l *List) SetChangedFunc(handler func(int, string, string, rune)) *List {
+	l.changed = handler
+	return l
+}
+
 // SetSelectedFunc sets the function which is called when the user selects a
 // list item by pressing Enter on the current selection. The function receives
 // the item's index in the list of items (starting with 0), its main text,
 // secondary text, and its shortcut rune.
 func (l *List) SetSelectedFunc(handler func(int, string, string, rune)) *List {
 	l.selected = handler
+	return l
+}
+
+// SetDoneFunc sets a function which is called when the user presses the Escape
+// key.
+func (l *List) SetDoneFunc(handler func()) *List {
+	l.done = handler
 	return l
 }
 
@@ -129,11 +158,15 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 		Shortcut:      shortcut,
 		Selected:      selected,
 	})
+	if len(l.items) == 1 && l.changed != nil {
+		item := l.items[0]
+		l.changed(0, item.MainText, item.SecondaryText, item.Shortcut)
+	}
 	return l
 }
 
-// ClearItems removes all items from the list.
-func (l *List) ClearItems() *List {
+// Clear removes all items from the list.
+func (l *List) Clear() *List {
 	l.items = nil
 	l.currentItem = 0
 	return l
@@ -197,6 +230,8 @@ func (l *List) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		previousItem := l.currentItem
+
 		switch key := event.Key(); key {
 		case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
 			l.currentItem++
@@ -217,6 +252,10 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 			}
 			if l.selected != nil {
 				l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+			}
+		case tcell.KeyEscape:
+			if l.done != nil {
+				l.done()
 			}
 		case tcell.KeyRune:
 			ch := event.Rune()
@@ -248,6 +287,11 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 			l.currentItem = len(l.items) - 1
 		} else if l.currentItem >= len(l.items) {
 			l.currentItem = 0
+		}
+
+		if l.currentItem != previousItem && l.currentItem < len(l.items) && l.changed != nil {
+			item := l.items[l.currentItem]
+			l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 		}
 	}
 }
