@@ -561,7 +561,7 @@ ColumnLoop:
 	}
 
 	// Draw right border.
-	if t.borders && columnX < width {
+	if t.borders && len(t.cells) > 0 && columnX < width {
 		for rowY, row := range rows {
 			rowSelected := t.rowsSelectable && !t.columnsSelectable && row == t.selectedRow
 			rowY *= 2
