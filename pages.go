@@ -78,6 +78,16 @@ func (p *Pages) RemovePage(name string) *Pages {
 	return p
 }
 
+// HasPage returns true if a page with the given name exists in this object.
+func (p *Pages) HasPage(name string) bool {
+	for _, page := range p.pages {
+		if page.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // ShowPage sets a page's visibility to "true" (in addition to any other pages
 // which are already visible).
 func (p *Pages) ShowPage(name string) *Pages {

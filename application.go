@@ -106,10 +106,6 @@ func (a *Application) Run() error {
 	}()
 
 	// Draw the screen for the first time.
-	if a.rootAutoSize && a.root != nil {
-		width, height := a.screen.Size()
-		a.root.SetRect(0, 0, width, height)
-	}
 	a.Unlock()
 	a.Draw()
 
@@ -201,6 +197,12 @@ func (a *Application) Draw() *Application {
 		return a
 	}
 
+	// Resize if requested.
+	if a.rootAutoSize && a.root != nil {
+		width, height := a.screen.Size()
+		a.root.SetRect(0, 0, width, height)
+	}
+
 	// Draw all primitives.
 	a.root.Draw(a.screen)
 
@@ -219,6 +221,9 @@ func (a *Application) SetRoot(root Primitive, autoSize bool) *Application {
 	a.Lock()
 	a.root = root
 	a.rootAutoSize = autoSize
+	if a.screen != nil {
+		a.screen.Clear()
+	}
 	a.Unlock()
 
 	a.SetFocus(root)

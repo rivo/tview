@@ -111,7 +111,7 @@ func (m *Modal) Draw(screen tcell.Screen) {
 	// width is now without the box border.
 
 	// Reset the text and find out how wide it is.
-	m.frame.ClearText()
+	m.frame.Clear()
 	lines := WordWrap(m.text, width)
 	for _, line := range lines {
 		m.frame.AddText(line, true, AlignCenter, m.textColor)

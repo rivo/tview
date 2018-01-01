@@ -257,6 +257,12 @@ func (t *Table) SetCell(row, column int, cell *TableCell) *Table {
 	return t
 }
 
+// SetCellSimple calls SetCell() with the given text, left-aligned, in white.
+func (t *Table) SetCellSimple(row, column int, text string) *Table {
+	t.SetCell(row, column, &TableCell{Text: text, Align: AlignLeft, Color: tcell.ColorWhite})
+	return t
+}
+
 // GetCell returns the contents of the cell at the specified position. A valid
 // TableCell object is always returns but it will be uninitialized if the cell
 // was not previously set.
@@ -265,6 +271,19 @@ func (t *Table) GetCell(row, column int) *TableCell {
 		return &TableCell{}
 	}
 	return t.cells[row][column]
+}
+
+// GetRowCount returns the number of rows in the table.
+func (t *Table) GetRowCount() int {
+	return len(t.cells)
+}
+
+// GetColumnCount returns the (maximum) number of columns in the table.
+func (t *Table) GetColumnCount() int {
+	if len(t.cells) == 0 {
+		return 0
+	}
+	return t.lastColumn + 1
 }
 
 // ScrollToBeginning scrolls the table to the beginning to that the top left

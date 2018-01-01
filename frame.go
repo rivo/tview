@@ -64,8 +64,8 @@ func (f *Frame) AddText(text string, header bool, align int, color tcell.Color) 
 	return f
 }
 
-// ClearText removes all text from the frame.
-func (f *Frame) ClearText() *Frame {
+// Clear removes all text from the frame.
+func (f *Frame) Clear() *Frame {
 	f.text = nil
 	return f
 }
