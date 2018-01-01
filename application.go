@@ -212,12 +212,16 @@ func (a *Application) Draw() *Application {
 
 // SetRoot sets the root primitive for this application. This function must be
 // called or nothing will be displayed when the application starts.
+//
+// It also calls SetFocus() on the primitive.
 func (a *Application) SetRoot(root Primitive, autoSize bool) *Application {
-	a.Lock()
-	defer a.Unlock()
 
+	a.Lock()
 	a.root = root
 	a.rootAutoSize = autoSize
+	a.Unlock()
+
+	a.SetFocus(root)
 
 	return a
 }
