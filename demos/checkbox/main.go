@@ -1,3 +1,4 @@
+// Demo code for the Checkbox primitive.
 package main
 
 import "github.com/rivo/tview"

@@ -1,3 +1,4 @@
+// Demo code for the Button primitive.
 package main
 
 import "github.com/rivo/tview"

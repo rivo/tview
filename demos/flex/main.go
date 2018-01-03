@@ -1,3 +1,4 @@
+// Demo code for the Flex primitive.
 package main
 
 import (

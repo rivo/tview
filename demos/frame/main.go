@@ -1,3 +1,4 @@
+// Demo code for the Frame primitive.
 package main
 
 import (

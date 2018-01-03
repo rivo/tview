@@ -1,3 +1,4 @@
+// Demo code for the Modal primitive.
 package main
 
 import (

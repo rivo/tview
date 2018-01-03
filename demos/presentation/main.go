@@ -1,5 +1,11 @@
 /*
+A presentation of the tview package, implemented with tview.
+
 Navigation
+
+The presentation will advance to the next slide when the primitive demonstrated
+in the current slide is left (usually by hitting Enter or Escape). Additionally,
+the following shortcuts can be used:
 
   - Ctrl-N: Jump to next slide
   - Ctrl-P: Jump to previous slide

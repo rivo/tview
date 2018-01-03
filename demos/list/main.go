@@ -1,3 +1,4 @@
+// Demo code for the List primitive.
 package main
 
 import (

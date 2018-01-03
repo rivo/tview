@@ -1,3 +1,4 @@
+// Demo code for the Table primitive.
 package main
 
 import (

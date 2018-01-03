@@ -1,3 +1,4 @@
+// Demo code for the Pages primitive.
 package main
 
 import (
