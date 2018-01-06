@@ -26,7 +26,6 @@ const inputField = `[green]package[white] main
         })
     tview.[yellow]NewApplication[white]().
         [yellow]SetRoot[white](input, true).
-        [yellow]SetFocus[white](input).
         [yellow]Run[white]()
 }`
 

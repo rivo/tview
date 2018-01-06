@@ -87,8 +87,8 @@ func init() {
 }
 
 // Print prints text onto the screen into the given box at (x,y,maxWidth,1),
-// no exceeding that box.  "align" is one of AlignLeft, AlignCenter, or
-// AlignRight. The screen's background color will be maintained.
+// not exceeding that box. "align" is one of AlignLeft, AlignCenter, or
+// AlignRight. The screen's background color will not be changed.
 //
 // Returns the number of actual runes printed.
 func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tcell.Color) int {

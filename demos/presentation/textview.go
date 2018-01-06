@@ -26,7 +26,6 @@ const textView1 = `[green]func[white] [yellow]main[white]() {
     }()
     tview.[yellow]NewApplication[white]().
         [yellow]SetRoot[white](textView, true).
-        [yellow]SetFocus[white](textView).
         [yellow]Run[white]()
 }`
 
@@ -96,7 +95,6 @@ const textView2 = `[green]package[white] main
     fmt.[yellow]Fprint[white](["7"]textView[""], content)
     tview.[yellow]NewApplication[white]().
         [yellow]SetRoot[white](["8"]textView[""], true).
-        [yellow]SetFocus[white](["9"]textView[""]).
         [yellow]Run[white]()
 }`
 
@@ -129,14 +127,14 @@ func TextView2(nextSlide func()) (title string, content tview.Primitive) {
 			case tcell.KeyTab:
 				if hasHighlights {
 					current, _ := strconv.Atoi(highlights[0])
-					next := (current + 1) % 10
+					next := (current + 1) % 9
 					textView.Highlight(strconv.Itoa(next)).
 						ScrollToHighlight()
 				}
 			case tcell.KeyBacktab:
 				if hasHighlights {
 					current, _ := strconv.Atoi(highlights[0])
-					next := (current - 1 + 10) % 10
+					next := (current - 1 + 9) % 9
 					textView.Highlight(strconv.Itoa(next)).
 						ScrollToHighlight()
 				}

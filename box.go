@@ -34,7 +34,7 @@ type Box struct {
 	titleAlign int
 
 	// Provides a way to find out if this box has focus. We always go through
-	// this interface because it may be overriden by implementing classes.
+	// this interface because it may be overridden by implementing classes.
 	focus Focusable
 
 	// Whether or not this box has focus.

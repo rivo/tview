@@ -44,7 +44,7 @@ func (c *TableCell) GetLastPosition() (x, y, width int) {
 // dynamically to the table and changed any time.
 //
 // The most compact display of a table is without borders. Each row will then
-// occupy one row on screen and columns are seperated by the rune defined via
+// occupy one row on screen and columns are separated by the rune defined via
 // SetSeparator() (a space character by default).
 //
 // When borders are turned on (via SetBorders()), each table cell is surrounded

@@ -24,7 +24,6 @@ const form = `[green]package[white] main
         [yellow]AddButton[white]([red]"Cancel"[white], [yellow]func[white]() { [blue]/* Cancel */[white] })
     tview.[yellow]NewApplication[white]().
         [yellow]SetRoot[white](form, true).
-        [yellow]SetFocus[white](form).
         [yellow]Run[white]()
 }`
 
