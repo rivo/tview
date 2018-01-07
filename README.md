@@ -10,8 +10,8 @@ This Go package provides commonly needed components for terminal based user inte
 Among these components are:
 
 - __Input forms__ (include __input fields__, __drop-down selections__, __checkboxes__, and __buttons__)
-- Navigatable multi-color __text views__
-- Sophisticated navigatable __table views__
+- Navigable multi-color __text views__
+- Sophisticated navigable __table views__
 - Selectable __lists__
 - __Flexbox__ and __page layouts__
 - Modal __message windows__
