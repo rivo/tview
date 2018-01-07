@@ -204,7 +204,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Main text.
 		color := l.mainTextColor
-		if l.focus.HasFocus() && index == l.currentItem {
+		if index == l.currentItem {
 			textLength := len([]rune(item.MainText))
 			style := tcell.StyleDefault.Background(l.selectedBackgroundColor)
 			for bx := 0; bx < textLength && bx < width; bx++ {
