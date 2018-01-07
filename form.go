@@ -25,6 +25,8 @@ type FormItem interface {
 }
 
 // Form is a Box which contains multiple input fields, one per row.
+//
+// See https://github.com/rivo/tview/wiki/Form for an example.
 type Form struct {
 	*Box
 

@@ -7,6 +7,8 @@ import (
 // Box implements Primitive with a background and optional elements such as a
 // border and a title. Most subclasses keep their content contained in the box
 // but don't necessarily have to.
+//
+// See https://github.com/rivo/tview/wiki/Box for an example.
 type Box struct {
 	// The position of the rect.
 	x, y, width, height int

@@ -4,8 +4,10 @@ import (
 	"github.com/gdamore/tcell"
 )
 
-// Checkbox is a one-line box (three lines if there is a title) where the
-// user can enter text.
+// Checkbox implements a simple box for boolean values which can be checked and
+// unchecked.
+//
+// See https://github.com/rivo/tview/wiki/Checkbox for an example.
 type Checkbox struct {
 	*Box
 

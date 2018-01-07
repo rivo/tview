@@ -18,7 +18,9 @@ type flexItem struct {
 	Focus      bool      // Whether or not this item attracts the layout's focus.
 }
 
-// Flex is a basic implementation of a flexbox layout.
+// Flex is a basic implementation of the Flexbox layout.
+//
+// See https://github.com/rivo/tview/wiki/Flex for an example.
 type Flex struct {
 	*Box
 

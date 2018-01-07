@@ -15,6 +15,8 @@ type page struct {
 // Pages is a container for other primitives often used as the application's
 // root primitive. It allows to easily switch the visibility of the contained
 // primitives.
+//
+// See https://github.com/rivo/tview/wiki/Pages for an example.
 type Pages struct {
 	*Box
 

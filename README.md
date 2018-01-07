@@ -5,7 +5,7 @@
 
 This Go package provides commonly needed components for terminal based user interfaces.
 
-![Screenshot](screenshot.jpg)
+![Screenshot](tview.gif)
 
 Among these components are:
 

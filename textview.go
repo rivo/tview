@@ -94,6 +94,8 @@ type textViewIndex struct {
 //
 // The ScrollToHighlight() function can be used to jump to the currently
 // highlighted region once when the text view is drawn the next time.
+//
+// See https://github.com/rivo/tview/wiki/TextView for an example.
 type TextView struct {
 	sync.Mutex
 	*Box

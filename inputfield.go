@@ -9,6 +9,8 @@ import (
 
 // InputField is a one-line box (three lines if there is a title) where the
 // user can enter text.
+//
+// See https://github.com/rivo/tview/wiki/InputField for an example.
 type InputField struct {
 	*Box
 

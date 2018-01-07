@@ -12,6 +12,8 @@ type dropDownOption struct {
 
 // DropDown is a one-line box (three lines if there is a title) where the
 // user can enter text.
+//
+// See https://github.com/rivo/tview/wiki/DropDown for an example.
 type DropDown struct {
 	*Box
 

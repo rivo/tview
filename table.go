@@ -84,6 +84,8 @@ func (c *TableCell) GetLastPosition() (x, y, width int) {
 // When there is no selection, this affects the entire table (except for fixed
 // rows and columns). When there is a selection, the user moves the selection.
 // The class will attempt to keep the selection from moving out of the screen.
+//
+// See https://github.com/rivo/tview/wiki/Table for an example.
 type Table struct {
 	*Box
 

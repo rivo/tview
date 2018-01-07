@@ -5,6 +5,8 @@ import (
 )
 
 // Button is labeled box that triggers an action when selected.
+//
+// See https://github.com/rivo/tview/wiki/Button for an example.
 type Button struct {
 	*Box
 
