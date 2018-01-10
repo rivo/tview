@@ -55,18 +55,18 @@ type DropDown struct {
 // NewDropDown returns a new drop-down.
 func NewDropDown() *DropDown {
 	list := NewList().ShowSecondaryText(false)
-	list.SetMainTextColor(tcell.ColorBlack).
-		SetSelectedTextColor(tcell.ColorBlack).
-		SetSelectedBackgroundColor(tcell.ColorWhite).
-		SetBackgroundColor(tcell.ColorGreen)
+	list.SetMainTextColor(Styles.PrimitiveBackgroundColor).
+		SetSelectedTextColor(Styles.PrimitiveBackgroundColor).
+		SetSelectedBackgroundColor(Styles.PrimaryTextColor).
+		SetBackgroundColor(Styles.MoreContrastBackgroundColor)
 
 	d := &DropDown{
 		Box:                  NewBox(),
 		currentOption:        -1,
 		list:                 list,
-		labelColor:           tcell.ColorYellow,
-		fieldBackgroundColor: tcell.ColorBlue,
-		fieldTextColor:       tcell.ColorWhite,
+		labelColor:           Styles.SecondaryTextColor,
+		fieldBackgroundColor: Styles.ContrastBackgroundColor,
+		fieldTextColor:       Styles.PrimaryTextColor,
 	}
 
 	d.focus = d

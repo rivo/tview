@@ -46,11 +46,12 @@ type Box struct {
 // NewBox returns a Box without a border.
 func NewBox() *Box {
 	b := &Box{
-		width:       15,
-		height:      10,
-		borderColor: tcell.ColorWhite,
-		titleColor:  tcell.ColorWhite,
-		titleAlign:  AlignCenter,
+		width:           15,
+		height:          10,
+		backgroundColor: Styles.PrimitiveBackgroundColor,
+		borderColor:     Styles.BorderColor,
+		titleColor:      Styles.TitleColor,
+		titleAlign:      AlignCenter,
 	}
 	b.focus = b
 	return b

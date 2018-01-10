@@ -128,7 +128,7 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 
 // PrintSimple prints white text to the screen at the given position.
 func PrintSimple(screen tcell.Screen, text string, x, y int) {
-	Print(screen, text, x, y, math.MaxInt64, AlignLeft, tcell.ColorWhite)
+	Print(screen, text, x, y, math.MaxInt64, AlignLeft, Styles.PrimaryTextColor)
 }
 
 // WordWrap splits a text such that each resulting line does not exceed the

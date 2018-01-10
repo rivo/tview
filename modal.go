@@ -33,18 +33,17 @@ type Modal struct {
 func NewModal() *Modal {
 	m := &Modal{
 		Box:       NewBox(),
-		textColor: tcell.ColorWhite,
+		textColor: Styles.PrimaryTextColor,
 	}
 	m.form = NewForm().
 		SetButtonsAlign(AlignCenter).
-		SetButtonBackgroundColor(tcell.ColorBlack).
-		SetButtonTextColor(tcell.ColorWhite)
-	m.form.SetBackgroundColor(tcell.ColorBlue).SetBorderPadding(0, 0, 0, 0)
+		SetButtonBackgroundColor(Styles.PrimitiveBackgroundColor).
+		SetButtonTextColor(Styles.PrimaryTextColor)
+	m.form.SetBackgroundColor(Styles.ContrastBackgroundColor).SetBorderPadding(0, 0, 0, 0)
 	m.frame = NewFrame(m.form).SetBorders(0, 0, 1, 0, 0, 0)
 	m.frame.SetBorder(true).
-		SetBackgroundColor(tcell.ColorBlue).
-		SetBorderPadding(1, 1, 1, 1).
-		SetBackgroundColor(tcell.ColorBlue)
+		SetBackgroundColor(Styles.ContrastBackgroundColor).
+		SetBorderPadding(1, 1, 1, 1)
 	m.focus = m
 	return m
 }

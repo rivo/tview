@@ -72,11 +72,11 @@ func NewForm() *Form {
 	f := &Form{
 		Box:                   box,
 		itemPadding:           1,
-		labelColor:            tcell.ColorYellow,
-		fieldBackgroundColor:  tcell.ColorBlue,
-		fieldTextColor:        tcell.ColorWhite,
-		buttonBackgroundColor: tcell.ColorBlue,
-		buttonTextColor:       tcell.ColorWhite,
+		labelColor:            Styles.SecondaryTextColor,
+		fieldBackgroundColor:  Styles.ContrastBackgroundColor,
+		fieldTextColor:        Styles.PrimaryTextColor,
+		buttonBackgroundColor: Styles.ContrastBackgroundColor,
+		buttonTextColor:       Styles.PrimaryTextColor,
 	}
 
 	f.focus = f

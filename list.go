@@ -61,11 +61,11 @@ func NewList() *List {
 	return &List{
 		Box:                     NewBox(),
 		showSecondaryText:       true,
-		mainTextColor:           tcell.ColorWhite,
-		secondaryTextColor:      tcell.ColorGreen,
-		shortcutColor:           tcell.ColorYellow,
-		selectedTextColor:       tcell.ColorBlack,
-		selectedBackgroundColor: tcell.ColorWhite,
+		mainTextColor:           Styles.PrimaryTextColor,
+		secondaryTextColor:      Styles.TertiaryTextColor,
+		shortcutColor:           Styles.SecondaryTextColor,
+		selectedTextColor:       Styles.PrimitiveBackgroundColor,
+		selectedBackgroundColor: Styles.PrimaryTextColor,
 	}
 }
 

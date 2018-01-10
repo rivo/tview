@@ -59,6 +59,12 @@ You will find more demos in the "demos" subdirectory. It also contains a
 presentation (written using tview) which gives an overview of the different
 widgets and how they can be used.
 
+Styles
+
+When primitives are instantiated, they are initialized with colors taken from
+the global Styles variable. You may change this variable to adapt the look and
+feel of the primitives to your preferred style.
+
 Type Hierarchy
 
 All widgets listed above contain the Box type. All of Box's functions are

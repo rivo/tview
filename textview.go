@@ -180,7 +180,7 @@ func NewTextView() *TextView {
 		lineOffset:    -1,
 		scrollable:    true,
 		wrap:          true,
-		textColor:     tcell.ColorWhite,
+		textColor:     Styles.PrimaryTextColor,
 		dynamicColors: false,
 	}
 }

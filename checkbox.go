@@ -40,9 +40,9 @@ type Checkbox struct {
 func NewCheckbox() *Checkbox {
 	return &Checkbox{
 		Box:                  NewBox(),
-		labelColor:           tcell.ColorYellow,
-		fieldBackgroundColor: tcell.ColorBlue,
-		fieldTextColor:       tcell.ColorWhite,
+		labelColor:           Styles.SecondaryTextColor,
+		fieldBackgroundColor: Styles.ContrastBackgroundColor,
+		fieldTextColor:       Styles.PrimaryTextColor,
 	}
 }
 

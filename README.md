@@ -62,5 +62,7 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 ## Releases
 
+- v0.2 (2018-01-10)
+  - Added `Styles` variable with default colors for primitives.
 - v0.1 (2018-01-06)
   - First Release

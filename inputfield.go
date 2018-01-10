@@ -46,9 +46,9 @@ type InputField struct {
 func NewInputField() *InputField {
 	return &InputField{
 		Box:                  NewBox(),
-		labelColor:           tcell.ColorYellow,
-		fieldBackgroundColor: tcell.ColorBlue,
-		fieldTextColor:       tcell.ColorWhite,
+		labelColor:           Styles.SecondaryTextColor,
+		fieldBackgroundColor: Styles.ContrastBackgroundColor,
+		fieldTextColor:       Styles.PrimaryTextColor,
 	}
 }
 

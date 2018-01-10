@@ -138,7 +138,7 @@ type Table struct {
 func NewTable() *Table {
 	return &Table{
 		Box:          NewBox(),
-		bordersColor: tcell.ColorWhite,
+		bordersColor: Styles.GraphicsColor,
 		separator:    ' ',
 		lastColumn:   -1,
 	}
@@ -261,7 +261,7 @@ func (t *Table) SetCell(row, column int, cell *TableCell) *Table {
 
 // SetCellSimple calls SetCell() with the given text, left-aligned, in white.
 func (t *Table) SetCellSimple(row, column int, text string) *Table {
-	t.SetCell(row, column, &TableCell{Text: text, Align: AlignLeft, Color: tcell.ColorWhite})
+	t.SetCell(row, column, &TableCell{Text: text, Align: AlignLeft, Color: Styles.PrimaryTextColor})
 	return t
 }
 

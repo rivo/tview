@@ -32,14 +32,14 @@ type Button struct {
 
 // NewButton returns a new input field.
 func NewButton(label string) *Button {
-	box := NewBox().SetBackgroundColor(tcell.ColorBlue)
+	box := NewBox().SetBackgroundColor(Styles.ContrastBackgroundColor)
 	box.SetRect(0, 0, len([]rune(label))+4, 1)
 	return &Button{
 		Box:                      box,
 		label:                    label,
-		labelColor:               tcell.ColorWhite,
-		labelColorActivated:      tcell.ColorBlue,
-		backgroundColorActivated: tcell.ColorWhite,
+		labelColor:               Styles.PrimaryTextColor,
+		labelColorActivated:      Styles.InverseTextColor,
+		backgroundColorActivated: Styles.PrimaryTextColor,
 	}
 }
 
