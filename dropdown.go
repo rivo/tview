@@ -81,6 +81,16 @@ func (d *DropDown) SetCurrentOption(index int) *DropDown {
 	return d
 }
 
+// GetCurrentOption returns the index of the currently selected option as well
+// as its text. If no option was selected, -1 and an empty string is returned.
+func (d *DropDown) GetCurrentOption() (int, string) {
+	var text string
+	if d.currentOption >= 0 && d.currentOption < len(d.options) {
+		text = d.options[d.currentOption].Text
+	}
+	return d.currentOption, text
+}
+
 // SetLabel sets the text to be displayed before the input area.
 func (d *DropDown) SetLabel(label string) *DropDown {
 	d.label = label

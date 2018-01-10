@@ -129,9 +129,10 @@ func (f *Form) SetButtonTextColor(color tcell.Color) *Form {
 
 // AddInputField adds an input field to the form. It has a label, an optional
 // initial value, a field length (a value of 0 extends it as far as possible),
-// and an optional accept function to validate the item's value (set to nil to
-// accept any text).
-func (f *Form) AddInputField(label, value string, fieldLength int, accept func(textToCheck string, lastChar rune) bool) *Form {
+// an optional accept function to validate the item's value (set to nil to
+// accept any text), and an (optional) callback function which is invoked when
+// the input field's text has changed.
+func (f *Form) AddInputField(label, value string, fieldLength int, accept func(textToCheck string, lastChar rune) bool, changed func(text string)) *Form {
 	f.items = append(f.items, NewInputField().
 		SetLabel(label).
 		SetText(value).
@@ -167,6 +168,13 @@ func (f *Form) AddCheckbox(label string, checked bool, changed func(checked bool
 func (f *Form) AddButton(label string, selected func()) *Form {
 	f.buttons = append(f.buttons, NewButton(label).SetSelectedFunc(selected))
 	return f
+}
+
+// GetElement returns the form element at the given position, starting with
+// index 0. Elements are referenced in the order they were added. Buttons are
+// not included.
+func (f *Form) GetElement(index int) Primitive {
+	return f.items[index]
 }
 
 // SetCancelFunc sets a handler which is called when the user hits the Escape

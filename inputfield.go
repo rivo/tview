@@ -36,6 +36,9 @@ type InputField struct {
 	// An optional function which may reject the last character that was entered.
 	accept func(text string, ch rune) bool
 
+	// An optional function which is called when the input has changed.
+	changed func(text string)
+
 	// An optional function which is called when the user indicated that they
 	// are done entering text. The key which was pressed is provided (tab,
 	// shift-tab, enter, or escape).
@@ -55,6 +58,9 @@ func NewInputField() *InputField {
 // SetText sets the current text of the input field.
 func (i *InputField) SetText(text string) *InputField {
 	i.text = text
+	if i.changed != nil {
+		i.changed(text)
+	}
 	return i
 }
 
@@ -116,6 +122,13 @@ func (i *InputField) SetFieldLength(length int) *InputField {
 // be used for common input (e.g. numbers, maximum text length).
 func (i *InputField) SetAcceptanceFunc(handler func(textToCheck string, lastChar rune) bool) *InputField {
 	i.accept = handler
+	return i
+}
+
+// SetChangedFunc sets a handler which is called whenever the text of the input
+// field has changed. It receives the current text (after the change).
+func (i *InputField) SetChangedFunc(handler func(text string)) *InputField {
+	i.changed = handler
 	return i
 }
 
@@ -202,6 +215,14 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		// Trigger changed events.
+		currentText := i.text
+		defer func() {
+			if i.text != currentText && i.changed != nil {
+				i.changed(i.text)
+			}
+		}()
+
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyRune: // Regular character.

@@ -12,8 +12,8 @@ const form = `[green]package[white] main
 
 [green]func[white] [yellow]main[white]() {
     form := tview.[yellow]NewForm[white]().
-        [yellow]AddInputField[white]([red]"First name:"[white], [red]""[white], [red]20[white], nil).
-        [yellow]AddInputField[white]([red]"Last name:"[white], [red]""[white], [red]20[white], nil).
+        [yellow]AddInputField[white]([red]"First name:"[white], [red]""[white], [red]20[white], nil, nil).
+        [yellow]AddInputField[white]([red]"Last name:"[white], [red]""[white], [red]20[white], nil, nil).
         [yellow]AddDropDown[white]([red]"Role:"[white], [][green]string[white]{
             [red]"Engineer"[white],
             [red]"Manager"[white],
@@ -30,8 +30,8 @@ const form = `[green]package[white] main
 // Form demonstrates forms.
 func Form(nextSlide func()) (title string, content tview.Primitive) {
 	f := tview.NewForm().
-		AddInputField("First name:", "", 20, nil).
-		AddInputField("Last name:", "", 20, nil).
+		AddInputField("First name:", "", 20, nil, nil).
+		AddInputField("Last name:", "", 20, nil, nil).
 		AddDropDown("Role:", []string{"Engineer", "Manager", "Administration"}, 0, nil).
 		AddCheckbox("On vacation:", false, nil).
 		AddButton("Save", nextSlide).

@@ -9,8 +9,8 @@ func main() {
 	app := tview.NewApplication()
 	form := tview.NewForm().
 		AddDropDown("Title", []string{"Mr.", "Ms.", "Mrs.", "Dr.", "Prof."}, 0, nil).
-		AddInputField("First name", "", 20, nil).
-		AddInputField("Last name", "", 20, nil).
+		AddInputField("First name", "", 20, nil, nil).
+		AddInputField("Last name", "", 20, nil, nil).
 		AddCheckbox("Age 18+", false, nil).
 		AddButton("Save", nil).
 		AddButton("Quit", func() {

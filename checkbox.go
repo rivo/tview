@@ -52,6 +52,11 @@ func (c *Checkbox) SetChecked(checked bool) *Checkbox {
 	return c
 }
 
+// IsChecked returns whether or not the box is checked.
+func (c *Checkbox) IsChecked() bool {
+	return c.checked
+}
+
 // SetLabel sets the text to be displayed before the input area.
 func (c *Checkbox) SetLabel(label string) *Checkbox {
 	c.label = label
