@@ -186,7 +186,7 @@ func NewTextView() *TextView {
 }
 
 // SetScrollable sets the flag that decides whether or not the text view is
-// scollable. If true, text is kept in a buffer and can be navigated.
+// scrollable. If true, text is kept in a buffer and can be navigated.
 func (t *TextView) SetScrollable(scrollable bool) *TextView {
 	t.scrollable = scrollable
 	if !scrollable {
