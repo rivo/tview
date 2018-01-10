@@ -33,6 +33,7 @@ func TestGetLastPosition(t *testing.T) {
 }
 
 func TestNewTable(t *testing.T) {
+	//testNewTable
 	table := NewTable()
 	if !reflect.DeepEqual(table.Box, NewBox()) {
 		t.Error("table.Box is wrong")
@@ -45,6 +46,9 @@ func TestNewTable(t *testing.T) {
 	}
 	if table.separator != rune(' ') {
 		t.Error("table.separator is not ' '")
+	}
+	if table.cells != nil {
+		t.Error("table.cells not nil")
 	}
 	if table.lastColumn != -1 {
 		t.Error("table.lastColumn is wrong")
@@ -78,5 +82,24 @@ func TestNewTable(t *testing.T) {
 	}
 	if table.done != nil {
 		t.Error("table.Done is not nil")
+	}
+}
+
+func TestTableClear(t *testing.T) {
+	tables := []*Table{
+		NewTable(),
+		NewTable(),
+		NewTable(),
+	}
+	tables[1].cells = make([][]*TableCell, 0)
+	tables[2].lastColumn = 0
+	for i, tt := range tables {
+		table := tt.Clear()
+		if table.cells != nil {
+			t.Errorf("case: %d, table.cells not nil", i)
+		}
+		if table.lastColumn != -1 {
+			t.Errorf("case %d, table.lastColumn is wrong", i)
+		}
 	}
 }
