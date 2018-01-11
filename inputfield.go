@@ -3,6 +3,7 @@ package tview
 import (
 	"math"
 	"regexp"
+	"strings"
 
 	"github.com/gdamore/tcell"
 )
@@ -43,6 +44,10 @@ type InputField struct {
 	// are done entering text. The key which was pressed is provided (tab,
 	// shift-tab, enter, or escape).
 	done func(tcell.Key)
+
+	// An optional character to mask entered text (useful for password fields).
+	// A value of 0 disabled masking.
+	maskCharacter rune
 }
 
 // NewInputField returns a new input field.
@@ -145,6 +150,12 @@ func (i *InputField) SetDoneFunc(handler func(key tcell.Key)) *InputField {
 	return i
 }
 
+// SetMaskCharacter sets a character that masks user input on a screen.
+func (i *InputField) SetMaskCharacter(r rune) *InputField {
+	i.maskCharacter = r
+	return i
+}
+
 // SetFinishedFunc calls SetDoneFunc().
 func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return i.SetDoneFunc(handler)
@@ -179,10 +190,16 @@ func (i *InputField) Draw(screen tcell.Screen) {
 
 	// Draw entered text.
 	fieldLength-- // We need one cell for the cursor.
+
+	text := i.text
+	if i.maskCharacter > 0 {
+		text = strings.Repeat(string(i.maskCharacter), len(i.text))
+	}
+
 	if fieldLength < len([]rune(i.text)) {
-		Print(screen, i.text, x, y, fieldLength, AlignRight, i.fieldTextColor)
+		Print(screen, text, x, y, fieldLength, AlignRight, i.fieldTextColor)
 	} else {
-		Print(screen, i.text, x, y, fieldLength, AlignLeft, i.fieldTextColor)
+		Print(screen, text, x, y, fieldLength, AlignLeft, i.fieldTextColor)
 	}
 
 	// Set cursor.
