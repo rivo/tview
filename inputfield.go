@@ -3,6 +3,8 @@ package tview
 import (
 	"math"
 	"regexp"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/gdamore/tcell"
 	runewidth "github.com/mattn/go-runewidth"
@@ -10,6 +12,9 @@ import (
 
 // InputField is a one-line box (three lines if there is a title) where the
 // user can enter text.
+//
+// Use SetMaskCharacter() to hide input from onlookers (e.g. for password
+// input).
 //
 // See https://github.com/rivo/tview/wiki/InputField for an example.
 type InputField struct {
@@ -33,6 +38,10 @@ type InputField struct {
 	// The length of the input area. A value of 0 means extend as much as
 	// possible.
 	fieldLength int
+
+	// A character to mask entered text (useful for password fields). A value of 0
+	// disables masking.
+	maskCharacter rune
 
 	// An optional function which may reject the last character that was entered.
 	accept func(text string, ch rune) bool
@@ -116,6 +125,13 @@ func (i *InputField) SetFieldLength(length int) *InputField {
 	return i
 }
 
+// SetMaskCharacter sets a character that masks user input on a screen. A value
+// of 0 disables masking.
+func (i *InputField) SetMaskCharacter(mask rune) *InputField {
+	i.maskCharacter = mask
+	return i
+}
+
 // SetAcceptanceFunc sets a handler which may reject the last character that was
 // entered (by returning false).
 //
@@ -180,11 +196,15 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 
 	// Draw entered text.
+	text := i.text
+	if i.maskCharacter > 0 {
+		text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
+	}
 	fieldLength-- // We need one cell for the cursor.
 	if fieldLength < runewidth.StringWidth(i.text) {
-		Print(screen, i.text, x, y, fieldLength, AlignRight, i.fieldTextColor)
+		Print(screen, text, x, y, fieldLength, AlignRight, i.fieldTextColor)
 	} else {
-		Print(screen, i.text, x, y, fieldLength, AlignLeft, i.fieldTextColor)
+		Print(screen, text, x, y, fieldLength, AlignLeft, i.fieldTextColor)
 	}
 
 	// Set cursor.

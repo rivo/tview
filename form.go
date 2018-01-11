@@ -138,7 +138,27 @@ func (f *Form) AddInputField(label, value string, fieldLength int, accept func(t
 		SetLabel(label).
 		SetText(value).
 		SetFieldLength(fieldLength).
-		SetAcceptanceFunc(accept))
+		SetAcceptanceFunc(accept).
+		SetChangedFunc(changed))
+	return f
+}
+
+// AddPasswordField adds a password field to the form. This is similar to an
+// input field except that the user's input not shown. Instead, a "mask"
+// character is displayed. The password field has a label, an optional initial
+// value, a field length (a value of 0 extends it as far as possible), and an
+// (optional) callback function which is invoked when the input field's text has
+// changed.
+func (f *Form) AddPasswordField(label, value string, fieldLength int, mask rune, changed func(text string)) *Form {
+	if mask == 0 {
+		mask = '*'
+	}
+	f.items = append(f.items, NewInputField().
+		SetLabel(label).
+		SetText(value).
+		SetFieldLength(fieldLength).
+		SetMaskCharacter(mask).
+		SetChangedFunc(changed))
 	return f
 }
 
