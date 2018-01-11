@@ -169,10 +169,19 @@ func (a *Application) Run() error {
 				a.Draw()
 			}
 			a.Draw()
+		case *tcell.EventInterrupt:
+			if p, ok := event.Data().(Primitive); ok {
+				a.SetFocus(p)
+				a.Draw()
+			}
 		}
 	}
 
 	return nil
+}
+
+func (a *Application) Interrupt(v interface{}) {
+	a.screen.PostEvent(tcell.NewEventInterrupt(v))
 }
 
 // Stop stops the application, causing Run() to return.
