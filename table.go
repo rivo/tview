@@ -2,6 +2,7 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // TableCell represents one cell inside a Table.
@@ -13,9 +14,9 @@ type TableCell struct {
 	// or AlignRight.
 	Align int
 
-	// The maximum width of the cell. This is used to give a column a maximum
-	// width. Any cell text whose length exceeds this width is cut off. Set to
-	// 0 if there is no maximum width.
+	// The maximum width of the cell in screen space. This is used to give a
+	// column a maximum width. Any cell text whose screen width exceeds this width
+	// is cut off. Set to 0 if there is no maximum width.
 	MaxWidth int
 
 	// The color of the cell text.
@@ -464,7 +465,7 @@ ColumnLoop:
 		maxWidth := -1
 		for _, row := range rows {
 			if cell := getCell(row, column); cell != nil {
-				cellWidth := len(cell.Text)
+				cellWidth := runewidth.StringWidth(cell.Text)
 				if cell.MaxWidth > 0 && cell.MaxWidth < cellWidth {
 					cellWidth = cell.MaxWidth
 				}
@@ -559,11 +560,22 @@ ColumnLoop:
 			cell.x, cell.y, cell.width = x+columnX+1, y+rowY, finalWidth
 
 			// Draw text.
-			text := []rune(cell.Text)
-			if finalWidth < len(text) && finalWidth > 0 {
-				text = append(text[:finalWidth-1], GraphicsEllipsis)
+			text := cell.Text
+			textWidth := runewidth.StringWidth(text)
+			if finalWidth < textWidth && finalWidth > 0 {
+				// Grow title until we hit the end.
+				abbrWidth := runewidth.RuneWidth(GraphicsEllipsis)
+				abbrPos := 0
+				for pos, ch := range text {
+					if abbrWidth >= finalWidth {
+						text = text[:abbrPos] + string(GraphicsEllipsis)
+						break
+					}
+					abbrWidth += runewidth.RuneWidth(ch)
+					abbrPos = pos
+				}
 			}
-			Print(screen, string(text), x+columnX+1, y+rowY, finalWidth, cell.Align, textColor)
+			Print(screen, text, x+columnX+1, y+rowY, finalWidth, cell.Align, textColor)
 		}
 
 		// Draw bottom border.

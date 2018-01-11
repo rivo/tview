@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"github.com/gdamore/tcell"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // InputField is a one-line box (three lines if there is a title) where the
@@ -162,7 +163,8 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	x += Print(screen, i.label, x, y, rightLimit-x, AlignLeft, i.labelColor)
+	_, drawnWidth := Print(screen, i.label, x, y, rightLimit-x, AlignLeft, i.labelColor)
+	x += drawnWidth
 
 	// Draw input area.
 	fieldLength := i.fieldLength
@@ -179,7 +181,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 
 	// Draw entered text.
 	fieldLength-- // We need one cell for the cursor.
-	if fieldLength < len([]rune(i.text)) {
+	if fieldLength < runewidth.StringWidth(i.text) {
 		Print(screen, i.text, x, y, fieldLength, AlignRight, i.fieldTextColor)
 	} else {
 		Print(screen, i.text, x, y, fieldLength, AlignLeft, i.fieldTextColor)
@@ -201,11 +203,11 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 		y++
 		rightLimit -= 2
 	}
-	fieldLength := len([]rune(i.text))
+	fieldLength := runewidth.StringWidth(i.text)
 	if i.fieldLength > 0 && fieldLength > i.fieldLength-1 {
 		fieldLength = i.fieldLength - 1
 	}
-	x += len([]rune(i.label)) + fieldLength
+	x += runewidth.StringWidth(i.label) + fieldLength
 	if x >= rightLimit {
 		x = rightLimit - 1
 	}
@@ -239,7 +241,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			lastWord := regexp.MustCompile(`\s*\S+\s*$`)
 			i.text = lastWord.ReplaceAllString(i.text, "")
 		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete last character.
-			if len([]rune(i.text)) == 0 {
+			if len(i.text) == 0 {
 				break
 			}
 			runes := []rune(i.text)

@@ -2,6 +2,7 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // Box implements Primitive with a background and optional elements such as a
@@ -188,11 +189,22 @@ func (b *Box) Draw(screen tcell.Screen) {
 		// Draw title.
 		if b.title != "" && b.width >= 4 {
 			width := b.width - 2
-			title := []rune(b.title)
-			if width < len(title) && width > 0 {
-				title = append(title[:width-1], GraphicsEllipsis)
+			title := b.title
+			titleWidth := runewidth.StringWidth(title)
+			if width < titleWidth && width > 0 {
+				// Grow title until we hit the end.
+				abbrWidth := runewidth.RuneWidth(GraphicsEllipsis)
+				abbrPos := 0
+				for pos, ch := range title {
+					if abbrWidth >= width {
+						title = title[:abbrPos] + string(GraphicsEllipsis)
+						break
+					}
+					abbrWidth += runewidth.RuneWidth(ch)
+					abbrPos = pos
+				}
 			}
-			Print(screen, string(title), b.x+1, b.y, width, b.titleAlign, b.titleColor)
+			Print(screen, title, b.x+1, b.y, width, b.titleAlign, b.titleColor)
 		}
 	}
 }

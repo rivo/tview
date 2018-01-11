@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/gdamore/tcell"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // textColors maps color strings which may be embedded in text sent to a
@@ -484,7 +485,7 @@ func (t *TextView) reindexBuffer(width int) {
 
 		// Break down the line.
 		var currentTag, currentRegion, currentWidth int
-		for pos := range str {
+		for pos, ch := range str {
 			// Skip any color tags.
 			if currentTag < len(colorTags) && pos >= colorTagIndices[currentTag][0] && pos < colorTagIndices[currentTag][1] {
 				if pos == colorTagIndices[currentTag][1]-1 {
@@ -529,7 +530,7 @@ func (t *TextView) reindexBuffer(width int) {
 			}
 
 			// Proceed.
-			currentWidth++
+			currentWidth += runewidth.RuneWidth(ch)
 
 			// Have we crossed the width?
 			if t.wrap && currentWidth >= width {
@@ -652,7 +653,8 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			}
 
 			// Stop at the right border.
-			if posX >= width {
+			chWidth := runewidth.RuneWidth(ch)
+			if posX+chWidth > width {
 				break
 			}
 
@@ -665,10 +667,12 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			}
 
 			// Draw the character.
-			screen.SetContent(x+posX, y+line-t.lineOffset, ch, nil, style)
+			for offset := 0; offset < chWidth; offset++ {
+				screen.SetContent(x+posX+offset, y+line-t.lineOffset, ch, nil, style)
+			}
 
 			// Advance.
-			posX++
+			posX += chWidth
 		}
 	}
 

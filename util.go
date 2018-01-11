@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // Text alignment within a box.
@@ -90,40 +91,69 @@ func init() {
 // not exceeding that box. "align" is one of AlignLeft, AlignCenter, or
 // AlignRight. The screen's background color will not be changed.
 //
-// Returns the number of actual runes printed.
-func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tcell.Color) int {
+// Returns the number of actual runes printed and the actual width used for the
+// printed runes.
+func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tcell.Color) (int, int) {
 	// We deal with runes, not with bytes.
 	runes := []rune(text)
 	if maxWidth < 0 {
-		return 0
+		return 0, 0
 	}
 
-	// AlignCenter is split into two parts.
+	// AlignCenter is a special case.
 	if align == AlignCenter {
-		half := len(runes) / 2
-		halfWidth := maxWidth / 2
-		return Print(screen, string(runes[:half]), x, y, halfWidth, AlignRight, color) +
-			Print(screen, string(runes[half:]), x+halfWidth, y, maxWidth-halfWidth, AlignLeft, color)
+		width := runewidth.StringWidth(text)
+		if width == maxWidth {
+			// Use the exact space.
+			return Print(screen, text, x, y, maxWidth, AlignLeft, color)
+		} else if width < maxWidth {
+			// We have more space than we need.
+			half := (maxWidth - width) / 2
+			return Print(screen, text, x+half, y, maxWidth-half, AlignLeft, color)
+		} else {
+			// Chop off runes until we have a perfect fit.
+			var start, choppedLeft, choppedRight int
+			ru := runes
+			for len(ru) > 0 && width-choppedLeft-choppedRight > maxWidth {
+				leftWidth := runewidth.RuneWidth(ru[0])
+				rightWidth := runewidth.RuneWidth(ru[len(ru)-1])
+				if choppedLeft < choppedRight {
+					start++
+					choppedLeft += leftWidth
+					ru = ru[1:]
+				} else {
+					choppedRight += rightWidth
+					ru = ru[:len(ru)-1]
+				}
+			}
+			return Print(screen, string(ru), x, y, maxWidth, AlignLeft, color)
+		}
 	}
 
 	// Draw text.
 	drawn := 0
+	drawnWidth := 0
 	for pos, ch := range runes {
-		if pos >= maxWidth {
+		chWidth := runewidth.RuneWidth(ch)
+		if drawnWidth+chWidth > maxWidth {
 			break
 		}
-		finalX := x + pos
+		finalX := x + drawnWidth
 		if align == AlignRight {
 			ch = runes[len(runes)-1-pos]
-			finalX = x + maxWidth - 1 - pos
+			finalX = x + maxWidth - chWidth - drawnWidth
 		}
 		_, _, style, _ := screen.GetContent(finalX, y)
 		style = style.Foreground(color)
-		screen.SetContent(finalX, y, ch, nil, style)
+		for offset := 0; offset < chWidth; offset++ {
+			// To avoid undesired effects, we place the same character in all cells.
+			screen.SetContent(finalX+offset, y, ch, nil, style)
+		}
 		drawn++
+		drawnWidth += chWidth
 	}
 
-	return drawn
+	return drawn, drawnWidth
 }
 
 // PrintSimple prints white text to the screen at the given position.
@@ -132,8 +162,8 @@ func PrintSimple(screen tcell.Screen, text string, x, y int) {
 }
 
 // WordWrap splits a text such that each resulting line does not exceed the
-// given width. Possible split points are after commas, dots, dashes, and any
-// whitespace. Whitespace at split points will be dropped.
+// given screen width. Possible split points are after commas, dots, dashes,
+// and any whitespace. Whitespace at split points will be dropped.
 //
 // Text is always split at newline characters ('\n').
 func WordWrap(text string, width int) (lines []string) {
@@ -146,6 +176,8 @@ func WordWrap(text string, width int) (lines []string) {
 	text = strings.TrimSpace(text)
 
 	for pos, ch := range text {
+		chWidth := runewidth.RuneWidth(ch)
+
 		if !evaluatingCandidate && x >= width {
 			// We've exceeded the width, we must split.
 			if candidate >= 0 {
@@ -190,8 +222,8 @@ func WordWrap(text string, width int) (lines []string) {
 				countAfterCandidate = 0
 			}
 		}
-		x++
-		countAfterCandidate++
+		x += chWidth
+		countAfterCandidate += chWidth
 	}
 
 	// Process remaining text.

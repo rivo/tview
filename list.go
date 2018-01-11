@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // listItem represents one item in a List.
@@ -207,7 +208,7 @@ func (l *List) Draw(screen tcell.Screen) {
 		// Main text.
 		color := l.mainTextColor
 		if index == l.currentItem {
-			textLength := len([]rune(item.MainText))
+			textLength := runewidth.StringWidth(item.MainText)
 			style := tcell.StyleDefault.Background(l.selectedBackgroundColor)
 			for bx := 0; bx < textLength && bx < width; bx++ {
 				screen.SetContent(x+bx, y, ' ', nil, style)

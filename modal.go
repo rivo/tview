@@ -2,6 +2,7 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // Modal is a centered message window used to inform the user or prompt them
@@ -101,7 +102,7 @@ func (m *Modal) Draw(screen tcell.Screen) {
 	// Calculate the width of this modal.
 	buttonsWidth := 0
 	for _, button := range m.form.buttons {
-		buttonsWidth += len([]rune(button.label)) + 4 + 2
+		buttonsWidth += runewidth.StringWidth(button.label) + 4 + 2
 	}
 	buttonsWidth -= 2
 	screenWidth, screenHeight := screen.Size()

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // FormItem is the interface all form items must implement to be able to be
@@ -197,8 +198,9 @@ func (f *Form) Draw(screen tcell.Screen) {
 	var labelLength int
 	for _, item := range f.items {
 		label := strings.TrimSpace(item.GetLabel())
-		if len([]rune(label)) > labelLength {
-			labelLength = len([]rune(label))
+		labelWidth := runewidth.StringWidth(label)
+		if labelWidth > labelLength {
+			labelLength = labelWidth
 		}
 	}
 	labelLength++ // Add one space.
@@ -210,7 +212,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 		}
 		label := strings.TrimSpace(item.GetLabel())
 		item.SetFormAttributes(
-			label+strings.Repeat(" ", labelLength-len([]rune(label))),
+			label+strings.Repeat(" ", labelLength-runewidth.StringWidth(label)),
 			f.labelColor,
 			f.backgroundColor,
 			f.fieldTextColor,
@@ -228,7 +230,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	buttonWidths := make([]int, len(f.buttons))
 	buttonsWidth := 0
 	for index, button := range f.buttons {
-		width := len([]rune(button.GetLabel())) + 4
+		width := runewidth.StringWidth(button.GetLabel()) + 4
 		buttonWidths[index] = width
 		buttonsWidth += width + 2
 	}

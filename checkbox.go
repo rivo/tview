@@ -133,7 +133,8 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	x += Print(screen, c.label, x, y, rightLimit-x, AlignLeft, c.labelColor)
+	_, drawnWidth := Print(screen, c.label, x, y, rightLimit-x, AlignLeft, c.labelColor)
+	x += drawnWidth
 
 	// Draw checkbox.
 	fieldStyle := tcell.StyleDefault.Background(c.fieldBackgroundColor).Foreground(c.fieldTextColor)
