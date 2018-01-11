@@ -112,15 +112,18 @@ func (a *Application) Run() error {
 	// Start event loop.
 	for {
 		a.RLock()
-		if a.screen == nil {
-			a.RUnlock()
+		screen := a.screen
+		a.RUnlock()
+		if screen == nil {
 			break
 		}
+
+		// Wait for next event.
 		event := a.screen.PollEvent()
-		a.RUnlock()
 		if event == nil {
 			break // The screen was finalized.
 		}
+
 		switch event := event.(type) {
 		case *tcell.EventKey:
 			a.RLock()
