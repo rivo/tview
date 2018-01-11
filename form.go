@@ -137,7 +137,8 @@ func (f *Form) AddInputField(label, value string, fieldLength int, accept func(t
 		SetLabel(label).
 		SetText(value).
 		SetFieldLength(fieldLength).
-		SetAcceptanceFunc(accept))
+		SetAcceptanceFunc(accept).
+		SetChangedFunc(changed))
 	return f
 }
 
