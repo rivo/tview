@@ -67,7 +67,7 @@ func main() {
 	for index, slide := range slides {
 		title, primitive := slide(nextSlide)
 		pages.AddPage(strconv.Itoa(index), primitive, true, index == currentSlide)
-		fmt.Fprintf(info, `%d ["%d"][cyan]%s[white][""]  `, index+1, index, title)
+		fmt.Fprintf(info, `%d ["%d"][darkcyan]%s[white][""]  `, index+1, index, title)
 	}
 
 	// Create the main layout.

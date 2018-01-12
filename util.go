@@ -2,7 +2,6 @@ package tview
 
 import (
 	"math"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -75,16 +74,6 @@ func init() {
 			return len([]rune(text)) <= maxLength
 		}
 	}
-
-	// Regular expressions.
-	var colors string
-	for color := range textColors {
-		if len(colors) > 0 {
-			colors += "|"
-		}
-		colors += color
-	}
-	colorPattern = regexp.MustCompile(`\[(` + colors + `)\]`)
 }
 
 // Print prints text onto the screen into the given box at (x,y,maxWidth,1),

@@ -11,21 +11,9 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 )
 
-// textColors maps color strings which may be embedded in text sent to a
-// TextView to their tcell counterparts.
-var textColors = map[string]tcell.Color{
-	"red":     tcell.ColorRed,
-	"white":   tcell.ColorWhite,
-	"yellow":  tcell.ColorYellow,
-	"blue":    tcell.ColorBlue,
-	"green":   tcell.ColorGreen,
-	"cyan":    tcell.ColorDarkCyan,
-	"magenta": tcell.ColorDarkMagenta,
-}
-
 // Regular expressions commonly used throughout the TextView class.
 var (
-	colorPattern  *regexp.Regexp // Initialized in the init() function.
+	colorPattern  = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})\]`)
 	regionPattern = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
 )
 
@@ -72,8 +60,9 @@ type textViewIndex struct {
 //
 //   This is a [red]warning[white]!
 //
-// will print the word "warning" in red. The following colors are currently
-// supported: white, yellow, blue, green, red, cyan, magenta.
+// will print the word "warning" in red. You can provide W3C color names or
+// hex strings starting with "#", followed by 6 hexadecimal digits. See
+// tcell.GetColor() for more information.
 //
 // Regions and Highlights
 //
@@ -489,7 +478,7 @@ func (t *TextView) reindexBuffer(width int) {
 			// Skip any color tags.
 			if currentTag < len(colorTags) && pos >= colorTagIndices[currentTag][0] && pos < colorTagIndices[currentTag][1] {
 				if pos == colorTagIndices[currentTag][1]-1 {
-					color = textColors[colorTags[currentTag][1]]
+					color = tcell.GetColor(colorTags[currentTag][1])
 					currentTag++
 				}
 				continue
@@ -631,7 +620,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			// Get the color.
 			if currentTag < len(colorTags) && pos >= colorTagIndices[currentTag][0] && pos < colorTagIndices[currentTag][1] {
 				if pos == colorTagIndices[currentTag][1]-1 {
-					color = textColors[colorTags[currentTag][1]]
+					color = tcell.GetColor(colorTags[currentTag][1])
 					currentTag++
 				}
 				continue

@@ -31,7 +31,7 @@ func main() {
 	go func() {
 		for _, word := range strings.Split(corporate, " ") {
 			if word == "the" {
-				word = "[red]the[white]"
+				word = "[#ff0000]the[white]"
 			}
 			if word == "to" {
 				word = fmt.Sprintf(`["%d"]to[""]`, numSelections)
