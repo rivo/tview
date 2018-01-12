@@ -450,7 +450,7 @@ func (t *TextView) reindexBuffer(width int) {
 	t.longestLine = 0
 	color := t.textColor
 	if !t.wrap {
-		width = math.MaxInt64
+		width = math.MaxInt32
 	}
 	for index, str := range t.buffer {
 		// Find all color tags in this line.

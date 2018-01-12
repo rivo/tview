@@ -185,7 +185,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	// Draw input area.
 	fieldLength := i.fieldLength
 	if fieldLength == 0 {
-		fieldLength = math.MaxInt64
+		fieldLength = math.MaxInt32
 	}
 	if rightLimit-x < fieldLength {
 		fieldLength = rightLimit - x
