@@ -64,6 +64,7 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 - v0.4 (2018-01-12)
   - `TextView` now accepts color tags with any W3C color (including RGB hex values).
+	- Support for wide unicode characters.
 - v0.3 (2018-01-11)
   - Added masking to `InputField` and password entry to `Form`.
 - v0.2 (2018-01-10)
