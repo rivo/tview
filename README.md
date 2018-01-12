@@ -9,7 +9,7 @@ This Go package provides commonly needed components for terminal based user inte
 
 Among these components are:
 
-- __Input forms__ (include __input fields__, __drop-down selections__, __checkboxes__, and __buttons__)
+- __Input forms__ (include __input/password fields__, __drop-down selections__, __checkboxes__, and __buttons__)
 - Navigable multi-color __text views__
 - Sophisticated navigable __table views__
 - Selectable __lists__
@@ -54,7 +54,7 @@ Refer to https://godoc.org/github.com/rivo/tview for the package's documentation
 
 ## Dependencies
 
-This package is based on [github.com/gdamore/tcell](https://github.com/gdamore/tcell).
+This package is based on [github.com/gdamore/tcell](https://github.com/gdamore/tcell) (and its dependencies).
 
 ## Your Feedback
 
@@ -62,10 +62,12 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 ## Releases
 
+- v0.4 (2018-01-12)
+  - `TextView` now accepts color tags with any W3C color (including RGB hex values).
 - v0.3 (2018-01-11)
-  - Added masking to `InputField` and password entry to `Form`
+  - Added masking to `InputField` and password entry to `Form`.
 - v0.2 (2018-01-10)
   - Added `Styles` variable with default colors for primitives.
 	- Completed some missing InputField functions.
 - v0.1 (2018-01-06)
-  - First Release
+  - First Release.
