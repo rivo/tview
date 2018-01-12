@@ -1,4 +1,4 @@
-// Demo code for unicode(chinese) support.
+// Demo code for unicode support (demonstrates wide Chinese characters).
 package main
 
 import (
@@ -33,7 +33,7 @@ func main() {
 	}
 }
 
-// alert show a message dialog
+// alert shows a confirmation dialog.
 func alert(pages *tview.Pages, id string, message string) *tview.Pages {
 	return pages.AddPage(
 		id,
