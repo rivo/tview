@@ -46,7 +46,7 @@ func NewApplication() *Application {
 // The handler receives the Primitive to which the key is originally redirected,
 // the one which has focus, or nil if it was not directed to a Primitive. The
 // handler also returns whether or not the key event is then forwarded to that
-// Primitive.
+// Primitive. Draw() is called implicitly if the event is not forwarded.
 //
 // Special keys (e.g. Escape, Enter, or Ctrl-A) are defined by the "key"
 // argument. The "ch" rune is ignored. Other keys (e.g. "a", "h", or "5") are
@@ -134,6 +134,7 @@ func (a *Application) Run() error {
 			if event.Key() == tcell.KeyRune {
 				if handler, ok := a.runeOverrides[event.Rune()]; ok {
 					if !handler(p) {
+						a.Draw()
 						break
 					}
 				}
@@ -144,6 +145,7 @@ func (a *Application) Run() error {
 						pr = nil
 					}
 					if !handler(pr) {
+						a.Draw()
 						break
 					}
 				}
