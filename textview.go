@@ -17,6 +17,9 @@ var (
 	regionPattern = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
 )
 
+// TabSize is the number of spaces to be drawn for a tab character.
+var TabSize = 4
+
 // textViewIndex contains information about each line displayed in the text
 // view.
 type textViewIndex struct {
@@ -498,6 +501,15 @@ func (t *TextView) reindexBuffer(width int) {
 				continue
 			}
 
+			// Get the width of the current rune.
+			chWidth := runewidth.RuneWidth(ch)
+			if ch == '\t' {
+				chWidth = TabSize
+			}
+			if chWidth == 0 {
+				continue // Skip width-less runes.
+			}
+
 			// Add this line.
 			if currentWidth == 0 {
 				t.index = append(t.index, &textViewIndex{
@@ -519,7 +531,7 @@ func (t *TextView) reindexBuffer(width int) {
 			}
 
 			// Proceed.
-			currentWidth += runewidth.RuneWidth(ch)
+			currentWidth += chWidth
 
 			// Have we crossed the width?
 			if t.wrap && currentWidth >= width {
@@ -641,8 +653,17 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				continue
 			}
 
-			// Stop at the right border.
+			// Determine the width of this rune.
 			chWidth := runewidth.RuneWidth(ch)
+			if ch == '\t' {
+				chWidth = TabSize
+				ch = ' '
+			}
+			if chWidth == 0 {
+				continue
+			}
+
+			// Stop at the right border.
 			if posX+chWidth > width {
 				break
 			}
