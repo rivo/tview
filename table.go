@@ -539,6 +539,9 @@ ColumnLoop:
 
 			// Get the cell.
 			cell := getCell(row, column)
+			if cell == nil {
+				continue
+			}
 
 			// Determine colors.
 			bgColor := t.backgroundColor
