@@ -24,6 +24,7 @@ func main() {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetRegions(true).
+		SetWordWrap(true).
 		SetChangedFunc(func() {
 			app.Draw()
 		})

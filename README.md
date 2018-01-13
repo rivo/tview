@@ -62,6 +62,8 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 ## Releases
 
+- v0.5 (2018-01-13)
+  - `TextView` now has word wrapping and text alignment
 - v0.4 (2018-01-12)
   - `TextView` now accepts color tags with any W3C color (including RGB hex values).
   - Support for wide unicode characters.

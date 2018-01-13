@@ -2,7 +2,6 @@ package tview
 
 import (
 	"bytes"
-	"math"
 	"regexp"
 	"sync"
 	"unicode/utf8"
@@ -13,20 +12,24 @@ import (
 
 // Regular expressions commonly used throughout the TextView class.
 var (
-	colorPattern  = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})\]`)
-	regionPattern = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
+	colorPattern    = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})\]`)
+	regionPattern   = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
+	boundaryPattern = regexp.MustCompile("([[:punct:]]\\s*|\\s+)")
+	spacePattern    = regexp.MustCompile(`\s+`)
 )
 
-// TabSize is the number of spaces to be drawn for a tab character.
+// TabSize is the number of spaces with which a tab character will be replaced.
 var TabSize = 4
 
 // textViewIndex contains information about each line displayed in the text
 // view.
 type textViewIndex struct {
-	Line   int         // The index into the "buffer" variable.
-	Pos    int         // The index into the "buffer" string.
-	Color  tcell.Color // The starting color.
-	Region string      // The starting region ID.
+	Line    int         // The index into the "buffer" variable.
+	Pos     int         // The index into the "buffer" string (byte position).
+	NextPos int         // The (byte) index of the next character in this buffer line.
+	Width   int         // The screen width of this line.
+	Color   tcell.Color // The starting color.
+	Region  string      // The starting region ID.
 }
 
 // TextView is a box which displays text. It implements the io.Writer interface
@@ -103,6 +106,9 @@ type TextView struct {
 	// to be re-indexed.
 	index []*textViewIndex
 
+	// The text alignment, one of AlignLeft, AlignCenter, or AlignRight.
+	align int
+
 	// Indices into the "index" slice which correspond to the first line of the
 	// first highlight and the last line of the last highlight. This is calculated
 	// during re-indexing. Set to -1 if there is no current highlight.
@@ -111,10 +117,10 @@ type TextView struct {
 	// A set of region IDs that are currently highlighted.
 	highlights map[string]struct{}
 
-	// The display width for which the index is created.
-	indexWidth int
+	// The last width for which the current table is drawn.
+	lastWidth int
 
-	// The width of the longest line in the index (not the buffer).
+	// The screen width of the longest line in the index (not the buffer).
 	longestLine int
 
 	// The index of the first line shown in the text view.
@@ -137,6 +143,10 @@ type TextView struct {
 	// onto the next line. If set to false, any characters beyond the available
 	// width are discarded.
 	wrap bool
+
+	// If set to true and if wrap is also true, lines are split at spaces or
+	// after punctuation characters.
+	wordWrap bool
 
 	// The (starting) color of the text.
 	textColor tcell.Color
@@ -172,6 +182,7 @@ func NewTextView() *TextView {
 		highlights:    make(map[string]struct{}),
 		lineOffset:    -1,
 		scrollable:    true,
+		align:         AlignLeft,
 		wrap:          true,
 		textColor:     Styles.PrimaryTextColor,
 		dynamicColors: false,
@@ -199,6 +210,29 @@ func (t *TextView) SetWrap(wrap bool) *TextView {
 	return t
 }
 
+// SetWordWrap sets the flag that, if true and if the "wrap" flag is also true
+// (see SetWrap()), wraps the line at spaces or after punctuation marks. Note
+// that trailing spaces will not be printed.
+//
+// This flag is ignored if the "wrap" flag is false.
+func (t *TextView) SetWordWrap(wrapOnWords bool) *TextView {
+	if t.wordWrap != wrapOnWords {
+		t.index = nil
+	}
+	t.wordWrap = wrapOnWords
+	return t
+}
+
+// SetTextAlign sets the text alignment within the text view. This must be
+// either AlignLeft, AlignCenter, or AlignRight.
+func (t *TextView) SetTextAlign(align int) *TextView {
+	if t.align != align {
+		t.index = nil
+	}
+	t.align = align
+	return t
+}
+
 // SetTextColor sets the initial color of the text (which can be changed
 // dynamically by sending color strings in square brackets to the text view if
 // dynamic colors are enabled).
@@ -220,6 +254,9 @@ func (t *TextView) SetDynamicColors(dynamic bool) *TextView {
 // SetRegions sets the flag that allows to define regions in the text. See class
 // description for details.
 func (t *TextView) SetRegions(regions bool) *TextView {
+	if t.regions != regions {
+		t.index = nil
+	}
 	t.regions = regions
 	return t
 }
@@ -273,6 +310,7 @@ func (t *TextView) Highlight(regionIDs ...string) *TextView {
 		}
 		t.highlights[id] = struct{}{}
 	}
+	t.index = nil
 	return t
 }
 
@@ -374,7 +412,9 @@ func (t *TextView) GetRegionText(regionID string) string {
 	return buffer.String()
 }
 
-// Write lets us implement the io.Writer interface.
+// Write lets us implement the io.Writer interface. Tab characters will be
+// replaced with TabSize space characters. A "\n" or "\r\n" will be interpreted
+// as a new line.
 func (t *TextView) Write(p []byte) (n int, err error) {
 	// Notify at the end.
 	if t.changed != nil {
@@ -396,8 +436,18 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 
 	// If we have a trailing open dynamic color, exclude it.
 	if t.dynamicColors {
-		openColor := regexp.MustCompile(`\[[a-z]+$`)
+		openColor := regexp.MustCompile(`\[([a-zA-Z]*|#[0-9a-zA-Z]*)$`)
 		location := openColor.FindIndex(newBytes)
+		if location != nil {
+			t.recentBytes = newBytes[location[0]:]
+			newBytes = newBytes[:location[0]]
+		}
+	}
+
+	// If we have a trailing open region, exclude it.
+	if t.regions {
+		openRegion := regexp.MustCompile(`\["[a-zA-Z0-9_,;: \-\.]*"?$`)
+		location := openRegion.FindIndex(newBytes)
 		if location != nil {
 			t.recentBytes = newBytes[location[0]:]
 			newBytes = newBytes[:location[0]]
@@ -406,6 +456,7 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 
 	// Transform the new bytes into strings.
 	newLine := regexp.MustCompile(`\r?\n`)
+	newBytes = bytes.Replace(newBytes, []byte{'\t'}, bytes.Repeat([]byte{' '}, TabSize), -1)
 	for index, line := range newLine.Split(string(newBytes), -1) {
 		if index == 0 {
 			if len(t.buffer) == 0 {
@@ -429,23 +480,25 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 // into the buffer from which on we will print text. It will also contain the
 // color with which the line starts.
 func (t *TextView) reindexBuffer(width int) {
-	if t.index != nil && width == t.indexWidth {
+	if t.index != nil {
 		return // Nothing has changed. We can still use the current index.
 	}
 	t.index = nil
 	t.fromHighlight, t.toHighlight = -1, -1
 
-	var (
-		regionID    string
-		highlighted bool
-	)
-	t.longestLine = 0
-	color := t.textColor
-	if !t.wrap {
-		width = math.MaxInt32
+	// If there's no space, there's no index.
+	if width < 1 {
+		return
 	}
-	for index, str := range t.buffer {
-		// Find all color tags in this line.
+
+	// Initial states.
+	regionID := ""
+	var highlighted bool
+	color := t.textColor
+
+	// Go through each line in the buffer.
+	for bufferIndex, str := range t.buffer {
+		// Find all color tags in this line. Then remove them.
 		var (
 			colorTagIndices [][]int
 			colorTags       [][]string
@@ -453,9 +506,10 @@ func (t *TextView) reindexBuffer(width int) {
 		if t.dynamicColors {
 			colorTagIndices = colorPattern.FindAllStringIndex(str, -1)
 			colorTags = colorPattern.FindAllStringSubmatch(str, -1)
+			str = colorPattern.ReplaceAllString(str, "")
 		}
 
-		// Find all regions in this line.
+		// Find all regions in this line. Then remove them.
 		var (
 			regionIndices [][]int
 			regions       [][]string
@@ -463,89 +517,109 @@ func (t *TextView) reindexBuffer(width int) {
 		if t.regions {
 			regionIndices = regionPattern.FindAllStringIndex(str, -1)
 			regions = regionPattern.FindAllStringSubmatch(str, -1)
+			str = regionPattern.ReplaceAllString(str, "")
 		}
 
-		// We also keep a reference to empty lines.
-		if len(str) == 0 {
-			t.index = append(t.index, &textViewIndex{
-				Line:   index,
-				Pos:    0,
+		// Split the line if required.
+		var splitLines []string
+		if t.wrap && len(str) > 0 {
+			for len(str) > 0 {
+				extract := runewidth.Truncate(str, width, "")
+				if t.wordWrap && len(extract) < len(str) {
+					// Add any spaces from the next line.
+					if spaces := spacePattern.FindStringIndex(str[len(extract):]); spaces != nil && spaces[0] == 0 {
+						extract = str[:len(extract)+spaces[1]]
+					}
+
+					// Can we split before the mandatory end?
+					matches := boundaryPattern.FindAllStringIndex(extract, -1)
+					if len(matches) > 0 {
+						// Yes. Let's split there.
+						extract = extract[:matches[len(matches)-1][1]]
+					}
+				}
+				splitLines = append(splitLines, extract)
+				str = str[len(extract):]
+			}
+		} else {
+			// No need to split the line.
+			splitLines = []string{str}
+		}
+
+		// Create index from split lines.
+		var startPos, originalPos, colorPos, regionPos int
+		for _, splitLine := range splitLines {
+			line := &textViewIndex{
+				Line:   bufferIndex,
+				Pos:    originalPos,
 				Color:  color,
 				Region: regionID,
-			})
-		}
-
-		// Break down the line.
-		var currentTag, currentRegion, currentWidth int
-		for pos, ch := range str {
-			// Skip any color tags.
-			if currentTag < len(colorTags) && pos >= colorTagIndices[currentTag][0] && pos < colorTagIndices[currentTag][1] {
-				if pos == colorTagIndices[currentTag][1]-1 {
-					color = tcell.GetColor(colorTags[currentTag][1])
-					currentTag++
-				}
-				continue
 			}
 
-			// Check regions.
-			if currentRegion < len(regionIndices) && pos >= regionIndices[currentRegion][0] && pos < regionIndices[currentRegion][1] {
-				if pos == regionIndices[currentRegion][1]-1 {
-					// We're done with this region.
-					regionID = regions[currentRegion][1]
+			// Shift original position with tags.
+			lineWidth := 0
+			for index, ch := range splitLine {
+				// Get the width of the current rune.
+				lineWidth += runewidth.RuneWidth(ch)
 
-					// Is this region highlighted?
+				// Process color tags.
+				for colorPos < len(colorTagIndices) && colorTagIndices[colorPos][0] <= originalPos+index {
+					originalPos += colorTagIndices[colorPos][1] - colorTagIndices[colorPos][0]
+					color = tcell.GetColor(colorTags[colorPos][1])
+					colorPos++
+				}
+
+				// Process region tags.
+				for regionPos < len(regionIndices) && regionIndices[regionPos][0] <= originalPos+index {
+					originalPos += regionIndices[regionPos][1] - regionIndices[regionPos][0]
+					regionID = regions[regionPos][1]
 					_, highlighted = t.highlights[regionID]
 
-					currentRegion++
-				}
-				continue
-			}
+					// Update highlight range.
+					if highlighted {
+						line := len(t.index)
+						if t.fromHighlight < 0 {
+							t.fromHighlight, t.toHighlight = line, line
+						} else if line > t.toHighlight {
+							t.toHighlight = line
+						}
+					}
 
-			// Get the width of the current rune.
-			chWidth := runewidth.RuneWidth(ch)
-			if ch == '\t' {
-				chWidth = TabSize
-			}
-			if chWidth == 0 {
-				continue // Skip width-less runes.
-			}
-
-			// Add this line.
-			if currentWidth == 0 {
-				t.index = append(t.index, &textViewIndex{
-					Line:   index,
-					Pos:    pos,
-					Color:  color,
-					Region: regionID,
-				})
-			}
-
-			// Update highlight range.
-			if highlighted {
-				line := len(t.index) - 1
-				if t.fromHighlight < 0 {
-					t.fromHighlight, t.toHighlight = line, line
-				} else if line > t.toHighlight {
-					t.toHighlight = line
+					regionPos++
 				}
 			}
 
-			// Proceed.
-			currentWidth += chWidth
+			// Advance to next line.
+			startPos += len(splitLine)
+			originalPos += len(splitLine)
 
-			// Have we crossed the width?
-			if t.wrap && currentWidth >= width {
-				currentWidth = 0
-			}
+			// Append this line.
+			line.NextPos = originalPos
+			line.Width = lineWidth
+			t.index = append(t.index, line)
+		}
 
-			// Do we have a new maximum width?
-			if currentWidth > t.longestLine {
-				t.longestLine = currentWidth
+		// Word-wrapped lines may have trailing whitespace. Remove it.
+		if t.wrap && t.wordWrap {
+			for _, line := range t.index {
+				str := t.buffer[line.Line][line.Pos:line.NextPos]
+				spaces := spacePattern.FindAllStringIndex(str, -1)
+				if spaces != nil && spaces[len(spaces)-1][1] == len(str) {
+					oldNextPos := line.NextPos
+					line.NextPos -= spaces[len(spaces)-1][1] - spaces[len(spaces)-1][0]
+					line.Width -= runewidth.StringWidth(t.buffer[line.Line][line.NextPos:oldNextPos])
+				}
 			}
 		}
 	}
 
-	t.indexWidth = width
+	// Calculate longest line.
+	t.longestLine = 0
+	for _, line := range t.index {
+		if line.Width > t.longestLine {
+			t.longestLine = line.Width
+		}
+	}
 }
 
 // Draw draws this primitive onto the screen.
@@ -558,8 +632,19 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	x, y, width, height := t.GetInnerRect()
 	t.pageSize = height
 
+	// If the width has changed, we need to reindex.
+	if width != t.lastWidth {
+		t.index = nil
+	}
+	t.lastWidth = width
+
 	// Re-index.
 	t.reindexBuffer(width)
+
+	// If we don't have an index, there's nothing to draw.
+	if t.index == nil {
+		return
+	}
 
 	// Move to highlighted regions.
 	if t.regions && t.scrollToHighlights && t.fromHighlight >= 0 {
@@ -586,11 +671,32 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	}
 
 	// Adjust column offset.
-	if t.columnOffset+width > t.longestLine {
-		t.columnOffset = t.longestLine - width
-	}
-	if t.columnOffset < 0 {
-		t.columnOffset = 0
+	if t.align == AlignLeft {
+		if t.columnOffset+width > t.longestLine {
+			t.columnOffset = t.longestLine - width
+		}
+		if t.columnOffset < 0 {
+			t.columnOffset = 0
+		}
+	} else if t.align == AlignRight {
+		if t.columnOffset-width < -t.longestLine {
+			t.columnOffset = width - t.longestLine
+		}
+		if t.columnOffset > 0 {
+			t.columnOffset = 0
+		}
+	} else { // AlignCenter.
+		half := (t.longestLine - width) / 2
+		if half > 0 {
+			if t.columnOffset > half {
+				t.columnOffset = half
+			}
+			if t.columnOffset < -half {
+				t.columnOffset = -half
+			}
+		} else {
+			t.columnOffset = 0
+		}
 	}
 
 	// Draw the buffer.
@@ -602,7 +708,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 		// Get the text for this line.
 		index := t.index[line]
-		text := t.buffer[index.Line][index.Pos:]
+		text := t.buffer[index.Line][index.Pos:index.NextPos]
 		color := index.Color
 		regionID := index.Region
 
@@ -626,8 +732,22 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			regions = regionPattern.FindAllStringSubmatch(text, -1)
 		}
 
-		// Print one line.
-		var currentTag, currentRegion, skip, posX int
+		// Calculate the position of the line.
+		var skip, posX int
+		if t.align == AlignLeft {
+			posX = -t.columnOffset
+		} else if t.align == AlignRight {
+			posX = width - index.Width - t.columnOffset
+		} else { // AlignCenter.
+			posX = (width-index.Width)/2 - t.columnOffset
+		}
+		if posX < 0 {
+			skip = -posX
+			posX = 0
+		}
+
+		// Print the line.
+		var currentTag, currentRegion, skipped int
 		for pos, ch := range text {
 			// Get the color.
 			if currentTag < len(colorTags) && pos >= colorTagIndices[currentTag][0] && pos < colorTagIndices[currentTag][1] {
@@ -647,19 +767,15 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				continue
 			}
 
-			// Skip to the right.
-			if !t.wrap && skip < t.columnOffset {
-				skip++
+			// Determine the width of this rune.
+			chWidth := runewidth.RuneWidth(ch)
+			if chWidth == 0 {
 				continue
 			}
 
-			// Determine the width of this rune.
-			chWidth := runewidth.RuneWidth(ch)
-			if ch == '\t' {
-				chWidth = TabSize
-				ch = ' '
-			}
-			if chWidth == 0 {
+			// Skip to the right.
+			if !t.wrap && skipped < skip {
+				skipped += chWidth
 				continue
 			}
 
