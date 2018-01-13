@@ -17,8 +17,8 @@ func main() {
 		AddCheckbox("年龄 18+", false, nil).
 		AddPasswordField("密码", "", 10, '*', nil).
 		AddButton("保存", func() {
-			_, title := form.GetElement(0).(*tview.DropDown).GetCurrentOption()
-			userName := form.GetElement(1).(*tview.InputField).GetText()
+			_, title := form.GetFormItem(0).(*tview.DropDown).GetCurrentOption()
+			userName := form.GetFormItem(1).(*tview.InputField).GetText()
 
 			alert(pages, "alert-dialog", fmt.Sprintf("保存成功，%s %s！", userName, title))
 		}).

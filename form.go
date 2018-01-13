@@ -191,10 +191,10 @@ func (f *Form) AddButton(label string, selected func()) *Form {
 	return f
 }
 
-// GetElement returns the form element at the given position, starting with
+// GetFormItem returns the form element at the given position, starting with
 // index 0. Elements are referenced in the order they were added. Buttons are
 // not included.
-func (f *Form) GetElement(index int) Primitive {
+func (f *Form) GetFormItem(index int) FormItem {
 	return f.items[index]
 }
 
