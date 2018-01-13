@@ -197,6 +197,12 @@ func (t *Table) SetSelectable(rows, columns bool) *Table {
 	return t
 }
 
+// GetSelectable returns what can be selected in a table. Refer to
+// SetSelectable() for details.
+func (t *Table) GetSelectable() (rows, columns bool) {
+	return t.rowsSelectable, t.columnsSelectable
+}
+
 // Select sets the selected cell. Depending on the selection settings
 // specified via SetSelectable(), this may be an entire row or column, or even
 // ignored completely.
