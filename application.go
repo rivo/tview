@@ -166,13 +166,14 @@ func (a *Application) Run() error {
 				}
 			}
 		case *tcell.EventResize:
+			a.Lock()
+			screen := a.screen
 			if a.rootAutoSize && a.root != nil {
-				a.Lock()
-				width, height := a.screen.Size()
+				width, height := screen.Size()
 				a.root.SetRect(0, 0, width, height)
-				a.Unlock()
-				a.Draw()
 			}
+			a.Unlock()
+			screen.Clear()
 			a.Draw()
 		}
 	}
