@@ -121,11 +121,13 @@ func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primiti
 	return b.wrapInputHandler(nil)
 }
 
-// SetInputCapture sets a function which captures key events before they are
+// SetInputCapture installs a function which captures key events before they are
 // forwarded to the primitive's default key event handler. This function can
 // then choose to forward that key event (or a different one) to the default
 // handler by returning it. If nil is returned, the default handler will not
 // be called.
+//
+// Providing a nil handler will remove a previously existing handler.
 func (b *Box) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Box {
 	b.inputCapture = capture
 	return b
