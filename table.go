@@ -130,6 +130,11 @@ type Table struct {
 	// Likewise for entire columns.
 	selected func(row, column int)
 
+	// An optional function which gets called when the user changes the selection.
+	// If entire rows selected, the column value is undefined.
+	// Likewise for entire columns.
+	selectionChanged func(row, column int)
+
 	// An optional function which gets called when the user presses Escape, Tab,
 	// or Backtab. Also when the user presses Enter if nothing is selectable.
 	done func(key tcell.Key)
@@ -203,6 +208,13 @@ func (t *Table) GetSelectable() (rows, columns bool) {
 	return t.rowsSelectable, t.columnsSelectable
 }
 
+// GetSelection returns the position of the current selection.
+// If entire rows are selected, the column index is undefined.
+// Likewise for entire columns.
+func (t *Table) GetSelection() (row, column int) {
+	return t.selectedRow, t.selectedColumn
+}
+
 // Select sets the selected cell. Depending on the selection settings
 // specified via SetSelectable(), this may be an entire row or column, or even
 // ignored completely.
@@ -227,6 +239,15 @@ func (t *Table) SetOffset(row, column int) *Table {
 // index is undefined. Likewise for entire columns.
 func (t *Table) SetSelectedFunc(handler func(row, column int)) *Table {
 	t.selected = handler
+	return t
+}
+
+// SetSelectionChangedFunc sets a handler which is called whenever the user changes
+// selected cell/row/column. The handler receives the position of the selection.
+// If entire rows are selected, the column index is undefined.
+// Likewise for entire columns.
+func (t *Table) SetSelectionChangedFunc(handler func(row, column int)) *Table {
+	t.selectionChanged = handler
 	return t
 }
 
@@ -637,6 +658,9 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			return
 		}
 
+		var previouslySelectedRow = t.selectedRow
+		var previouslySelectedColumn = t.selectedColumn
+
 		// Movement functions.
 		var (
 			getCell = func(row, column int) *TableCell {
@@ -818,6 +842,11 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			if (t.rowsSelectable || t.columnsSelectable) && t.selected != nil {
 				t.selected(t.selectedRow, t.selectedColumn)
 			}
+		}
+
+		if t.selectionChanged != nil &&
+			(previouslySelectedRow != t.selectedRow || previouslySelectedColumn != t.selectedColumn) {
+			t.selectionChanged(t.selectedRow, t.selectedColumn)
 		}
 	}
 }
