@@ -21,11 +21,10 @@ func main() {
 			if c < 1 || r < 1 {
 				color = tcell.ColorYellow
 			}
-			table.SetCell(r, c, &tview.TableCell{
-				Text:  lorem[word],
-				Color: color,
-				Align: tview.AlignCenter,
-			})
+			table.SetCell(r, c,
+				tview.NewTableCell(lorem[word]).
+					SetTextColor(color).
+					SetAlign(tview.AlignCenter))
 			word = (word + 1) % len(lorem)
 		}
 	}
@@ -37,8 +36,7 @@ func main() {
 			table.SetSelectable(true, true)
 		}
 	}).SetSelectedFunc(func(row int, column int) {
-		cell := table.GetCell(row, column)
-		cell.Color = tcell.ColorRed
+		table.GetCell(row, column).SetTextColor(tcell.ColorRed)
 		table.SetSelectable(false, false)
 	})
 	if err := app.SetRoot(table, true).SetFocus(table).Run(); err != nil {

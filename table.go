@@ -5,7 +5,9 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 )
 
-// TableCell represents one cell inside a Table.
+// TableCell represents one cell inside a Table. You can instantiate this type
+// directly but all colors (background and text) will be set to their default
+// which is black.
 type TableCell struct {
 	// The text to be displayed in the table cell.
 	Text string
@@ -22,11 +24,66 @@ type TableCell struct {
 	// The color of the cell text.
 	Color tcell.Color
 
+	// The background color of the cell.
+	BackgroundColor tcell.Color
+
 	// If set to true, this cell cannot be selected.
 	NotSelectable bool
 
 	// The position and width of the cell the last time table was drawn.
 	x, y, width int
+}
+
+// NewTableCell returns a new table cell with sensible defaults. That is, left
+// aligned text with the primary text color (see Styles) and a transparent
+// background (using the background of the Table).
+func NewTableCell(text string) *TableCell {
+	return &TableCell{
+		Text:            text,
+		Align:           AlignLeft,
+		Color:           Styles.PrimaryTextColor,
+		BackgroundColor: tcell.ColorDefault,
+	}
+}
+
+// SetText sets the cell's text.
+func (c *TableCell) SetText(text string) *TableCell {
+	c.Text = text
+	return c
+}
+
+// SetAlign sets the cell's text alignment, one of AlignLeft, AlignCenter, or
+// AlignRight.
+func (c *TableCell) SetAlign(align int) *TableCell {
+	c.Align = align
+	return c
+}
+
+// SetMaxWidth sets maximum width of the cell in screen space. This is used to
+// give a column a maximum width. Any cell text whose screen width exceeds this
+// width is cut off. Set to 0 if there is no maximum width.
+func (c *TableCell) SetMaxWidth(maxWidth int) *TableCell {
+	c.MaxWidth = maxWidth
+	return c
+}
+
+// SetTextColor sets the cell's text color.
+func (c *TableCell) SetTextColor(color tcell.Color) *TableCell {
+	c.Color = color
+	return c
+}
+
+// SetBackgroundColor sets the cell's background color. Set to
+// tcell.ColorDefault to use the table's background color.
+func (c *TableCell) SetBackgroundColor(color tcell.Color) *TableCell {
+	c.BackgroundColor = color
+	return c
+}
+
+// SetSelectable sets whether or not this cell can be selected by the user.
+func (c *TableCell) SetSelectable(selectable bool) *TableCell {
+	c.NotSelectable = !selectable
+	return c
 }
 
 // GetLastPosition returns the position of the table cell the last time it was
@@ -35,7 +92,8 @@ type TableCell struct {
 //
 // Because the Table class will attempt to keep selected cells on screen, this
 // function is most useful in response to a "selected" event (see
-// SetSelectedFunc()).
+// SetSelectedFunc()) or a "selectionChanged" event (see
+// SetSelectionChangedFunc()).
 func (c *TableCell) GetLastPosition() (x, y, width int) {
 	return c.x, c.y, c.width
 }
