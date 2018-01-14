@@ -242,9 +242,9 @@ func (t *Table) SetSelectedFunc(handler func(row, column int)) *Table {
 	return t
 }
 
-// SetSelectionChangedFunc sets a handler which is called whenever the user changes
-// selected cell/row/column. The handler receives the position of the selection.
-// If entire rows are selected, the column index is undefined.
+// SetSelectionChangedFunc sets a handler which is called whenever the user
+// navigates to a new selection. The handler receives the position of the new
+// selection. If entire rows are selected, the column index is undefined.
 // Likewise for entire columns.
 func (t *Table) SetSelectionChangedFunc(handler func(row, column int)) *Table {
 	t.selectionChanged = handler
@@ -658,10 +658,8 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			return
 		}
 
-		var previouslySelectedRow = t.selectedRow
-		var previouslySelectedColumn = t.selectedColumn
-
 		// Movement functions.
+		previouslySelectedRow, previouslySelectedColumn := t.selectedRow, t.selectedColumn
 		var (
 			getCell = func(row, column int) *TableCell {
 				if row < 0 || column < 0 || row >= len(t.cells) || column >= len(t.cells[row]) {
@@ -844,8 +842,10 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			}
 		}
 
+		// If the selection has changed, notify the handler.
 		if t.selectionChanged != nil &&
-			(previouslySelectedRow != t.selectedRow || previouslySelectedColumn != t.selectedColumn) {
+			(t.rowsSelectable && previouslySelectedRow != t.selectedRow ||
+				t.columnsSelectable && previouslySelectedColumn != t.selectedColumn) {
 			t.selectionChanged(t.selectedRow, t.selectedColumn)
 		}
 	}
