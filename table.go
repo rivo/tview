@@ -628,12 +628,14 @@ ColumnLoop:
 				continue
 			}
 
-			// Determine colors.
+			// Determine cell colors.
 			bgColor := t.backgroundColor
 			textColor := cell.Color
+			if cell.BackgroundColor != tcell.ColorDefault {
+				bgColor = cell.BackgroundColor
+			}
 			if cellSelected && !cell.NotSelectable {
-				bgColor = cell.Color
-				textColor = t.backgroundColor
+				textColor, bgColor = bgColor, textColor
 			}
 
 			// Draw cell background.
@@ -646,6 +648,18 @@ ColumnLoop:
 				screen.SetContent(x+columnX+1+pos, y+rowY, ' ', nil, bgStyle)
 			}
 			cell.x, cell.y, cell.width = x+columnX+1, y+rowY, finalWidth
+
+			// We may want continuous background colors in rows so change
+			// border/separator background colors, too.
+			if column > 0 {
+				leftCell := getCell(row, column-1)
+				if leftCell != nil {
+					if cell.BackgroundColor == leftCell.BackgroundColor {
+						ch, _, style, _ := screen.GetContent(x+columnX, y+rowY)
+						screen.SetContent(x+columnX, y+rowY, ch, nil, style.Background(bgColor))
+					}
+				}
+			}
 
 			// Draw text.
 			text := cell.Text
