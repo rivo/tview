@@ -249,6 +249,21 @@ func (t *TextView) SetDoneFunc(handler func(key tcell.Key)) *TextView {
 	return t
 }
 
+// ScrollToBeginning scrolls to the top left corner of the text.
+func (t *TextView) ScrollToBeginning() *TextView {
+	t.trackEnd = false
+	t.lineOffset = 0
+	t.columnOffset = 0
+	return t
+}
+
+// ScrollToEnd scrolls to the bottom left corner of the text.
+func (t *TextView) ScrollToEnd() *TextView {
+	t.trackEnd = true
+	t.columnOffset = 0
+	return t
+}
+
 // Clear removes all text from the buffer.
 func (t *TextView) Clear() *TextView {
 	t.buffer = nil
