@@ -79,15 +79,14 @@ func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *F
 
 // Draw draws this primitive onto the screen.
 func (f *Flex) Draw(screen tcell.Screen) {
+	f.Box.Draw(screen)
+
 	// Calculate size and position of the items.
 
 	// Do we use the entire screen?
 	if f.fullScreen {
-		f.x = 0
-		f.y = 0
 		width, height := screen.Size()
-		f.width = width
-		f.height = height
+		f.SetRect(0, 0, width, height)
 	}
 
 	// How much space can we distribute?
