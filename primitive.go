@@ -28,6 +28,10 @@ type Primitive interface {
 	//
 	// The Application's Draw() function will be called automatically after the
 	// handler returns.
+	//
+	// The Box class provides functionality to intercept keyboard input. If you
+	// subclass from Box, it is recommended that you wrap your handler using
+	// Box.wrapInputHandler() so you inherit that functionality.
 	InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive))
 
 	// Focus is called by the application when the primitive receives focus.

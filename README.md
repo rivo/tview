@@ -62,6 +62,9 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 ## Releases
 
+- v0.6 (2018-01-14)
+  - All primitives can now intercept all key events when they have focus.
+  - Key events can also be intercepted globally (changed to a more general, consistent handling)
 - v0.5 (2018-01-13)
   - `TextView` now has word wrapping and text alignment
 - v0.4 (2018-01-12)

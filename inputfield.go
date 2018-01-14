@@ -236,7 +236,7 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 
 // InputHandler returns the handler for this primitive.
 func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return i.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		// Trigger changed events.
 		currentText := i.text
 		defer func() {
@@ -271,5 +271,5 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				i.done(key)
 			}
 		}
-	}
+	})
 }

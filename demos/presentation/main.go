@@ -77,12 +77,13 @@ func main() {
 		AddItem(info, 1, 1, false)
 
 	// Shortcuts to navigate the slides.
-	app.SetKeyCapture(tcell.KeyCtrlN, 0, func(p tview.Primitive) bool {
-		nextSlide()
-		return false
-	}).SetKeyCapture(tcell.KeyCtrlP, 0, func(p tview.Primitive) bool {
-		previousSlide()
-		return false
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlN {
+			nextSlide()
+		} else if event.Key() == tcell.KeyCtrlP {
+			previousSlide()
+		}
+		return event
 	})
 
 	// Start the application.

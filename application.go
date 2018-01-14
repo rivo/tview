@@ -26,55 +26,28 @@ type Application struct {
 	// Whether or not the application resizes the root primitive.
 	rootAutoSize bool
 
-	// Key overrides.
-	keyOverrides map[tcell.Key]func(p Primitive) bool
-
-	// Rune overrides.
-	runeOverrides map[rune]func(p Primitive) bool
+	// An optional capture function which receives a key event and returns the
+	// event to be forwarded to the default input handler (nil if nothing should
+	// be forwarded).
+	inputCapture func(event *tcell.EventKey) *tcell.EventKey
 }
 
 // NewApplication creates and returns a new application.
 func NewApplication() *Application {
-	return &Application{
-		keyOverrides:  make(map[tcell.Key]func(p Primitive) bool),
-		runeOverrides: make(map[rune]func(p Primitive) bool),
-	}
+	return &Application{}
 }
 
-// SetKeyCapture installs a global capture function for the given key. It
-// intercepts all events for the given key and routes them to the handler.
-// The handler receives the Primitive to which the key is originally redirected,
-// the one which has focus, or nil if it was not directed to a Primitive. The
-// handler also returns whether or not the key event is then forwarded to that
-// Primitive. Draw() is called implicitly if the event is not forwarded.
+// SetInputCapture sets a function which captures all key events before they are
+// forwarded to the key event handler of the primitive which currently has
+// focus. This function can then choose to forward that key event (or a
+// different one) by returning it or stop the key event processing by returning
+// nil.
 //
-// Special keys (e.g. Escape, Enter, or Ctrl-A) are defined by the "key"
-// argument. The "ch" rune is ignored. Other keys (e.g. "a", "h", or "5") are
-// specified by their rune, with key set to tcell.KeyRune. See also
-// https://godoc.org/github.com/gdamore/tcell#EventKey for more information.
-//
-// To remove a handler again, provide a nil handler for the same key.
-//
-// The application itself will exit when Ctrl-C is pressed. You can intercept
-// this with this function as well.
-func (a *Application) SetKeyCapture(key tcell.Key, ch rune, handler func(p Primitive) bool) *Application {
-	if key == tcell.KeyRune {
-		if handler != nil {
-			a.runeOverrides[ch] = handler
-		} else {
-			if _, ok := a.runeOverrides[ch]; ok {
-				delete(a.runeOverrides, ch)
-			}
-		}
-	} else {
-		if handler != nil {
-			a.keyOverrides[key] = handler
-		} else {
-			if _, ok := a.keyOverrides[key]; ok {
-				delete(a.keyOverrides, key)
-			}
-		}
-	}
+// Note that this also affects the default event handling of the application
+// itself: Such a handler can intercept the Ctrl-C event which closes the
+// applicaton.
+func (a *Application) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Application {
+	a.inputCapture = capture
 	return a
 }
 
@@ -131,23 +104,10 @@ func (a *Application) Run() error {
 			a.RUnlock()
 
 			// Intercept keys.
-			if event.Key() == tcell.KeyRune {
-				if handler, ok := a.runeOverrides[event.Rune()]; ok {
-					if !handler(p) {
-						a.Draw()
-						break
-					}
-				}
-			} else {
-				if handler, ok := a.keyOverrides[event.Key()]; ok {
-					pr := p
-					if event.Key() == tcell.KeyCtrlC {
-						pr = nil
-					}
-					if !handler(pr) {
-						a.Draw()
-						break
-					}
+			if a.inputCapture != nil {
+				event = a.inputCapture(event)
+				if event == nil {
+					break // Don't forward event.
 				}
 			}
 

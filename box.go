@@ -9,6 +9,9 @@ import (
 // border and a title. Most subclasses keep their content contained in the box
 // but don't necessarily have to.
 //
+// Note that all classes which subclass from Box will also have access to its
+// functions.
+//
 // See https://github.com/rivo/tview/wiki/Box for an example.
 type Box struct {
 	// The position of the rect.
@@ -42,6 +45,11 @@ type Box struct {
 
 	// Whether or not this box has focus.
 	hasFocus bool
+
+	// An optional capture function which receives a key event and returns the
+	// event to be forwarded to the primitive's default input handler (nil if
+	// nothing should be forwarded).
+	inputCapture func(event *tcell.EventKey) *tcell.EventKey
 }
 
 // NewBox returns a Box without a border.
@@ -94,9 +102,33 @@ func (b *Box) SetRect(x, y, width, height int) {
 	b.height = height
 }
 
+// wrapInputHandler wraps an input handler (see InputHandler()) with the
+// functionality to capture input (see SetInputCapture()) before passing it
+// on to the provided (default) input handler.
+func (b *Box) wrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primitive))) func(*tcell.EventKey, func(p Primitive)) {
+	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		if b.inputCapture != nil {
+			event = b.inputCapture(event)
+		}
+		if event != nil && inputHandler != nil {
+			inputHandler(event, setFocus)
+		}
+	}
+}
+
 // InputHandler returns nil.
 func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return nil
+	return b.wrapInputHandler(nil)
+}
+
+// SetInputCapture sets a function which captures key events before they are
+// forwarded to the primitive's default key event handler. This function can
+// then choose to forward that key event (or a different one) to the default
+// handler by returning it. If nil is returned, the default handler will not
+// be called.
+func (b *Box) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Box {
+	b.inputCapture = capture
+	return b
 }
 
 // SetBackgroundColor sets the box's background color.

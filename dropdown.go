@@ -249,7 +249,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 
 // InputHandler returns the handler for this primitive.
 func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return d.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyEnter, tcell.KeyRune, tcell.KeyDown:
@@ -274,7 +274,7 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				d.done(key)
 			}
 		}
-	}
+	})
 }
 
 // Focus is called by the application when the primitive receives focus.

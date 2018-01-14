@@ -836,7 +836,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 // InputHandler returns the handler for this primitive.
 func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return t.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		// Do we pass this event on?
 		if t.capture != nil {
 			if !t.capture(event) {
@@ -899,5 +899,5 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.trackEnd = false
 			t.lineOffset -= t.pageSize
 		}
-	}
+	})
 }

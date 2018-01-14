@@ -150,7 +150,7 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 
 // InputHandler returns the handler for this primitive.
 func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return c.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyRune, tcell.KeyEnter: // Check.
@@ -166,5 +166,5 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				c.done(key)
 			}
 		}
-	}
+	})
 }
