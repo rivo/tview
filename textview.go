@@ -286,16 +286,25 @@ func (t *TextView) SetDoneFunc(handler func(key tcell.Key)) *TextView {
 	return t
 }
 
-// ScrollToBeginning scrolls to the top left corner of the text.
+// ScrollToBeginning scrolls to the top left corner of the text if the text view
+// is scrollable.
 func (t *TextView) ScrollToBeginning() *TextView {
+	if !t.scrollable {
+		return t
+	}
 	t.trackEnd = false
 	t.lineOffset = 0
 	t.columnOffset = 0
 	return t
 }
 
-// ScrollToEnd scrolls to the bottom left corner of the text.
+// ScrollToEnd scrolls to the bottom left corner of the text if the text view
+// is scrollable. Adding new rows to the end of the text view will cause it to
+// scroll with the new data.
 func (t *TextView) ScrollToEnd() *TextView {
+	if !t.scrollable {
+		return t
+	}
 	t.trackEnd = true
 	t.columnOffset = 0
 	return t
