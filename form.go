@@ -191,6 +191,16 @@ func (f *Form) AddButton(label string, selected func()) *Form {
 	return f
 }
 
+// Clear removes all input elements from the form, including the buttons if
+// specified.
+func (f *Form) Clear(includeButtons bool) *Form {
+	f.items = nil
+	if includeButtons {
+		f.buttons = nil
+	}
+	return f
+}
+
 // GetFormItem returns the form element at the given position, starting with
 // index 0. Elements are referenced in the order they were added. Buttons are
 // not included.

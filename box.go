@@ -94,7 +94,7 @@ func (b *Box) GetInnerRect() (int, int, int, int) {
 		height - b.paddingTop - b.paddingBottom
 }
 
-// SetRect sets a new position of the rectangle.
+// SetRect sets a new position of the primitive.
 func (b *Box) SetRect(x, y, width, height int) {
 	b.x = x
 	b.y = y
