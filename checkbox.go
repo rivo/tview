@@ -96,6 +96,11 @@ func (c *Checkbox) SetFormAttributes(label string, labelColor, bgColor, fieldTex
 	return c
 }
 
+// GetFieldLength returns this primitive's field length.
+func (c *Checkbox) GetFieldLength() int {
+	return 1
+}
+
 // SetChangedFunc sets a handler which is called when the checked state of this
 // checkbox was changed by the user. The handler function receives the new
 // state.

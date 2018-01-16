@@ -138,6 +138,21 @@ func (d *DropDown) SetFieldLength(length int) *DropDown {
 	return d
 }
 
+// GetFieldLength returns this primitive's field length.
+func (d *DropDown) GetFieldLength() int {
+	if d.fieldLength > 0 {
+		return d.fieldLength
+	}
+	fieldLength := 0
+	for _, option := range d.options {
+		length := runewidth.StringWidth(option.Text)
+		if length > fieldLength {
+			fieldLength = length
+		}
+	}
+	return fieldLength
+}
+
 // AddOption adds a new selectable option to this drop-down. The "selected"
 // callback is called when this option was selected. It may be nil.
 func (d *DropDown) AddOption(text string, selected func()) *DropDown {

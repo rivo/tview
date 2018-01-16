@@ -7,6 +7,11 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 )
 
+// DefaultFormFieldLength is the default field length of form elements whose
+// field length is flexible (0). This is used in the Form class for horizontal
+// layouts.
+var DefaultFormFieldLength = 10
+
 // FormItem is the interface all form items must implement to be able to be
 // included in a form.
 type FormItem interface {
@@ -17,6 +22,11 @@ type FormItem interface {
 
 	// SetFormAttributes sets a number of item attributes at once.
 	SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem
+
+	// GetFieldLength returns the length of the form item's field (the area which
+	// is manipulated by the user). A value of 0 indicates the the field length
+	// is flexible and may use as much space as required.
+	GetFieldLength() int
 
 	// SetEnteredFunc sets the handler function for when the user finished
 	// entering data into the item. The handler may receive events for the
@@ -36,6 +46,10 @@ type Form struct {
 
 	// The buttons of the form.
 	buttons []*Button
+
+	// If set to true, instead of position items and buttons from top to bottom,
+	// they are positioned from left to right.
+	horizontal bool
 
 	// The alignment of the buttons.
 	buttonsAlign int
@@ -85,9 +99,20 @@ func NewForm() *Form {
 	return f
 }
 
-// SetItemPadding sets the number of empty rows between form items.
+// SetItemPadding sets the number of empty rows between form items for vertical
+// layouts and the number of empty cells between form items for horizontal
+// layouts.
 func (f *Form) SetItemPadding(padding int) *Form {
 	f.itemPadding = padding
+	return f
+}
+
+// SetHorizontal sets the direction the form elements are laid out. If set to
+// true, instead of positioning them from top to bottom (the default), they are
+// positioned from left to right, moving into the next row if there is not
+// enough space.
+func (f *Form) SetHorizontal(horizontal bool) *Form {
+	f.horizontal = horizontal
 	return f
 }
 
@@ -110,7 +135,7 @@ func (f *Form) SetFieldTextColor(color tcell.Color) *Form {
 }
 
 // SetButtonsAlign sets how the buttons align horizontally, one of AlignLeft
-// (the default), AlignCenter, and AlignRight.
+// (the default), AlignCenter, and AlignRight. This is only
 func (f *Form) SetButtonsAlign(align int) *Form {
 	f.buttonsAlign = align
 	return f
@@ -201,6 +226,14 @@ func (f *Form) Clear(includeButtons bool) *Form {
 	return f
 }
 
+// AddFormItem adds a new item to the form. This can be used to add your own
+// objects to the form. Note, however, that the Form class will override some
+// of its attributes to make it work in the form context.
+func (f *Form) AddFormItem(item FormItem) *Form {
+	f.items = append(f.items, item)
+	return f
+}
+
 // GetFormItem returns the form element at the given position, starting with
 // index 0. Elements are referenced in the order they were added. Buttons are
 // not included.
@@ -223,6 +256,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	x, y, width, height := f.GetInnerRect()
 	bottomLimit := y + height
 	rightLimit := x + width
+	startX := x
 
 	// Find the longest label.
 	var labelLength int
@@ -237,23 +271,60 @@ func (f *Form) Draw(screen tcell.Screen) {
 
 	// Set up and draw the input fields.
 	for _, item := range f.items {
+		// Stop if there is no more space.
 		if y >= bottomLimit {
-			return // Stop here.
+			return
 		}
+
+		// Calculate the space needed.
 		label := strings.TrimSpace(item.GetLabel())
+		labelWidth := runewidth.StringWidth(label)
+		var itemWidth int
+		if f.horizontal {
+			fieldLength := item.GetFieldLength()
+			if fieldLength == 0 {
+				fieldLength = DefaultFormFieldLength
+			}
+			label += " "
+			labelWidth++
+			itemWidth = labelWidth + fieldLength
+		} else {
+			// We want all fields to align vertically.
+			label += strings.Repeat(" ", labelLength-labelWidth)
+			itemWidth = width
+		}
+
+		// Advance to next line if there is no space.
+		if f.horizontal && x+labelWidth+1 >= rightLimit {
+			x = startX
+			y += 2
+		}
+
+		// Adjust the item's attributes.
+		if x+itemWidth >= rightLimit {
+			itemWidth = rightLimit - x
+		}
 		item.SetFormAttributes(
-			label+strings.Repeat(" ", labelLength-runewidth.StringWidth(label)),
+			label,
 			f.labelColor,
 			f.backgroundColor,
 			f.fieldTextColor,
 			f.fieldBackgroundColor,
-		).SetRect(x, y, width, 1)
+		).SetRect(x, y, itemWidth, 1)
+
+		// Draw items with focus last (in case of overlaps).
 		if item.GetFocusable().HasFocus() {
 			defer item.Draw(screen)
 		} else {
 			item.Draw(screen)
 		}
-		y += 1 + f.itemPadding
+
+		// Advance to next item.
+		if f.horizontal {
+			x += itemWidth + f.itemPadding
+		} else {
+			y += 1 + f.itemPadding
+		}
 	}
 
 	// How wide are the buttons?
@@ -262,32 +333,43 @@ func (f *Form) Draw(screen tcell.Screen) {
 	for index, button := range f.buttons {
 		width := runewidth.StringWidth(button.GetLabel()) + 4
 		buttonWidths[index] = width
-		buttonsWidth += width + 2
+		buttonsWidth += width + 1
 	}
-	buttonsWidth -= 2
+	buttonsWidth--
 
 	// Where do we place them?
-	if x+buttonsWidth < rightLimit {
+	if !f.horizontal && x+buttonsWidth < rightLimit {
 		if f.buttonsAlign == AlignRight {
 			x = rightLimit - buttonsWidth
 		} else if f.buttonsAlign == AlignCenter {
 			x = (x + rightLimit - buttonsWidth) / 2
 		}
+
+		// In vertical layouts, buttons always appear after an empty line.
+		if f.itemPadding == 0 {
+			y++
+		}
 	}
 
 	// Draw them.
-	if f.itemPadding == 0 {
-		y++
-	}
-	if y >= bottomLimit {
-		return // Stop here.
-	}
 	for index, button := range f.buttons {
-		space := rightLimit - x
-		if space < 1 {
-			break // No space for this button anymore.
+		if y >= bottomLimit {
+			return // Stop here.
 		}
+
+		space := rightLimit - x
 		buttonWidth := buttonWidths[index]
+		if f.horizontal {
+			if space < buttonWidth-4 {
+				x = startX
+				y += 2
+				space = width
+			}
+		} else {
+			if space < 1 {
+				break // No space for this button anymore.
+			}
+		}
 		if buttonWidth > space {
 			buttonWidth = space
 		}
@@ -298,7 +380,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 			SetRect(x, y, buttonWidth, 1)
 		button.Draw(screen)
 
-		x += buttonWidth + 2
+		x += buttonWidth + 1
 	}
 }
 

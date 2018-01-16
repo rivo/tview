@@ -125,6 +125,11 @@ func (i *InputField) SetFieldLength(length int) *InputField {
 	return i
 }
 
+// GetFieldLength returns this primitive's field length.
+func (i *InputField) GetFieldLength() int {
+	return i.fieldLength
+}
+
 // SetMaskCharacter sets a character that masks user input on a screen. A value
 // of 0 disables masking.
 func (i *InputField) SetMaskCharacter(mask rune) *InputField {
