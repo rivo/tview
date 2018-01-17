@@ -209,8 +209,8 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Background color of selected text.
 		if index == l.currentItem {
-			textLength := StringWidth(item.MainText)
-			for bx := 0; bx < textLength && bx < width; bx++ {
+			textWidth := StringWidth(item.MainText)
+			for bx := 0; bx < textWidth && bx < width; bx++ {
 				m, c, style, _ := screen.GetContent(x+bx, y)
 				fg, _, _ := style.Decompose()
 				if fg == l.mainTextColor {

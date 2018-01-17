@@ -96,8 +96,8 @@ func (c *Checkbox) SetFormAttributes(label string, labelColor, bgColor, fieldTex
 	return c
 }
 
-// GetFieldLength returns this primitive's field length.
-func (c *Checkbox) GetFieldLength() int {
+// GetFieldWidth returns this primitive's field width.
+func (c *Checkbox) GetFieldWidth() int {
 	return 1
 }
 

@@ -10,7 +10,7 @@ func main() {
 	app := tview.NewApplication()
 	inputField := tview.NewInputField().
 		SetLabel("Enter a number: ").
-		SetFieldLength(10).
+		SetFieldWidth(10).
 		SetAcceptanceFunc(tview.InputFieldInteger).
 		SetDoneFunc(func(key tcell.Key) {
 			app.Stop()

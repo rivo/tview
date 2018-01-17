@@ -550,7 +550,7 @@ func (t *TextView) reindexBuffer(width int) {
 		}
 
 		// Create index from split lines.
-		var startPos, originalPos, colorPos, regionPos, escapePos int
+		var originalPos, colorPos, regionPos, escapePos int
 		for _, splitLine := range splitLines {
 			line := &textViewIndex{
 				Line:   bufferIndex,
@@ -594,7 +594,6 @@ func (t *TextView) reindexBuffer(width int) {
 			}
 
 			// Advance to next line.
-			startPos += lineLength
 			originalPos += lineLength
 
 			// Append this line.

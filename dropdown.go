@@ -42,9 +42,9 @@ type DropDown struct {
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
-	// The length of the input area. A value of 0 means extend as much as
+	// The screen width of the input area. A value of 0 means extend as much as
 	// possible.
-	fieldLength int
+	fieldWidth int
 
 	// An optional function which is called when the user indicated that they
 	// are done selecting options. The key which was pressed is provided (tab,
@@ -130,26 +130,26 @@ func (d *DropDown) SetFormAttributes(label string, labelColor, bgColor, fieldTex
 	return d
 }
 
-// SetFieldLength sets the length of the options area. A value of 0 means extend
-// to as long as the longest option text.
-func (d *DropDown) SetFieldLength(length int) *DropDown {
-	d.fieldLength = length
+// SetFieldWidth sets the screen width of the options area. A value of 0 means
+// extend to as long as the longest option text.
+func (d *DropDown) SetFieldWidth(width int) *DropDown {
+	d.fieldWidth = width
 	return d
 }
 
-// GetFieldLength returns this primitive's field length.
-func (d *DropDown) GetFieldLength() int {
-	if d.fieldLength > 0 {
-		return d.fieldLength
+// GetFieldWidth returns this primitive's field screen width.
+func (d *DropDown) GetFieldWidth() int {
+	if d.fieldWidth > 0 {
+		return d.fieldWidth
 	}
-	fieldLength := 0
+	fieldWidth := 0
 	for _, option := range d.options {
-		length := StringWidth(option.Text)
-		if length > fieldLength {
-			fieldLength = length
+		width := StringWidth(option.Text)
+		if width > fieldWidth {
+			fieldWidth = width
 		}
 	}
-	return fieldLength
+	return fieldWidth
 }
 
 // AddOption adds a new selectable option to this drop-down. The "selected"
@@ -212,27 +212,27 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	x += drawnWidth
 
 	// What's the longest option text?
-	maxLength := 0
+	maxWidth := 0
 	for _, option := range d.options {
-		length := StringWidth(option.Text)
-		if length > maxLength {
-			maxLength = length
+		strWidth := StringWidth(option.Text)
+		if strWidth > maxWidth {
+			maxWidth = strWidth
 		}
 	}
 
 	// Draw selection area.
-	fieldLength := d.fieldLength
-	if fieldLength == 0 {
-		fieldLength = maxLength
+	fieldWidth := d.fieldWidth
+	if fieldWidth == 0 {
+		fieldWidth = maxWidth
 	}
-	if rightLimit-x < fieldLength {
-		fieldLength = rightLimit - x
+	if rightLimit-x < fieldWidth {
+		fieldWidth = rightLimit - x
 	}
 	fieldStyle := tcell.StyleDefault.Background(d.fieldBackgroundColor)
 	if d.GetFocusable().HasFocus() && !d.open {
 		fieldStyle = fieldStyle.Background(d.fieldTextColor)
 	}
-	for index := 0; index < fieldLength; index++ {
+	for index := 0; index < fieldWidth; index++ {
 		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
 	}
 
@@ -242,7 +242,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		if d.GetFocusable().HasFocus() && !d.open {
 			color = d.fieldBackgroundColor
 		}
-		Print(screen, d.options[d.currentOption].Text, x, y, fieldLength, AlignLeft, color)
+		Print(screen, d.options[d.currentOption].Text, x, y, fieldWidth, AlignLeft, color)
 	}
 
 	// Draw options list.
@@ -250,7 +250,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		// We prefer to drop down but if there is no space, maybe drop up?
 		lx := x
 		ly := y + 1
-		lwidth := maxLength
+		lwidth := maxWidth
 		lheight := len(d.options)
 		_, sheight := screen.Size()
 		if ly+lheight >= sheight && ly-lheight-1 >= 0 {

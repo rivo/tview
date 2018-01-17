@@ -35,9 +35,9 @@ type InputField struct {
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
-	// The length of the input area. A value of 0 means extend as much as
+	// The screen width of the input area. A value of 0 means extend as much as
 	// possible.
-	fieldLength int
+	fieldWidth int
 
 	// A character to mask entered text (useful for password fields). A value of 0
 	// disables masking.
@@ -118,16 +118,16 @@ func (i *InputField) SetFormAttributes(label string, labelColor, bgColor, fieldT
 	return i
 }
 
-// SetFieldLength sets the length of the input area. A value of 0 means extend
-// as much as possible.
-func (i *InputField) SetFieldLength(length int) *InputField {
-	i.fieldLength = length
+// SetFieldWidth sets the screen width of the input area. A value of 0 means
+// extend as much as possible.
+func (i *InputField) SetFieldWidth(width int) *InputField {
+	i.fieldWidth = width
 	return i
 }
 
-// GetFieldLength returns this primitive's field length.
-func (i *InputField) GetFieldLength() int {
-	return i.fieldLength
+// GetFieldWidth returns this primitive's field width.
+func (i *InputField) GetFieldWidth() int {
+	return i.fieldWidth
 }
 
 // SetMaskCharacter sets a character that masks user input on a screen. A value
@@ -188,7 +188,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	x += drawnWidth
 
 	// Draw input area.
-	fieldWidth := i.fieldLength
+	fieldWidth := i.fieldWidth
 	if fieldWidth == 0 {
 		fieldWidth = math.MaxInt32
 	}
@@ -206,8 +206,8 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
 	}
 	fieldWidth-- // We need one cell for the cursor.
-	if fieldWidth < runewidth.StringWidth(i.text) {
-		runes := []rune(i.text)
+	if fieldWidth < runewidth.StringWidth(text) {
+		runes := []rune(text)
 		for pos := len(runes) - 1; pos >= 0; pos-- {
 			ch := runes[pos]
 			w := runewidth.RuneWidth(ch)
@@ -252,11 +252,11 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 		y++
 		rightLimit -= 2
 	}
-	fieldLength := runewidth.StringWidth(i.text)
-	if i.fieldLength > 0 && fieldLength > i.fieldLength-1 {
-		fieldLength = i.fieldLength - 1
+	fieldWidth := runewidth.StringWidth(i.text)
+	if i.fieldWidth > 0 && fieldWidth > i.fieldWidth-1 {
+		fieldWidth = i.fieldWidth - 1
 	}
-	x += StringWidth(i.label) + fieldLength
+	x += StringWidth(i.label) + fieldWidth
 	if x >= rightLimit {
 		x = rightLimit - 1
 	}

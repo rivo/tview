@@ -6,10 +6,10 @@ import (
 	"github.com/gdamore/tcell"
 )
 
-// DefaultFormFieldLength is the default field length of form elements whose
-// field length is flexible (0). This is used in the Form class for horizontal
-// layouts.
-var DefaultFormFieldLength = 10
+// DefaultFormFieldWidth is the default field screen width of form elements
+// whose field width is flexible (0). This is used in the Form class for
+// horizontal layouts.
+var DefaultFormFieldWidth = 10
 
 // FormItem is the interface all form items must implement to be able to be
 // included in a form.
@@ -22,10 +22,11 @@ type FormItem interface {
 	// SetFormAttributes sets a number of item attributes at once.
 	SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem
 
-	// GetFieldLength returns the length of the form item's field (the area which
-	// is manipulated by the user). A value of 0 indicates the the field length
-	// is flexible and may use as much space as required.
-	GetFieldLength() int
+	// GetFieldWidth returns the width of the form item's field (the area which
+	// is manipulated by the user) in number of screen cells. A value of 0
+	// indicates the the field width is flexible and may use as much space as
+	// required.
+	GetFieldWidth() int
 
 	// SetEnteredFunc sets the handler function for when the user finished
 	// entering data into the item. The handler may receive events for the
@@ -153,15 +154,15 @@ func (f *Form) SetButtonTextColor(color tcell.Color) *Form {
 }
 
 // AddInputField adds an input field to the form. It has a label, an optional
-// initial value, a field length (a value of 0 extends it as far as possible),
+// initial value, a field width (a value of 0 extends it as far as possible),
 // an optional accept function to validate the item's value (set to nil to
 // accept any text), and an (optional) callback function which is invoked when
 // the input field's text has changed.
-func (f *Form) AddInputField(label, value string, fieldLength int, accept func(textToCheck string, lastChar rune) bool, changed func(text string)) *Form {
+func (f *Form) AddInputField(label, value string, fieldWidth int, accept func(textToCheck string, lastChar rune) bool, changed func(text string)) *Form {
 	f.items = append(f.items, NewInputField().
 		SetLabel(label).
 		SetText(value).
-		SetFieldLength(fieldLength).
+		SetFieldWidth(fieldWidth).
 		SetAcceptanceFunc(accept).
 		SetChangedFunc(changed))
 	return f
@@ -170,17 +171,17 @@ func (f *Form) AddInputField(label, value string, fieldLength int, accept func(t
 // AddPasswordField adds a password field to the form. This is similar to an
 // input field except that the user's input not shown. Instead, a "mask"
 // character is displayed. The password field has a label, an optional initial
-// value, a field length (a value of 0 extends it as far as possible), and an
+// value, a field width (a value of 0 extends it as far as possible), and an
 // (optional) callback function which is invoked when the input field's text has
 // changed.
-func (f *Form) AddPasswordField(label, value string, fieldLength int, mask rune, changed func(text string)) *Form {
+func (f *Form) AddPasswordField(label, value string, fieldWidth int, mask rune, changed func(text string)) *Form {
 	if mask == 0 {
 		mask = '*'
 	}
 	f.items = append(f.items, NewInputField().
 		SetLabel(label).
 		SetText(value).
-		SetFieldLength(fieldLength).
+		SetFieldWidth(fieldWidth).
 		SetMaskCharacter(mask).
 		SetChangedFunc(changed))
 	return f
@@ -222,6 +223,7 @@ func (f *Form) Clear(includeButtons bool) *Form {
 	if includeButtons {
 		f.buttons = nil
 	}
+	f.focusedElement = 0
 	return f
 }
 
@@ -258,15 +260,15 @@ func (f *Form) Draw(screen tcell.Screen) {
 	startX := x
 
 	// Find the longest label.
-	var labelLength int
+	var maxLabelWidth int
 	for _, item := range f.items {
 		label := strings.TrimSpace(item.GetLabel())
 		labelWidth := StringWidth(label)
-		if labelWidth > labelLength {
-			labelLength = labelWidth
+		if labelWidth > maxLabelWidth {
+			maxLabelWidth = labelWidth
 		}
 	}
-	labelLength++ // Add one space.
+	maxLabelWidth++ // Add one space.
 
 	// Set up and draw the input fields.
 	for _, item := range f.items {
@@ -280,16 +282,16 @@ func (f *Form) Draw(screen tcell.Screen) {
 		labelWidth := StringWidth(label)
 		var itemWidth int
 		if f.horizontal {
-			fieldLength := item.GetFieldLength()
-			if fieldLength == 0 {
-				fieldLength = DefaultFormFieldLength
+			fieldWidth := item.GetFieldWidth()
+			if fieldWidth == 0 {
+				fieldWidth = DefaultFormFieldWidth
 			}
 			label += " "
 			labelWidth++
-			itemWidth = labelWidth + fieldLength
+			itemWidth = labelWidth + fieldWidth
 		} else {
 			// We want all fields to align vertically.
-			label += strings.Repeat(" ", labelLength-labelWidth)
+			label += strings.Repeat(" ", maxLabelWidth-labelWidth)
 			itemWidth = width
 		}
 
@@ -330,9 +332,9 @@ func (f *Form) Draw(screen tcell.Screen) {
 	buttonWidths := make([]int, len(f.buttons))
 	buttonsWidth := 0
 	for index, button := range f.buttons {
-		width := StringWidth(button.GetLabel()) + 4
-		buttonWidths[index] = width
-		buttonsWidth += width + 1
+		w := StringWidth(button.GetLabel()) + 4
+		buttonWidths[index] = w
+		buttonsWidth += w + 1
 	}
 	buttonsWidth--
 
