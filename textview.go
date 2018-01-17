@@ -10,15 +10,6 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 )
 
-// Regular expressions commonly used throughout the TextView class.
-var (
-	colorPattern    = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})\]`)
-	regionPattern   = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
-	escapePattern   = regexp.MustCompile(`\[("[a-zA-Z0-9_,;: \-\.]*"|[a-zA-Z]+|#[0-9a-zA-Z]{6})\[(\[*)\]`)
-	boundaryPattern = regexp.MustCompile("([[:punct:]]\\s*|\\s+)")
-	spacePattern    = regexp.MustCompile(`\s+`)
-)
-
 // TabSize is the number of spaces with which a tab character will be replaced.
 var TabSize = 4
 
@@ -55,21 +46,14 @@ type textViewIndex struct {
 // If the text is not scrollable, any text above the top visible line is
 // discarded.
 //
-// Navigation can be intercepted by installing a callback function via
-// SetCaptureFunc() which receives all keyboard events and decides which ones
-// to forward to the default handler.
+// Use SetInputCapture() to override or modify keyboard input.
 //
 // Colors
 //
 // If dynamic colors are enabled via SetDynamicColors(), text color can be
-// changed dynamically by embedding color strings in square brackets. For
-// example,
-//
-//   This is a [red]warning[white]!
-//
-// will print the word "warning" in red. You can provide W3C color names or
-// hex strings starting with "#", followed by 6 hexadecimal digits. See
-// tcell.GetColor() for more information.
+// changed dynamically by embedding color strings in square brackets. This works
+// the same way as anywhere else. Please see the package documentation for more
+// information.
 //
 // Regions and Highlights
 //
@@ -91,17 +75,6 @@ type textViewIndex struct {
 //
 // The ScrollToHighlight() function can be used to jump to the currently
 // highlighted region once when the text view is drawn the next time.
-//
-// Escape Tags
-//
-// In the rare case that you have color tags or regions enabled but still want
-// to output a tag as text instead of causing its functionality, you can close
-// the tag with an opening and closing bracket "[]" instead of only a closing
-// bracket "]". Examples:
-//
-//   [red[]      will be output as [red]
-//   ["123"[]    will be output as ["123"]
-//   [#6aff00[[] will be output as [#6aff00[]
 //
 // See https://github.com/rivo/tview/wiki/TextView for an example.
 type TextView struct {
@@ -173,10 +146,6 @@ type TextView struct {
 	// A temporary flag which, when true, will automatically bring the current
 	// highlight(s) into the visible screen.
 	scrollToHighlights bool
-
-	// An optional function which will receive all key events sent to this text
-	// view. Returning true also invokes the default key handling.
-	capture func(*tcell.EventKey) bool
 
 	// An optional function which is called when the content of the text view has
 	// changed.
@@ -270,15 +239,6 @@ func (t *TextView) SetRegions(regions bool) *TextView {
 		t.index = nil
 	}
 	t.regions = regions
-	return t
-}
-
-// SetCaptureFunc sets a handler which is called whenever a key is pressed.
-// This allows you to override the default key handling of the text view.
-// Returning true will allow the default key handling to go forward after the
-// handler returns. Returning false will disable any default key handling.
-func (t *TextView) SetCaptureFunc(handler func(event *tcell.EventKey) bool) *TextView {
-	t.capture = handler
 	return t
 }
 
@@ -600,20 +560,15 @@ func (t *TextView) reindexBuffer(width int) {
 			}
 
 			// Shift original position with tags.
-			lineWidth := 0
-			for index, ch := range splitLine {
-				// Get the width of the current rune.
-				lineWidth += runewidth.RuneWidth(ch)
-
-				// Process color tags.
-				for colorPos < len(colorTagIndices) && colorTagIndices[colorPos][0] <= originalPos+index {
+			lineLength := len(splitLine)
+			for {
+				if colorPos < len(colorTagIndices) && colorTagIndices[colorPos][0] <= originalPos+lineLength {
+					// Process color tags.
 					originalPos += colorTagIndices[colorPos][1] - colorTagIndices[colorPos][0]
 					color = tcell.GetColor(colorTags[colorPos][1])
 					colorPos++
-				}
-
-				// Process region tags.
-				for regionPos < len(regionIndices) && regionIndices[regionPos][0] <= originalPos+index {
+				} else if regionPos < len(regionIndices) && regionIndices[regionPos][0] <= originalPos+lineLength {
+					// Process region tags.
 					originalPos += regionIndices[regionPos][1] - regionIndices[regionPos][0]
 					regionID = regions[regionPos][1]
 					_, highlighted = t.highlights[regionID]
@@ -629,22 +584,22 @@ func (t *TextView) reindexBuffer(width int) {
 					}
 
 					regionPos++
-				}
-
-				// Process escape tags.
-				for escapePos < len(escapeIndices) && escapeIndices[escapePos][0] <= originalPos+index {
+				} else if escapePos < len(escapeIndices) && escapeIndices[escapePos][0] <= originalPos+lineLength {
+					// Process escape tags.
 					originalPos++
 					escapePos++
+				} else {
+					break
 				}
 			}
 
 			// Advance to next line.
-			startPos += len(splitLine)
-			originalPos += len(splitLine)
+			startPos += lineLength
+			originalPos += lineLength
 
 			// Append this line.
 			line.NextPos = originalPos
-			line.Width = lineWidth
+			line.Width = runewidth.StringWidth(splitLine)
 			t.index = append(t.index, line)
 		}
 
@@ -877,13 +832,6 @@ func (t *TextView) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		// Do we pass this event on?
-		if t.capture != nil {
-			if !t.capture(event) {
-				return
-			}
-		}
-
 		key := event.Key()
 
 		if key == tcell.KeyEscape || key == tcell.KeyEnter || key == tcell.KeyTab || key == tcell.KeyBacktab {

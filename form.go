@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell"
-	runewidth "github.com/mattn/go-runewidth"
 )
 
 // DefaultFormFieldLength is the default field length of form elements whose
@@ -262,7 +261,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	var labelLength int
 	for _, item := range f.items {
 		label := strings.TrimSpace(item.GetLabel())
-		labelWidth := runewidth.StringWidth(label)
+		labelWidth := StringWidth(label)
 		if labelWidth > labelLength {
 			labelLength = labelWidth
 		}
@@ -278,7 +277,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 
 		// Calculate the space needed.
 		label := strings.TrimSpace(item.GetLabel())
-		labelWidth := runewidth.StringWidth(label)
+		labelWidth := StringWidth(label)
 		var itemWidth int
 		if f.horizontal {
 			fieldLength := item.GetFieldLength()
@@ -331,7 +330,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	buttonWidths := make([]int, len(f.buttons))
 	buttonsWidth := 0
 	for index, button := range f.buttons {
-		width := runewidth.StringWidth(button.GetLabel()) + 4
+		width := StringWidth(button.GetLabel()) + 4
 		buttonWidths[index] = width
 		buttonsWidth += width + 1
 	}

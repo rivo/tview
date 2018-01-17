@@ -2,7 +2,6 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
-	runewidth "github.com/mattn/go-runewidth"
 )
 
 // dropDownOption is one option that can be selected in a drop-down primitive.
@@ -145,7 +144,7 @@ func (d *DropDown) GetFieldLength() int {
 	}
 	fieldLength := 0
 	for _, option := range d.options {
-		length := runewidth.StringWidth(option.Text)
+		length := StringWidth(option.Text)
 		if length > fieldLength {
 			fieldLength = length
 		}
@@ -215,7 +214,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	// What's the longest option text?
 	maxLength := 0
 	for _, option := range d.options {
-		length := runewidth.StringWidth(option.Text)
+		length := StringWidth(option.Text)
 		if length > maxLength {
 			maxLength = length
 		}

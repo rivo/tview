@@ -62,6 +62,8 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 ## Releases
 
+- v0.8 (2018-01-17)
+  - Color tags can now be used almost everywhere.
 - v0.7 (2018-01-16)
   - Forms can now also have a horizontal layout.
 - v0.6 (2018-01-14)

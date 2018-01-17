@@ -2,7 +2,6 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
-	runewidth "github.com/mattn/go-runewidth"
 )
 
 // TableCell represents one cell inside a Table. You can instantiate this type
@@ -143,6 +142,8 @@ func (c *TableCell) GetLastPosition() (x, y, width int) {
 // When there is no selection, this affects the entire table (except for fixed
 // rows and columns). When there is a selection, the user moves the selection.
 // The class will attempt to keep the selection from moving out of the screen.
+//
+// Use SetInputCapture() to override or modify keyboard input.
 //
 // See https://github.com/rivo/tview/wiki/Table for an example.
 type Table struct {
@@ -550,7 +551,7 @@ ColumnLoop:
 		maxWidth := -1
 		for _, row := range rows {
 			if cell := getCell(row, column); cell != nil {
-				cellWidth := runewidth.StringWidth(cell.Text)
+				cellWidth := StringWidth(cell.Text)
 				if cell.MaxWidth > 0 && cell.MaxWidth < cellWidth {
 					cellWidth = cell.MaxWidth
 				}
@@ -628,59 +629,61 @@ ColumnLoop:
 				continue
 			}
 
-			// Determine cell colors.
-			bgColor := t.backgroundColor
-			textColor := cell.Color
-			if cell.BackgroundColor != tcell.ColorDefault {
-				bgColor = cell.BackgroundColor
-			}
-			if cellSelected && !cell.NotSelectable {
-				textColor, bgColor = bgColor, textColor
-			}
-
-			// Draw cell background.
-			bgStyle := tcell.StyleDefault.Background(bgColor)
+			// Draw text.
 			finalWidth := columnWidth
 			if columnX+1+columnWidth >= width {
 				finalWidth = width - columnX - 1
 			}
-			for pos := 0; pos < finalWidth; pos++ {
-				screen.SetContent(x+columnX+1+pos, y+rowY, ' ', nil, bgStyle)
-			}
 			cell.x, cell.y, cell.width = x+columnX+1, y+rowY, finalWidth
+			_, printed := Print(screen, cell.Text, x+columnX+1, y+rowY, finalWidth, cell.Align, cell.Color)
+			if StringWidth(cell.Text)-printed > 0 && printed > 0 {
+				_, _, style, _ := screen.GetContent(x+columnX+1+finalWidth-1, y+rowY)
+				fg, _, _ := style.Decompose()
+				Print(screen, string(GraphicsEllipsis), x+columnX+1+finalWidth-1, y+rowY, 1, AlignLeft, fg)
+			}
+
+			// Draw cell background.
+			if cellSelected && !cell.NotSelectable || cell.BackgroundColor != tcell.ColorDefault {
+				for pos := 0; pos < finalWidth; pos++ {
+					m, c, style, _ := screen.GetContent(x+columnX+1+pos, y+rowY)
+					if cellSelected && !cell.NotSelectable {
+						// Create style for a selected cell.
+						fg, _, _ := style.Decompose()
+						if fg == cell.Color {
+							fg = cell.BackgroundColor
+							if fg == tcell.ColorDefault {
+								fg = t.backgroundColor
+							}
+						}
+						style = style.Background(cell.Color).Foreground(fg)
+					} else {
+						// Create style for a cell with a colored background.
+						style = style.Background(cell.BackgroundColor)
+					}
+					screen.SetContent(x+columnX+1+pos, y+rowY, m, c, style)
+				}
+			}
 
 			// We may want continuous background colors in rows so change
 			// border/separator background colors, too.
-			if cell.BackgroundColor != tcell.ColorDefault && column > 0 {
+			cellBackground := cell.BackgroundColor
+			if cellSelected && !cell.NotSelectable {
+				cellBackground = cell.Color
+			}
+			if cellBackground != tcell.ColorDefault && column > 0 {
 				leftCell := getCell(row, column-1)
 				if leftCell != nil {
 					if cell.BackgroundColor == leftCell.BackgroundColor {
+						_, _, style, _ := screen.GetContent(x+columnX+1, y+rowY)
+						m, c, _, _ := screen.GetContent(x+columnX, y+rowY)
+						_, bgColor, _ := style.Decompose()
 						if t.columnsSelectable && column == t.selectedColumn {
 							bgColor = cell.BackgroundColor
 						}
-						ch, _, style, _ := screen.GetContent(x+columnX, y+rowY)
-						screen.SetContent(x+columnX, y+rowY, ch, nil, style.Background(bgColor))
+						screen.SetContent(x+columnX, y+rowY, m, c, style.Background(bgColor).Foreground(t.bordersColor))
 					}
 				}
 			}
-
-			// Draw text.
-			text := cell.Text
-			textWidth := runewidth.StringWidth(text)
-			if finalWidth < textWidth && finalWidth > 0 {
-				// Grow title until we hit the end.
-				abbrWidth := runewidth.RuneWidth(GraphicsEllipsis)
-				abbrPos := 0
-				for pos, ch := range text {
-					if abbrWidth >= finalWidth {
-						text = text[:abbrPos] + string(GraphicsEllipsis)
-						break
-					}
-					abbrWidth += runewidth.RuneWidth(ch)
-					abbrPos = pos
-				}
-			}
-			Print(screen, text, x+columnX+1, y+rowY, finalWidth, cell.Align, textColor)
 		}
 
 		// Draw bottom border.

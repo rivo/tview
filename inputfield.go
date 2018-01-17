@@ -188,15 +188,15 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	x += drawnWidth
 
 	// Draw input area.
-	fieldLength := i.fieldLength
-	if fieldLength == 0 {
-		fieldLength = math.MaxInt32
+	fieldWidth := i.fieldLength
+	if fieldWidth == 0 {
+		fieldWidth = math.MaxInt32
 	}
-	if rightLimit-x < fieldLength {
-		fieldLength = rightLimit - x
+	if rightLimit-x < fieldWidth {
+		fieldWidth = rightLimit - x
 	}
 	fieldStyle := tcell.StyleDefault.Background(i.fieldBackgroundColor)
-	for index := 0; index < fieldLength; index++ {
+	for index := 0; index < fieldWidth; index++ {
 		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
 	}
 
@@ -205,11 +205,35 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	if i.maskCharacter > 0 {
 		text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
 	}
-	fieldLength-- // We need one cell for the cursor.
-	if fieldLength < runewidth.StringWidth(i.text) {
-		Print(screen, text, x, y, fieldLength, AlignRight, i.fieldTextColor)
+	fieldWidth-- // We need one cell for the cursor.
+	if fieldWidth < runewidth.StringWidth(i.text) {
+		runes := []rune(i.text)
+		for pos := len(runes) - 1; pos >= 0; pos-- {
+			ch := runes[pos]
+			w := runewidth.RuneWidth(ch)
+			if fieldWidth-w < 0 {
+				break
+			}
+			_, _, style, _ := screen.GetContent(x+fieldWidth-w, y)
+			style = style.Foreground(i.fieldTextColor)
+			for w > 0 {
+				fieldWidth--
+				screen.SetContent(x+fieldWidth, y, ch, nil, style)
+				w--
+			}
+		}
 	} else {
-		Print(screen, text, x, y, fieldLength, AlignLeft, i.fieldTextColor)
+		pos := 0
+		for _, ch := range text {
+			w := runewidth.RuneWidth(ch)
+			_, _, style, _ := screen.GetContent(x+pos, y)
+			style = style.Foreground(i.fieldTextColor)
+			for w > 0 {
+				screen.SetContent(x+pos, y, ch, nil, style)
+				pos++
+				w--
+			}
+		}
 	}
 
 	// Set cursor.
@@ -232,7 +256,7 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 	if i.fieldLength > 0 && fieldLength > i.fieldLength-1 {
 		fieldLength = i.fieldLength - 1
 	}
-	x += runewidth.StringWidth(i.label) + fieldLength
+	x += StringWidth(i.label) + fieldLength
 	if x >= rightLimit {
 		x = rightLimit - 1
 	}

@@ -59,6 +59,32 @@ You will find more demos in the "demos" subdirectory. It also contains a
 presentation (written using tview) which gives an overview of the different
 widgets and how they can be used.
 
+Colors
+
+Throughout this package, colors are specified using the tcell.Color type.
+Functions such as tcell.GetColor(), tcell.NewHexColor(), and tcell.NewRGBColor()
+can be used to create colors from W3C color names or RGB values.
+
+Almost all strings which are displayed can contain color tags. Color tags are
+W3C color names or six hexadecimal digits following a hash tag, wrapped in
+square brackets. Examples:
+
+  This is a [red]warning[white]!
+  The sky is [#8080ff]blue[#ffffff].
+
+A color tag changes the color of the characters following that color tag. This
+applies to almost everything from box titles, list text, form item labels, to
+table cells. In a TextView, this functionality has to be switched on explicitly.
+See the TextView documentation for more information.
+
+In the rare event that you want to display a string such as "[red]" or
+"[#00ff1a]" without applying its effect, you need to put an opening square
+bracket before the closing square bracket. Examples:
+
+  [red[]      will be output as [red]
+  ["123"[]    will be output as ["123"]
+  [#6aff00[[] will be output as [#6aff00[]
+
 Styles
 
 When primitives are instantiated, they are initialized with colors taken from
@@ -77,8 +103,8 @@ therefore available for all widgets, too.
 All widgets also implement the Primitive interface. There is also the Focusable
 interface which is used to override functions in subclassing types.
 
-The tview package is based on github.com/gdamore/tcell. It uses types and
-constants from that package (e.g. colors and keyboard values).
+The tview package is based on https://github.com/gdamore/tcell. It uses types
+and constants from that package (e.g. colors and keyboard values).
 
 This package does not process mouse input (yet).
 */

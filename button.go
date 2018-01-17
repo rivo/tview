@@ -2,7 +2,6 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
-	runewidth "github.com/mattn/go-runewidth"
 )
 
 // Button is labeled box that triggers an action when selected.
@@ -34,7 +33,7 @@ type Button struct {
 // NewButton returns a new input field.
 func NewButton(label string) *Button {
 	box := NewBox().SetBackgroundColor(Styles.ContrastBackgroundColor)
-	box.SetRect(0, 0, runewidth.StringWidth(label)+4, 1)
+	box.SetRect(0, 0, StringWidth(label)+4, 1)
 	return &Button{
 		Box:                      box,
 		label:                    label,
