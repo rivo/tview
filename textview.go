@@ -14,6 +14,7 @@ import (
 var (
 	colorPattern    = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})\]`)
 	regionPattern   = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
+	escapePattern   = regexp.MustCompile(`\[("[a-zA-Z0-9_,;: \-\.]*"|[a-zA-Z]+|#[0-9a-zA-Z]{6})\[(\[*)\]`)
 	boundaryPattern = regexp.MustCompile("([[:punct:]]\\s*|\\s+)")
 	spacePattern    = regexp.MustCompile(`\s+`)
 )
@@ -90,6 +91,17 @@ type textViewIndex struct {
 //
 // The ScrollToHighlight() function can be used to jump to the currently
 // highlighted region once when the text view is drawn the next time.
+//
+// Escape Tags
+//
+// In the rare case that you have color tags or regions enabled but still want
+// to output a tag as text instead of causing its functionality, you can close
+// the tag with an opening and closing bracket "[]" instead of only a closing
+// bracket "]". Examples:
+//
+//   [red[]      will be output as [red]
+//   ["123"[]    will be output as ["123"]
+//   [#6aff00[[] will be output as [#6aff00[]
 //
 // See https://github.com/rivo/tview/wiki/TextView for an example.
 type TextView struct {
@@ -433,7 +445,7 @@ func (t *TextView) GetRegionText(regionID string) string {
 		}
 	}
 
-	return buffer.String()
+	return escapePattern.ReplaceAllString(buffer.String(), `[$1$2]`)
 }
 
 // Write lets us implement the io.Writer interface. Tab characters will be
@@ -544,6 +556,13 @@ func (t *TextView) reindexBuffer(width int) {
 			str = regionPattern.ReplaceAllString(str, "")
 		}
 
+		// Find all replace tags in this line. Then replace them.
+		var escapeIndices [][]int
+		if t.dynamicColors || t.regions {
+			escapeIndices = escapePattern.FindAllStringIndex(str, -1)
+			str = escapePattern.ReplaceAllString(str, "[$1$2]")
+		}
+
 		// Split the line if required.
 		var splitLines []string
 		if t.wrap && len(str) > 0 {
@@ -571,7 +590,7 @@ func (t *TextView) reindexBuffer(width int) {
 		}
 
 		// Create index from split lines.
-		var startPos, originalPos, colorPos, regionPos int
+		var startPos, originalPos, colorPos, regionPos, escapePos int
 		for _, splitLine := range splitLines {
 			line := &textViewIndex{
 				Line:   bufferIndex,
@@ -610,6 +629,12 @@ func (t *TextView) reindexBuffer(width int) {
 					}
 
 					regionPos++
+				}
+
+				// Process escape tags.
+				for escapePos < len(escapeIndices) && escapeIndices[escapePos][0] <= originalPos+index {
+					originalPos++
+					escapePos++
 				}
 			}
 
@@ -756,6 +781,12 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			regions = regionPattern.FindAllStringSubmatch(text, -1)
 		}
 
+		// Get escape tags.
+		var escapeIndices [][]int
+		if t.dynamicColors || t.regions {
+			escapeIndices = escapePattern.FindAllStringIndex(text, -1)
+		}
+
 		// Calculate the position of the line.
 		var skip, posX int
 		if t.align == AlignLeft {
@@ -771,7 +802,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		}
 
 		// Print the line.
-		var currentTag, currentRegion, skipped int
+		var currentTag, currentRegion, currentEscapeTag, skipped int
 		for pos, ch := range text {
 			// Get the color.
 			if currentTag < len(colorTags) && pos >= colorTagIndices[currentTag][0] && pos < colorTagIndices[currentTag][1] {
@@ -789,6 +820,15 @@ func (t *TextView) Draw(screen tcell.Screen) {
 					currentRegion++
 				}
 				continue
+			}
+
+			// Skip the second-to-last character of an escape tag.
+			if currentEscapeTag < len(escapeIndices) && pos >= escapeIndices[currentEscapeTag][0] && pos < escapeIndices[currentEscapeTag][1] {
+				if pos == escapeIndices[currentEscapeTag][1]-1 {
+					currentEscapeTag++
+				} else if pos == escapeIndices[currentEscapeTag][1]-2 {
+					continue
+				}
 			}
 
 			// Determine the width of this rune.
