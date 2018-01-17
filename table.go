@@ -655,6 +655,9 @@ ColumnLoop:
 				leftCell := getCell(row, column-1)
 				if leftCell != nil {
 					if cell.BackgroundColor == leftCell.BackgroundColor {
+						if t.columnsSelectable && column == t.selectedColumn {
+							bgColor = cell.BackgroundColor
+						}
 						ch, _, style, _ := screen.GetContent(x+columnX, y+rowY)
 						screen.SetContent(x+columnX, y+rowY, ch, nil, style.Background(bgColor))
 					}
