@@ -35,7 +35,10 @@ type FormItem interface {
 	SetFinishedFunc(handler func(key tcell.Key)) FormItem
 }
 
-// Form is a Box which contains multiple input fields, one per row.
+// Form allows you to combine multiple one-line form elements into a vertical
+// or horizontal layout. Form elements include types such as InputField or
+// Checkbox. These elements can be optionally followed by one or more buttons
+// for which you can define form-wide actions (e.g. Save, Clear, Cancel).
 //
 // See https://github.com/rivo/tview/wiki/Form for an example.
 type Form struct {
