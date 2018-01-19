@@ -48,20 +48,34 @@ func (p *Pages) SetChangedFunc(handler func()) *Pages {
 	return p
 }
 
-// AddPage adds a new page with the given name and primitive. Leaving the name
-// empty or using the same name for multiple items may cause conflicts in other
-// functions.
+// AddPage adds a new page with the given name and primitive. If there was
+// previously a page with the same name, it is overwritten. Leaving the name
+// empty may cause conflicts in other functions.
 //
 // Visible pages will be drawn in the order they were added (unless that order
 // was changed in one of the other functions). If "resize" is set to true, the
 // primitive will be set to the size available to the Pages primitive whenever
 // the pages are drawn.
 func (p *Pages) AddPage(name string, item Primitive, resize, visible bool) *Pages {
+	for index, pg := range p.pages {
+		if pg.Name == name {
+			p.pages = append(p.pages[:index], p.pages[index+1:]...)
+			break
+		}
+	}
 	p.pages = append(p.pages, &page{Item: item, Name: name, Resize: resize, Visible: visible})
 	if p.changed != nil {
 		p.changed()
 	}
 	p.refocus()
+	return p
+}
+
+// AddAndSwitchToPage calls AddPage(), then SwitchToPage() on that newly added
+// page.
+func (p *Pages) AddAndSwitchToPage(name string, item Primitive, resize bool) *Pages {
+	p.AddPage(name, item, resize, true)
+	p.SwitchToPage(name)
 	return p
 }
 
