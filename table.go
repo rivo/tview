@@ -348,7 +348,7 @@ func (t *Table) SetCell(row, column int, cell *TableCell) *Table {
 
 // SetCellSimple calls SetCell() with the given text, left-aligned, in white.
 func (t *Table) SetCellSimple(row, column int, text string) *Table {
-	t.SetCell(row, column, &TableCell{Text: text, Align: AlignLeft, Color: Styles.PrimaryTextColor})
+	t.SetCell(row, column, NewTableCell(text))
 	return t
 }
 
