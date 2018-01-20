@@ -1,7 +1,10 @@
 package tview
 
 import (
+	"sort"
+
 	"github.com/gdamore/tcell"
+	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
 // TableCell represents one cell inside a Table. You can instantiate this type
@@ -574,13 +577,8 @@ ColumnLoop:
 
 	// Helper function which draws border runes.
 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
-	selectedBorderStyle := tcell.StyleDefault.Background(t.bordersColor).Foreground(t.backgroundColor)
-	drawBorder := func(colX, rowY int, ch rune, selected bool) {
-		style := borderStyle
-		if selected {
-			style = selectedBorderStyle
-		}
-		screen.SetContent(x+colX, y+rowY, ch, nil, style)
+	drawBorder := func(colX, rowY int, ch rune) {
+		screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
 	}
 
 	// Draw the cells (and borders).
@@ -590,17 +588,12 @@ ColumnLoop:
 	}
 	for columnIndex, column := range columns {
 		columnWidth := widths[columnIndex]
-		columnSelected := t.columnsSelectable && !t.rowsSelectable && column == t.selectedColumn
 		for rowY, row := range rows {
-			// Is this row/cell selected?
-			rowSelected := t.rowsSelectable && !t.columnsSelectable && row == t.selectedRow
-			cellSelected := columnSelected || rowSelected || t.rowsSelectable && t.columnsSelectable && column == t.selectedColumn && row == t.selectedRow
-
 			if t.borders {
 				// Draw borders.
 				rowY *= 2
 				for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
-					drawBorder(columnX+pos+1, rowY, GraphicsHoriBar, columnSelected)
+					drawBorder(columnX+pos+1, rowY, GraphicsHoriBar)
 				}
 				ch := GraphicsCross
 				if columnIndex == 0 {
@@ -612,15 +605,15 @@ ColumnLoop:
 				} else if rowY == 0 {
 					ch = GraphicsTopT
 				}
-				drawBorder(columnX, rowY, ch, false)
+				drawBorder(columnX, rowY, ch)
 				rowY++
 				if rowY >= height {
 					break // No space for the text anymore.
 				}
-				drawBorder(columnX, rowY, GraphicsVertBar, rowSelected)
+				drawBorder(columnX, rowY, GraphicsVertBar)
 			} else if columnIndex > 0 {
 				// Draw separator.
-				drawBorder(columnX, rowY, t.separator, rowSelected)
+				drawBorder(columnX, rowY, t.separator)
 			}
 
 			// Get the cell.
@@ -641,61 +634,18 @@ ColumnLoop:
 				fg, _, _ := style.Decompose()
 				Print(screen, string(GraphicsEllipsis), x+columnX+1+finalWidth-1, y+rowY, 1, AlignLeft, fg)
 			}
-
-			// Draw cell background.
-			if cellSelected && !cell.NotSelectable || cell.BackgroundColor != tcell.ColorDefault {
-				for pos := 0; pos < finalWidth; pos++ {
-					m, c, style, _ := screen.GetContent(x+columnX+1+pos, y+rowY)
-					if cellSelected && !cell.NotSelectable {
-						// Create style for a selected cell.
-						fg, _, _ := style.Decompose()
-						if fg == cell.Color {
-							fg = cell.BackgroundColor
-							if fg == tcell.ColorDefault {
-								fg = t.backgroundColor
-							}
-						}
-						style = style.Background(cell.Color).Foreground(fg)
-					} else {
-						// Create style for a cell with a colored background.
-						style = style.Background(cell.BackgroundColor)
-					}
-					screen.SetContent(x+columnX+1+pos, y+rowY, m, c, style)
-				}
-			}
-
-			// We may want continuous background colors in rows so change
-			// border/separator background colors, too.
-			cellBackground := cell.BackgroundColor
-			if cellSelected && !cell.NotSelectable {
-				cellBackground = cell.Color
-			}
-			if cellBackground != tcell.ColorDefault && column > 0 {
-				leftCell := getCell(row, column-1)
-				if leftCell != nil {
-					if cell.BackgroundColor == leftCell.BackgroundColor {
-						_, _, style, _ := screen.GetContent(x+columnX+1, y+rowY)
-						m, c, _, _ := screen.GetContent(x+columnX, y+rowY)
-						_, bgColor, _ := style.Decompose()
-						if t.columnsSelectable && column == t.selectedColumn {
-							bgColor = cell.BackgroundColor
-						}
-						screen.SetContent(x+columnX, y+rowY, m, c, style.Background(bgColor).Foreground(t.bordersColor))
-					}
-				}
-			}
 		}
 
 		// Draw bottom border.
 		if rowY := 2 * len(rows); t.borders && rowY < height {
 			for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
-				drawBorder(columnX+pos+1, rowY, GraphicsHoriBar, columnSelected)
+				drawBorder(columnX+pos+1, rowY, GraphicsHoriBar)
 			}
 			ch := GraphicsBottomT
 			if columnIndex == 0 {
 				ch = GraphicsBottomLeftCorner
 			}
-			drawBorder(columnX, rowY, ch, false)
+			drawBorder(columnX, rowY, ch)
 		}
 
 		columnX += columnWidth + 1
@@ -703,20 +653,109 @@ ColumnLoop:
 
 	// Draw right border.
 	if t.borders && len(t.cells) > 0 && columnX < width {
-		for rowY, row := range rows {
-			rowSelected := t.rowsSelectable && !t.columnsSelectable && row == t.selectedRow
+		for rowY := range rows {
 			rowY *= 2
 			if rowY+1 < height {
-				drawBorder(columnX, rowY+1, GraphicsVertBar, rowSelected)
+				drawBorder(columnX, rowY+1, GraphicsVertBar)
 			}
 			ch := GraphicsRightT
 			if rowY == 0 {
 				ch = GraphicsTopRightCorner
 			}
-			drawBorder(columnX, rowY, ch, false)
+			drawBorder(columnX, rowY, ch)
 		}
 		if rowY := 2 * len(rows); rowY < height {
-			drawBorder(columnX, rowY, GraphicsBottomRightCorner, false)
+			drawBorder(columnX, rowY, GraphicsBottomRightCorner)
+		}
+	}
+
+	// Helper function which colors the background of a box.
+	colorBackground := func(fromX, fromY, w, h int, backgroundColor, textColor tcell.Color, selected bool) {
+		for by := 0; by < h && fromY+by < y+height; by++ {
+			for bx := 0; bx < w && fromX+bx < x+width; bx++ {
+				m, c, style, _ := screen.GetContent(fromX+bx, fromY+by)
+				if selected {
+					fg, _, _ := style.Decompose()
+					if fg == textColor || fg == t.bordersColor {
+						fg = backgroundColor
+					}
+					if fg == tcell.ColorDefault {
+						fg = t.backgroundColor
+					}
+					style = style.Background(textColor).Foreground(fg)
+				} else {
+					if backgroundColor == tcell.ColorDefault {
+						continue
+					}
+					style = style.Background(backgroundColor)
+				}
+				screen.SetContent(fromX+bx, fromY+by, m, c, style)
+			}
+		}
+	}
+
+	// Color the cell backgrounds. To avoid undesirable artefacts, we combine
+	// the drawing of a cell by background color, selected cells last.
+	cellsByBackgroundColor := make(map[tcell.Color][]*struct {
+		x, y, w, h int
+		text       tcell.Color
+		selected   bool
+	})
+	var backgroundColors []tcell.Color
+	for rowY, row := range rows {
+		columnX := 0
+		rowSelected := t.rowsSelectable && !t.columnsSelectable && row == t.selectedRow
+		for columnIndex, column := range columns {
+			columnWidth := widths[columnIndex]
+			cell := getCell(row, column)
+			if cell == nil {
+				continue
+			}
+			bx, by, bw, bh := x+columnX, y+rowY, columnWidth+1, 1
+			if t.borders {
+				by = y + rowY*2
+				bw++
+				bh = 3
+			}
+			columnSelected := t.columnsSelectable && !t.rowsSelectable && column == t.selectedColumn
+			cellSelected := !cell.NotSelectable && (columnSelected || rowSelected || t.rowsSelectable && t.columnsSelectable && column == t.selectedColumn && row == t.selectedRow)
+			entries, ok := cellsByBackgroundColor[cell.BackgroundColor]
+			cellsByBackgroundColor[cell.BackgroundColor] = append(entries, &struct {
+				x, y, w, h int
+				text       tcell.Color
+				selected   bool
+			}{
+				x:        bx,
+				y:        by,
+				w:        bw,
+				h:        bh,
+				text:     cell.Color,
+				selected: cellSelected,
+			})
+			if !ok {
+				backgroundColors = append(backgroundColors, cell.BackgroundColor)
+			}
+			columnX += columnWidth + 1
+		}
+	}
+	sort.Slice(backgroundColors, func(i int, j int) bool {
+		// Draw brightest colors last (i.e. on top).
+		r, g, b := backgroundColors[i].RGB()
+		c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
+		_, _, li := c.Hcl()
+		r, g, b = backgroundColors[j].RGB()
+		c = colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
+		_, _, lj := c.Hcl()
+		return li < lj
+	})
+	for _, bgColor := range backgroundColors {
+		entries := cellsByBackgroundColor[bgColor]
+		for _, cell := range entries {
+			if cell.selected {
+				defer colorBackground(cell.x, cell.y, cell.w, cell.h, bgColor, cell.text, true)
+			} else {
+				colorBackground(cell.x, cell.y, cell.w, cell.h, bgColor, cell.text, false)
+			}
 		}
 	}
 }
