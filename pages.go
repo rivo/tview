@@ -67,7 +67,9 @@ func (p *Pages) AddPage(name string, item Primitive, resize, visible bool) *Page
 	if p.changed != nil {
 		p.changed()
 	}
-	p.refocus()
+	if p.HasFocus() {
+		p.Focus(p.setFocus)
+	}
 	return p
 }
 
@@ -81,6 +83,7 @@ func (p *Pages) AddAndSwitchToPage(name string, item Primitive, resize bool) *Pa
 
 // RemovePage removes the page with the given name.
 func (p *Pages) RemovePage(name string) *Pages {
+	hasFocus := p.HasFocus()
 	for index, page := range p.pages {
 		if page.Name == name {
 			p.pages = append(p.pages[:index], p.pages[index+1:]...)
@@ -90,7 +93,9 @@ func (p *Pages) RemovePage(name string) *Pages {
 			break
 		}
 	}
-	p.refocus()
+	if hasFocus {
+		p.Focus(p.setFocus)
+	}
 	return p
 }
 
@@ -116,7 +121,9 @@ func (p *Pages) ShowPage(name string) *Pages {
 			break
 		}
 	}
-	p.refocus()
+	if p.HasFocus() {
+		p.Focus(p.setFocus)
+	}
 	return p
 }
 
@@ -131,7 +138,9 @@ func (p *Pages) HidePage(name string) *Pages {
 			break
 		}
 	}
-	p.refocus()
+	if p.HasFocus() {
+		p.Focus(p.setFocus)
+	}
 	return p
 }
 
@@ -148,7 +157,9 @@ func (p *Pages) SwitchToPage(name string) *Pages {
 	if p.changed != nil {
 		p.changed()
 	}
-	p.refocus()
+	if p.HasFocus() {
+		p.Focus(p.setFocus)
+	}
 	return p
 }
 
@@ -167,7 +178,9 @@ func (p *Pages) SendToFront(name string) *Pages {
 			break
 		}
 	}
-	p.refocus()
+	if p.HasFocus() {
+		p.Focus(p.setFocus)
+	}
 	return p
 }
 
@@ -186,7 +199,9 @@ func (p *Pages) SendToBack(name string) *Pages {
 			break
 		}
 	}
-	p.refocus()
+	if p.HasFocus() {
+		p.Focus(p.setFocus)
+	}
 	return p
 }
 
@@ -211,25 +226,6 @@ func (p *Pages) Focus(delegate func(p Primitive)) {
 	}
 	if topItem != nil {
 		delegate(topItem)
-	}
-}
-
-// refocus sets the focus to the topmost visible page but only if we have focus.
-func (p *Pages) refocus() {
-	var (
-		topItem  Primitive
-		hasFocus bool
-	)
-	for _, page := range p.pages {
-		if page.Item.GetFocusable().HasFocus() {
-			hasFocus = true
-		}
-		if page.Visible {
-			topItem = page.Item
-		}
-	}
-	if hasFocus && p.setFocus != nil && topItem != nil {
-		p.setFocus(topItem)
 	}
 }
 
