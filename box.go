@@ -2,6 +2,7 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
+	"github.com/google/uuid"
 )
 
 // Box implements Primitive with a background and optional elements such as a
@@ -13,6 +14,9 @@ import (
 //
 // See https://github.com/rivo/tview/wiki/Box for an example.
 type Box struct {
+	// A (hopefully) unique ID
+	id string
+
 	// The position of the rect.
 	x, y, width, height int
 
@@ -54,6 +58,7 @@ type Box struct {
 // NewBox returns a Box without a border.
 func NewBox() *Box {
 	b := &Box{
+		id:              uuid.New().String(),
 		width:           15,
 		height:          10,
 		backgroundColor: Styles.PrimitiveBackgroundColor,
@@ -63,6 +68,10 @@ func NewBox() *Box {
 	}
 	b.focus = b
 	return b
+}
+
+func (b *Box) Id() string {
+	return b.id
 }
 
 // SetBorderPadding sets the size of the borders around the box content.
