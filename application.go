@@ -29,7 +29,7 @@ type Application struct {
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the default input handler (nil if nothing should
 	// be forwarded).
-	inputCapture func(event *tcell.EventKey) *tcell.EventKey
+	inputCapture func(event tcell.Event) tcell.Event
 }
 
 // NewApplication creates and returns a new application.
@@ -46,9 +46,13 @@ func NewApplication() *Application {
 // Note that this also affects the default event handling of the application
 // itself: Such a handler can intercept the Ctrl-C event which closes the
 // applicatoon.
-func (a *Application) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Application {
+func (a *Application) SetInputCapture(capture func(event tcell.Event) tcell.Event) *Application {
 	a.inputCapture = capture
 	return a
+}
+
+func (a *Application) Screen() tcell.Screen {
+	return a.screen
 }
 
 // Run starts the application and thus the event loop. This function returns
@@ -97,19 +101,19 @@ func (a *Application) Run() error {
 			break // The screen was finalized.
 		}
 
+		// Intercept all events.
+		if a.inputCapture != nil {
+			event = a.inputCapture(event)
+			if event == nil {
+				break // Don't forward event.
+			}
+		}
+
 		switch event := event.(type) {
 		case *tcell.EventKey:
 			a.RLock()
 			p := a.focus
 			a.RUnlock()
-
-			// Intercept keys.
-			if a.inputCapture != nil {
-				event = a.inputCapture(event)
-				if event == nil {
-					break // Don't forward event.
-				}
-			}
 
 			// Ctrl-C closes the application.
 			if event.Key() == tcell.KeyCtrlC {
