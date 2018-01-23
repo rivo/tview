@@ -17,6 +17,9 @@ type Box struct {
 	// A (hopefully) unique ID
 	id string
 
+	// props is a generic properties store
+	props map[string]interface{}
+
 	// The position of the rect.
 	x, y, width, height int
 
@@ -282,3 +285,24 @@ func (b *Box) IsMounted() bool {
 
 // Render is a placeholder here
 func (b *Box) Render() error { return nil }
+
+func (b *Box) GetProp(prop string) (interface{}, bool) {
+	value, ok := b.props[prop]
+	return value, ok
+}
+
+func (b *Box) GetProps() map[string]interface{} {
+	return b.props
+}
+
+// SetProp is a generic function for setting properties
+func (b *Box) SetProp(prop string, value interface{}) error {
+	b.props[prop] = value
+	return nil
+}
+
+// SetProps is a generic function for setting properties
+func (b *Box) SetProps(newProps map[string]interface{}) error {
+	b.props = newProps
+	return nil
+}

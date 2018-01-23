@@ -61,4 +61,18 @@ type Primitive interface {
 
 	// Render is called when something in the future does so.
 	Render() error
+
+	// GetProps returns the primitive's prop
+	GetProp(prop string) (interface{}, bool)
+
+	// GetProps returns the primitive's props
+	GetProps() map[string]interface{}
+
+	// SetProp sets a primitive's props
+	// It is up to the implementor to ensure correctness.
+	SetProp(props string, value interface{}) error
+
+	// SetProps replaces the primitive's props
+	// It is up to the implementor to ensure correctness.
+	SetProps(newProps map[string]interface{}) error
 }
