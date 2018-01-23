@@ -49,6 +49,9 @@ type Box struct {
 	// Whether or not this box has focus.
 	hasFocus bool
 
+	// Whether or not this box is mounted.
+	isMounted bool
+
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the primitive's default input handler (nil if
 	// nothing should be forwarded).
@@ -259,3 +262,23 @@ func (b *Box) HasFocus() bool {
 func (b *Box) GetFocusable() Focusable {
 	return b.focus
 }
+
+// Mount is called when this primitive is mounted (by the router).
+func (b *Box) Mount(context map[string]interface{}) error {
+	b.isMounted = true
+	return nil
+}
+
+// Unmount is called when this primitive is unmounted.
+func (b *Box) Unmount() error {
+	b.isMounted = false
+	return nil
+}
+
+// HasFocus returns whether or not this primitive has focus.
+func (b *Box) IsMounted() bool {
+	return b.isMounted
+}
+
+// Render is a placeholder here
+func (b *Box) Render() error { return nil }

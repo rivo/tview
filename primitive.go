@@ -44,6 +44,21 @@ type Primitive interface {
 	// Blur is called by the application when the primitive loses focus.
 	Blur()
 
+	// HasFocus returns true if the primitive has focus
+	HasFocus() bool
+
 	// GetFocusable returns the item's Focusable.
 	GetFocusable() Focusable
+
+	// Mount is a longer term context for bringing a widget into scope
+	Mount(context map[string]interface{}) error
+
+	// Unmount is the opposite of mount
+	Unmount() error
+
+	// IsMounted returns true if the primitive is mounted
+	IsMounted() bool
+
+	// Render is called when something in the future does so.
+	Render() error
 }
