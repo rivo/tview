@@ -829,62 +829,66 @@ func (t *TextView) Draw(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return t.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		key := event.Key()
+func (t *TextView) InputHandler() func(tcell.Event, func(Primitive)) {
+	return t.wrapInputHandler(func(event tcell.Event, setFocus func(p Primitive)) {
+		switch evt := event.(type) {
+		case *tcell.EventKey:
+			key := evt.Key()
 
-		if key == tcell.KeyEscape || key == tcell.KeyEnter || key == tcell.KeyTab || key == tcell.KeyBacktab {
-			if t.done != nil {
-				t.done(key)
+			if key == tcell.KeyEscape || key == tcell.KeyEnter || key == tcell.KeyTab || key == tcell.KeyBacktab {
+				if t.done != nil {
+					t.done(key)
+				}
+				return
 			}
-			return
-		}
 
-		if !t.scrollable {
-			return
-		}
+			if !t.scrollable {
+				return
+			}
 
-		switch key {
-		case tcell.KeyRune:
-			switch event.Rune() {
-			case 'g': // Home.
+			switch key {
+			case tcell.KeyRune:
+				switch evt.Rune() {
+				case 'g': // Home.
+					t.trackEnd = false
+					t.lineOffset = 0
+					t.columnOffset = 0
+				case 'G': // End.
+					t.trackEnd = true
+					t.columnOffset = 0
+				case 'j': // Down.
+					t.lineOffset++
+				case 'k': // Up.
+					t.trackEnd = false
+					t.lineOffset--
+				case 'h': // Left.
+					t.columnOffset--
+				case 'l': // Right.
+					t.columnOffset++
+				}
+			case tcell.KeyHome:
 				t.trackEnd = false
 				t.lineOffset = 0
 				t.columnOffset = 0
-			case 'G': // End.
+			case tcell.KeyEnd:
 				t.trackEnd = true
 				t.columnOffset = 0
-			case 'j': // Down.
-				t.lineOffset++
-			case 'k': // Up.
+			case tcell.KeyUp:
 				t.trackEnd = false
 				t.lineOffset--
-			case 'h': // Left.
+			case tcell.KeyDown:
+				t.lineOffset++
+			case tcell.KeyLeft:
 				t.columnOffset--
-			case 'l': // Right.
+			case tcell.KeyRight:
 				t.columnOffset++
+			case tcell.KeyPgDn, tcell.KeyCtrlF:
+				t.lineOffset += t.pageSize
+			case tcell.KeyPgUp, tcell.KeyCtrlB:
+				t.trackEnd = false
+				t.lineOffset -= t.pageSize
 			}
-		case tcell.KeyHome:
-			t.trackEnd = false
-			t.lineOffset = 0
-			t.columnOffset = 0
-		case tcell.KeyEnd:
-			t.trackEnd = true
-			t.columnOffset = 0
-		case tcell.KeyUp:
-			t.trackEnd = false
-			t.lineOffset--
-		case tcell.KeyDown:
-			t.lineOffset++
-		case tcell.KeyLeft:
-			t.columnOffset--
-		case tcell.KeyRight:
-			t.columnOffset++
-		case tcell.KeyPgDn, tcell.KeyCtrlF:
-			t.lineOffset += t.pageSize
-		case tcell.KeyPgUp, tcell.KeyCtrlB:
-			t.trackEnd = false
-			t.lineOffset -= t.pageSize
 		}
+
 	})
 }

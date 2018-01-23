@@ -52,7 +52,7 @@ type Box struct {
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the primitive's default input handler (nil if
 	// nothing should be forwarded).
-	inputCapture func(event *tcell.EventKey) *tcell.EventKey
+	inputCapture func(event tcell.Event) tcell.Event
 }
 
 // NewBox returns a Box without a border.
@@ -113,8 +113,8 @@ func (b *Box) SetRect(x, y, width, height int) {
 // wrapInputHandler wraps an input handler (see InputHandler()) with the
 // functionality to capture input (see SetInputCapture()) before passing it
 // on to the provided (default) input handler.
-func (b *Box) wrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primitive))) func(*tcell.EventKey, func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (b *Box) wrapInputHandler(inputHandler func(tcell.Event, func(p Primitive))) func(tcell.Event, func(p Primitive)) {
+	return func(event tcell.Event, setFocus func(p Primitive)) {
 		if b.inputCapture != nil {
 			event = b.inputCapture(event)
 		}
@@ -125,7 +125,7 @@ func (b *Box) wrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primiti
 }
 
 // InputHandler returns nil.
-func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (b *Box) InputHandler() func(event tcell.Event, setFocus func(p Primitive)) {
 	return b.wrapInputHandler(nil)
 }
 
@@ -136,7 +136,7 @@ func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primiti
 // be called.
 //
 // Providing a nil handler will remove a previously existing handler.
-func (b *Box) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Box {
+func (b *Box) SetInputCapture(capture func(event tcell.Event) tcell.Event) *Box {
 	b.inputCapture = capture
 	return b
 }

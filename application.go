@@ -109,14 +109,14 @@ func (a *Application) Run() error {
 			}
 		}
 
-		switch event := event.(type) {
+		switch evt := event.(type) {
 		case *tcell.EventKey:
 			a.RLock()
 			p := a.focus
 			a.RUnlock()
 
 			// Ctrl-C closes the application.
-			if event.Key() == tcell.KeyCtrlC {
+			if evt.Key() == tcell.KeyCtrlC {
 				a.Stop()
 			}
 
