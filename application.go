@@ -146,14 +146,15 @@ func (a *Application) Run() error {
 }
 
 // Stop stops the application, causing Run() to return.
-func (a *Application) Stop() {
-	a.RLock()
-	defer a.RUnlock()
+func (a *Application) Stop() error {
+	a.Lock()
+	defer a.Unlock()
 	if a.screen == nil {
-		return
+		return nil
 	}
-	a.screen.Fini()
+	err := a.screen.Fini()
 	a.screen = nil
+	return err
 }
 
 // Draw refreshes the screen. It calls the Draw() function of the application's
