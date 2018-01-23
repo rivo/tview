@@ -4,6 +4,9 @@ import "github.com/gdamore/tcell"
 
 // Primitive is the top-most interface for all graphical primitives.
 type Primitive interface {
+	// everything should have a unique Id, defaults to a uuid
+	Id() string
+
 	// Draw draws this primitive onto the screen. Implementers can call the
 	// screen's ShowCursor() function but should only do so when they have focus.
 	// (They will need to keep track of this themselves.)

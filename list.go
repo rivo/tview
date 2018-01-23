@@ -6,12 +6,18 @@ import (
 	"github.com/gdamore/tcell"
 )
 
-// listItem represents one item in a List.
-type listItem struct {
+// ListItem represents one item in a List.
+type ListItem struct {
+	id            string
 	MainText      string // The main text of the list item.
 	SecondaryText string // A secondary text to be shown underneath the main text.
 	Shortcut      rune   // The key to select the list item directly, 0 if there is no shortcut.
 	Selected      func() // The optional function which is called when the item is selected.
+}
+
+// Id returns the item's id
+func (l *ListItem) Id() string {
+	return l.id
 }
 
 // List displays rows of items, each of which can be selected.
@@ -21,7 +27,7 @@ type List struct {
 	*Box
 
 	// The items of the list.
-	items []*listItem
+	items []*ListItem
 
 	// The index of the currently selected item.
 	currentItem int
@@ -154,7 +160,7 @@ func (l *List) SetDoneFunc(handler func()) *List {
 // may provide nil if no such item is needed or if all events are handled
 // through the selected callback set with SetSelectedFunc().
 func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected func()) *List {
-	l.items = append(l.items, &listItem{
+	l.items = append(l.items, &ListItem{
 		MainText:      mainText,
 		SecondaryText: secondaryText,
 		Shortcut:      shortcut,

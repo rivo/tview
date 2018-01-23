@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/gdamore/tcell"
+	"github.com/google/uuid"
 	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
@@ -11,6 +12,8 @@ import (
 // directly but all colors (background and text) will be set to their default
 // which is black.
 type TableCell struct {
+	id string
+
 	// The text to be displayed in the table cell.
 	Text string
 
@@ -41,11 +44,17 @@ type TableCell struct {
 // background (using the background of the Table).
 func NewTableCell(text string) *TableCell {
 	return &TableCell{
+		id:              uuid.New().String(),
 		Text:            text,
 		Align:           AlignLeft,
 		Color:           Styles.PrimaryTextColor,
 		BackgroundColor: tcell.ColorDefault,
 	}
+}
+
+// Id returns the cell's id
+func (c *TableCell) Id() string {
+	return c.id
 }
 
 // SetText sets the cell's text.
