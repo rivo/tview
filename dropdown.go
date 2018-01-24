@@ -74,7 +74,8 @@ func NewDropDown() *DropDown {
 	return d
 }
 
-// SetCurrentOption sets the index of the currently selected option.
+// SetCurrentOption sets the index of the currently selected option. This may
+// be a negative value to indicate that no option is currently selected.
 func (d *DropDown) SetCurrentOption(index int) *DropDown {
 	d.currentOption = index
 	d.list.SetCurrentItem(index)
