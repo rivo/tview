@@ -164,6 +164,10 @@ func (p *Pages) HidePage(name string) *Pages {
 // visibility to "false".
 func (p *Pages) SwitchToPage(name string, context map[string]interface{}) *Pages {
 	if p.curr != nil {
+		if p.curr.Name == name {
+			p.curr.Item.Refresh(context)
+			return p
+		}
 		p.curr.Item.Unmount()
 	}
 	for _, page := range p.pages {

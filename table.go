@@ -161,6 +161,9 @@ func (c *TableCell) GetLastPosition() (x, y, width int) {
 type Table struct {
 	*Box
 
+	// If the table is smaller than the space, how to position
+	align int
+
 	// Whether or not this table has borders around each cell.
 	borders bool
 
@@ -225,6 +228,13 @@ func NewTable() *Table {
 func (t *Table) Clear() *Table {
 	t.cells = nil
 	t.lastColumn = -1
+	return t
+}
+
+// SetAlign sets the table's positioning within the space.
+// This only takes effect when the table is smaller than the space provided
+func (t *Table) SetAlign(align int) *Table {
+	t.align = align
 	return t
 }
 
@@ -428,7 +438,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 		return t.cells[row][column]
 	}
 
-	// If this cell is not selectable, find the next one.
+	// If this cell is selectable, find the next one.
 	if t.rowsSelectable || t.columnsSelectable {
 		if t.selectedColumn < 0 {
 			t.selectedColumn = 0
@@ -470,10 +480,14 @@ func (t *Table) Draw(screen tcell.Screen) {
 	if t.borders {
 		if 2*(len(t.cells)-t.rowOffset) < height {
 			t.trackEnd = true
+		} else {
+			t.trackEnd = false
 		}
 	} else {
 		if len(t.cells)-t.rowOffset < height {
 			t.trackEnd = true
+		} else {
+			t.trackEnd = false
 		}
 	}
 	if t.trackEnd {
@@ -583,6 +597,16 @@ ColumnLoop:
 		tableWidth += maxWidth + 1
 	}
 	t.columnOffset = skipped
+
+	// If we are smaller than our space and have alignment
+	if tableWidth < width {
+		if t.align == AlignCenter {
+			x += (width - tableWidth) / 2
+		}
+		if t.align == AlignRight {
+			x += (width - tableWidth)
+		}
+	}
 
 	// Helper function which draws border runes.
 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)

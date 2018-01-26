@@ -129,6 +129,9 @@ func (b *Box) wrapInputHandler(inputHandler func(tcell.Event, func(p Primitive))
 		}
 	}
 }
+func (b *Box) WrapInputHandler(inputHandler func(tcell.Event, func(p Primitive))) func(tcell.Event, func(p Primitive)) {
+	return b.wrapInputHandler(inputHandler)
+}
 
 // InputHandler returns nil.
 func (b *Box) InputHandler() func(event tcell.Event, setFocus func(p Primitive)) {
@@ -269,6 +272,11 @@ func (b *Box) GetFocusable() Focusable {
 // Mount is called when this primitive is mounted (by the router).
 func (b *Box) Mount(context map[string]interface{}) error {
 	b.isMounted = true
+	return nil
+}
+
+// Mount is called when this primitive is mounted (by the router).
+func (b *Box) Refresh(context map[string]interface{}) error {
 	return nil
 }
 

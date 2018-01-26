@@ -71,6 +71,7 @@ func (a *Application) Run() error {
 		a.Unlock()
 		return err
 	}
+	a.Unlock()
 
 	// We catch panics to clean up because they mess up the terminal.
 	defer func() {
@@ -83,7 +84,6 @@ func (a *Application) Run() error {
 	}()
 
 	// Draw the screen for the first time.
-	a.Unlock()
 	a.Draw()
 
 	// Start event loop.

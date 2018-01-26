@@ -53,6 +53,9 @@ type Primitive interface {
 	// Mount is a longer term context for bringing a widget into scope
 	Mount(context map[string]interface{}) error
 
+	// Refresh is a longer term context for bringing a widget into scope
+	Refresh(context map[string]interface{}) error
+
 	// Unmount is the opposite of mount
 	Unmount() error
 
