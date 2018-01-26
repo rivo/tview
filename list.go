@@ -6,12 +6,18 @@ import (
 	"github.com/gdamore/tcell"
 )
 
-// listItem represents one item in a List.
-type listItem struct {
+// ListItem represents one item in a List.
+type ListItem struct {
+	id            string
 	MainText      string // The main text of the list item.
 	SecondaryText string // A secondary text to be shown underneath the main text.
 	Shortcut      rune   // The key to select the list item directly, 0 if there is no shortcut.
 	Selected      func() // The optional function which is called when the item is selected.
+}
+
+// Id returns the item's id
+func (l *ListItem) Id() string {
+	return l.id
 }
 
 // List displays rows of items, each of which can be selected.
@@ -21,7 +27,7 @@ type List struct {
 	*Box
 
 	// The items of the list.
-	items []*listItem
+	items []*ListItem
 
 	// The index of the currently selected item.
 	currentItem int
@@ -154,7 +160,7 @@ func (l *List) SetDoneFunc(handler func()) *List {
 // may provide nil if no such item is needed or if all events are handled
 // through the selected callback set with SetSelectedFunc().
 func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected func()) *List {
-	l.items = append(l.items, &listItem{
+	l.items = append(l.items, &ListItem{
 		MainText:      mainText,
 		SecondaryText: secondaryText,
 		Shortcut:      shortcut,
@@ -236,58 +242,61 @@ func (l *List) Draw(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return l.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (l *List) InputHandler() func(tcell.Event, func(Primitive)) {
+	return l.wrapInputHandler(func(event tcell.Event, setFocus func(p Primitive)) {
 		previousItem := l.currentItem
+		switch evt := event.(type) {
+		case *tcell.EventKey:
 
-		switch key := event.Key(); key {
-		case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
-			l.currentItem++
-		case tcell.KeyBacktab, tcell.KeyUp, tcell.KeyLeft:
-			l.currentItem--
-		case tcell.KeyHome:
-			l.currentItem = 0
-		case tcell.KeyEnd:
-			l.currentItem = len(l.items) - 1
-		case tcell.KeyPgDn:
-			l.currentItem += 5
-		case tcell.KeyPgUp:
-			l.currentItem -= 5
-		case tcell.KeyEnter:
-			item := l.items[l.currentItem]
-			if item.Selected != nil {
-				item.Selected()
-			}
-			if l.selected != nil {
-				l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
-			}
-		case tcell.KeyEscape:
-			if l.done != nil {
-				l.done()
-			}
-		case tcell.KeyRune:
-			ch := event.Rune()
-			if ch != ' ' {
-				// It's not a space bar. Is it a shortcut?
-				var found bool
-				for index, item := range l.items {
-					if item.Shortcut == ch {
-						// We have a shortcut.
-						found = true
-						l.currentItem = index
+			switch key := evt.Key(); key {
+			case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
+				l.currentItem++
+			case tcell.KeyBacktab, tcell.KeyUp, tcell.KeyLeft:
+				l.currentItem--
+			case tcell.KeyHome:
+				l.currentItem = 0
+			case tcell.KeyEnd:
+				l.currentItem = len(l.items) - 1
+			case tcell.KeyPgDn:
+				l.currentItem += 5
+			case tcell.KeyPgUp:
+				l.currentItem -= 5
+			case tcell.KeyEnter:
+				item := l.items[l.currentItem]
+				if item.Selected != nil {
+					item.Selected()
+				}
+				if l.selected != nil {
+					l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+				}
+			case tcell.KeyEscape:
+				if l.done != nil {
+					l.done()
+				}
+			case tcell.KeyRune:
+				ch := evt.Rune()
+				if ch != ' ' {
+					// It's not a space bar. Is it a shortcut?
+					var found bool
+					for index, item := range l.items {
+						if item.Shortcut == ch {
+							// We have a shortcut.
+							found = true
+							l.currentItem = index
+							break
+						}
+					}
+					if !found {
 						break
 					}
 				}
-				if !found {
-					break
+				item := l.items[l.currentItem]
+				if item.Selected != nil {
+					item.Selected()
 				}
-			}
-			item := l.items[l.currentItem]
-			if item.Selected != nil {
-				item.Selected()
-			}
-			if l.selected != nil {
-				l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+				if l.selected != nil {
+					l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+				}
 			}
 		}
 

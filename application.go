@@ -29,7 +29,7 @@ type Application struct {
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the default input handler (nil if nothing should
 	// be forwarded).
-	inputCapture func(event *tcell.EventKey) *tcell.EventKey
+	inputCapture func(event tcell.Event) tcell.Event
 }
 
 // NewApplication creates and returns a new application.
@@ -46,9 +46,13 @@ func NewApplication() *Application {
 // Note that this also affects the default event handling of the application
 // itself: Such a handler can intercept the Ctrl-C event which closes the
 // applicatoon.
-func (a *Application) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Application {
+func (a *Application) SetInputCapture(capture func(event tcell.Event) tcell.Event) *Application {
 	a.inputCapture = capture
 	return a
+}
+
+func (a *Application) Screen() tcell.Screen {
+	return a.screen
 }
 
 // Run starts the application and thus the event loop. This function returns
@@ -67,6 +71,7 @@ func (a *Application) Run() error {
 		a.Unlock()
 		return err
 	}
+	a.Unlock()
 
 	// We catch panics to clean up because they mess up the terminal.
 	defer func() {
@@ -79,7 +84,6 @@ func (a *Application) Run() error {
 	}()
 
 	// Draw the screen for the first time.
-	a.Unlock()
 	a.Draw()
 
 	// Start event loop.
@@ -97,22 +101,22 @@ func (a *Application) Run() error {
 			break // The screen was finalized.
 		}
 
-		switch event := event.(type) {
+		// Intercept all events.
+		if a.inputCapture != nil {
+			event = a.inputCapture(event)
+			if event == nil {
+				break // Don't forward event.
+			}
+		}
+
+		switch evt := event.(type) {
 		case *tcell.EventKey:
 			a.RLock()
 			p := a.focus
 			a.RUnlock()
 
-			// Intercept keys.
-			if a.inputCapture != nil {
-				event = a.inputCapture(event)
-				if event == nil {
-					break // Don't forward event.
-				}
-			}
-
 			// Ctrl-C closes the application.
-			if event.Key() == tcell.KeyCtrlC {
+			if evt.Key() == tcell.KeyCtrlC {
 				a.Stop()
 			}
 
@@ -142,14 +146,15 @@ func (a *Application) Run() error {
 }
 
 // Stop stops the application, causing Run() to return.
-func (a *Application) Stop() {
-	a.RLock()
-	defer a.RUnlock()
+func (a *Application) Stop() error {
+	a.Lock()
+	defer a.Unlock()
 	if a.screen == nil {
-		return
+		return nil
 	}
-	a.screen.Fini()
+	err := a.screen.Fini()
 	a.screen = nil
+	return err
 }
 
 // Draw refreshes the screen. It calls the Draw() function of the application's

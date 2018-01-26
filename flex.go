@@ -11,7 +11,7 @@ const (
 )
 
 // flexItem holds layout options for one item.
-type flexItem struct {
+type FlexItem struct {
 	Item       Primitive // The item to be positioned.
 	FixedSize  int       // The item's fixed size which may not be changed, 0 if it has no fixed size.
 	Proportion int       // The item's proportion.
@@ -25,7 +25,7 @@ type Flex struct {
 	*Box
 
 	// The items to be positioned.
-	items []flexItem
+	items []FlexItem
 
 	// FlexRow or FlexColumn.
 	direction int
@@ -73,8 +73,46 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 // primitive receives focus. If multiple items have the "focus" flag set to
 // true, the first one will receive focus.
 func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *Flex {
-	f.items = append(f.items, flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus})
+	itm := FlexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus}
+	return f.AddFlexItem(itm)
+}
+func (f *Flex) AddFlexItem(item FlexItem) *Flex {
+	f.items = append(f.items, item)
 	return f
+}
+
+func (f *Flex) GetItems() []FlexItem {
+	return f.items
+}
+
+func (f *Flex) GetItem(idx int) FlexItem {
+	return f.items[idx]
+}
+
+func (f *Flex) SetItem(idx int, item Primitive, fixedSize, proportion int, focus bool) {
+	itm := FlexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus}
+	f.SetFlexItem(idx, itm)
+}
+
+func (f *Flex) SetFlexItem(idx int, item FlexItem) {
+	f.items[idx] = item
+}
+
+func (f *Flex) InsItem(idx int, item Primitive, fixedSize, proportion int, focus bool) {
+	itm := FlexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus}
+	f.InsFlexItem(idx, itm)
+}
+
+func (f *Flex) InsFlexItem(idx int, item FlexItem) {
+	f.items = append(f.items, FlexItem{})
+	copy(f.items[idx+1:], f.items[idx:])
+	f.items[idx] = item
+}
+
+func (f *Flex) DelItem(idx int) {
+	copy(f.items[idx:], f.items[idx+1:])
+	f.items[len(f.items)-1] = FlexItem{}
+	f.items = f.items[:len(f.items)-1]
 }
 
 // Draw draws this primitive onto the screen.

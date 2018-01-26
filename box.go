@@ -2,6 +2,7 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
+	"github.com/google/uuid"
 )
 
 // Box implements Primitive with a background and optional elements such as a
@@ -13,6 +14,12 @@ import (
 //
 // See https://github.com/rivo/tview/wiki/Box for an example.
 type Box struct {
+	// A (hopefully) unique ID
+	id string
+
+	// props is a generic properties store
+	props map[string]interface{}
+
 	// The position of the rect.
 	x, y, width, height int
 
@@ -45,15 +52,19 @@ type Box struct {
 	// Whether or not this box has focus.
 	hasFocus bool
 
+	// Whether or not this box is mounted.
+	isMounted bool
+
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the primitive's default input handler (nil if
 	// nothing should be forwarded).
-	inputCapture func(event *tcell.EventKey) *tcell.EventKey
+	inputCapture func(event tcell.Event) tcell.Event
 }
 
 // NewBox returns a Box without a border.
 func NewBox() *Box {
 	b := &Box{
+		id:              uuid.New().String(),
 		width:           15,
 		height:          10,
 		backgroundColor: Styles.PrimitiveBackgroundColor,
@@ -63,6 +74,10 @@ func NewBox() *Box {
 	}
 	b.focus = b
 	return b
+}
+
+func (b *Box) Id() string {
+	return b.id
 }
 
 // SetBorderPadding sets the size of the borders around the box content.
@@ -104,8 +119,8 @@ func (b *Box) SetRect(x, y, width, height int) {
 // wrapInputHandler wraps an input handler (see InputHandler()) with the
 // functionality to capture input (see SetInputCapture()) before passing it
 // on to the provided (default) input handler.
-func (b *Box) wrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primitive))) func(*tcell.EventKey, func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (b *Box) wrapInputHandler(inputHandler func(tcell.Event, func(p Primitive))) func(tcell.Event, func(p Primitive)) {
+	return func(event tcell.Event, setFocus func(p Primitive)) {
 		if b.inputCapture != nil {
 			event = b.inputCapture(event)
 		}
@@ -114,9 +129,12 @@ func (b *Box) wrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primiti
 		}
 	}
 }
+func (b *Box) WrapInputHandler(inputHandler func(tcell.Event, func(p Primitive))) func(tcell.Event, func(p Primitive)) {
+	return b.wrapInputHandler(inputHandler)
+}
 
 // InputHandler returns nil.
-func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (b *Box) InputHandler() func(event tcell.Event, setFocus func(p Primitive)) {
 	return b.wrapInputHandler(nil)
 }
 
@@ -127,7 +145,7 @@ func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primiti
 // be called.
 //
 // Providing a nil handler will remove a previously existing handler.
-func (b *Box) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Box {
+func (b *Box) SetInputCapture(capture func(event tcell.Event) tcell.Event) *Box {
 	b.inputCapture = capture
 	return b
 }
@@ -249,4 +267,50 @@ func (b *Box) HasFocus() bool {
 // GetFocusable returns the item's Focusable.
 func (b *Box) GetFocusable() Focusable {
 	return b.focus
+}
+
+// Mount is called when this primitive is mounted (by the router).
+func (b *Box) Mount(context map[string]interface{}) error {
+	b.isMounted = true
+	return nil
+}
+
+// Mount is called when this primitive is mounted (by the router).
+func (b *Box) Refresh(context map[string]interface{}) error {
+	return nil
+}
+
+// Unmount is called when this primitive is unmounted.
+func (b *Box) Unmount() error {
+	b.isMounted = false
+	return nil
+}
+
+// HasFocus returns whether or not this primitive has focus.
+func (b *Box) IsMounted() bool {
+	return b.isMounted
+}
+
+// Render is a placeholder here
+func (b *Box) Render() error { return nil }
+
+func (b *Box) GetProp(prop string) (interface{}, bool) {
+	value, ok := b.props[prop]
+	return value, ok
+}
+
+func (b *Box) GetProps() map[string]interface{} {
+	return b.props
+}
+
+// SetProp is a generic function for setting properties
+func (b *Box) SetProp(prop string, value interface{}) error {
+	b.props[prop] = value
+	return nil
+}
+
+// SetProps is a generic function for setting properties
+func (b *Box) SetProps(newProps map[string]interface{}) error {
+	b.props = newProps
+	return nil
 }

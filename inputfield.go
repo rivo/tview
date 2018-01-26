@@ -264,40 +264,43 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return i.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		// Trigger changed events.
-		currentText := i.text
-		defer func() {
-			if i.text != currentText && i.changed != nil {
-				i.changed(i.text)
-			}
-		}()
+func (i *InputField) InputHandler() func(tcell.Event, func(Primitive)) {
+	return i.wrapInputHandler(func(event tcell.Event, setFocus func(p Primitive)) {
+		switch evt := event.(type) {
+		case *tcell.EventKey:
+			// Trigger changed events.
+			currentText := i.text
+			defer func() {
+				if i.text != currentText && i.changed != nil {
+					i.changed(i.text)
+				}
+			}()
 
-		// Process key event.
-		switch key := event.Key(); key {
-		case tcell.KeyRune: // Regular character.
-			newText := i.text + string(event.Rune())
-			if i.accept != nil {
-				if !i.accept(newText, event.Rune()) {
+			// Process key evt.
+			switch key := evt.Key(); key {
+			case tcell.KeyRune: // Regular character.
+				newText := i.text + string(evt.Rune())
+				if i.accept != nil {
+					if !i.accept(newText, evt.Rune()) {
+						break
+					}
+				}
+				i.text = newText
+			case tcell.KeyCtrlU: // Delete all.
+				i.text = ""
+			case tcell.KeyCtrlW: // Delete last word.
+				lastWord := regexp.MustCompile(`\s*\S+\s*$`)
+				i.text = lastWord.ReplaceAllString(i.text, "")
+			case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete last character.
+				if len(i.text) == 0 {
 					break
 				}
-			}
-			i.text = newText
-		case tcell.KeyCtrlU: // Delete all.
-			i.text = ""
-		case tcell.KeyCtrlW: // Delete last word.
-			lastWord := regexp.MustCompile(`\s*\S+\s*$`)
-			i.text = lastWord.ReplaceAllString(i.text, "")
-		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete last character.
-			if len(i.text) == 0 {
-				break
-			}
-			runes := []rune(i.text)
-			i.text = string(runes[:len(runes)-1])
-		case tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
-			if i.done != nil {
-				i.done(key)
+				runes := []rune(i.text)
+				i.text = string(runes[:len(runes)-1])
+			case tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
+				if i.done != nil {
+					i.done(key)
+				}
 			}
 		}
 	})

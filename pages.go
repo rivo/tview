@@ -5,7 +5,7 @@ import (
 )
 
 // page represents one page of a Pages object.
-type page struct {
+type Page struct {
 	Name    string    // The page's name.
 	Item    Primitive // The page's primitive.
 	Resize  bool      // Whether or not to resize the page when it is drawn.
@@ -21,7 +21,8 @@ type Pages struct {
 	*Box
 
 	// The contained pages.
-	pages []*page
+	curr  *Page
+	pages []*Page
 
 	// We keep a reference to the function which allows us to set the focus to
 	// a newly visible page.
@@ -63,7 +64,7 @@ func (p *Pages) AddPage(name string, item Primitive, resize, visible bool) *Page
 			break
 		}
 	}
-	p.pages = append(p.pages, &page{Item: item, Name: name, Resize: resize, Visible: visible})
+	p.pages = append(p.pages, &Page{Item: item, Name: name, Resize: resize, Visible: visible})
 	if p.changed != nil {
 		p.changed()
 	}
@@ -77,7 +78,7 @@ func (p *Pages) AddPage(name string, item Primitive, resize, visible bool) *Page
 // page.
 func (p *Pages) AddAndSwitchToPage(name string, item Primitive, resize bool) *Pages {
 	p.AddPage(name, item, resize, true)
-	p.SwitchToPage(name)
+	p.SwitchToPage(name, map[string]interface{}{"activation": "function"})
 	return p
 }
 
@@ -107,6 +108,21 @@ func (p *Pages) HasPage(name string) bool {
 		}
 	}
 	return false
+}
+
+// HasPage returns true if a page with the given name exists in this object.
+func (p *Pages) GetCurrentPage() *Page {
+	return p.curr
+}
+
+// HasPage returns true if a page with the given name exists in this object.
+func (p *Pages) GetPage(name string) *Page {
+	for _, page := range p.pages {
+		if page.Name == name {
+			return page
+		}
+	}
+	return nil
 }
 
 // ShowPage sets a page's visibility to "true" (in addition to any other pages
@@ -146,10 +162,20 @@ func (p *Pages) HidePage(name string) *Pages {
 
 // SwitchToPage sets a page's visibility to "true" and all other pages'
 // visibility to "false".
-func (p *Pages) SwitchToPage(name string) *Pages {
+func (p *Pages) SwitchToPage(name string, context map[string]interface{}) *Pages {
+	if p.curr != nil {
+		if p.curr.Name == name {
+			p.curr.Item.Refresh(context)
+			return p
+		}
+		p.curr.Item.Unmount()
+	}
 	for _, page := range p.pages {
 		if page.Name == name {
 			page.Visible = true
+			context["currPage"] = p.curr
+			p.curr = page
+			p.curr.Item.Mount(context)
 		} else {
 			page.Visible = false
 		}
@@ -191,7 +217,7 @@ func (p *Pages) SendToBack(name string) *Pages {
 	for index, pg := range p.pages {
 		if pg.Name == name {
 			if index > 0 {
-				p.pages = append(append([]*page{pg}, p.pages[:index]...), p.pages[index+1:]...)
+				p.pages = append(append([]*Page{pg}, p.pages[:index]...), p.pages[index+1:]...)
 			}
 			if pg.Visible && p.changed != nil {
 				p.changed()

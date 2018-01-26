@@ -263,30 +263,34 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return d.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		// Process key event.
-		switch key := event.Key(); key {
-		case tcell.KeyEnter, tcell.KeyRune, tcell.KeyDown:
-			if key == tcell.KeyRune && event.Rune() != ' ' {
-				break
-			}
-			d.open = true
-			d.list.SetSelectedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
-				// An option was selected. Close the list again.
-				d.open = false
-				setFocus(d)
-				d.currentOption = index
+func (d *DropDown) InputHandler() func(tcell.Event, func(Primitive)) {
+	return d.wrapInputHandler(func(event tcell.Event, setFocus func(p Primitive)) {
+		switch evt := event.(type) {
 
-				// Trigger "selected" event.
-				if d.options[d.currentOption].Selected != nil {
-					d.options[d.currentOption].Selected()
+		// Process key event.
+		case *tcell.EventKey:
+			switch key := evt.Key(); key {
+			case tcell.KeyEnter, tcell.KeyRune, tcell.KeyDown:
+				if key == tcell.KeyRune && evt.Rune() != ' ' {
+					break
 				}
-			})
-			setFocus(d.list)
-		case tcell.KeyEscape, tcell.KeyTab, tcell.KeyBacktab:
-			if d.done != nil {
-				d.done(key)
+				d.open = true
+				d.list.SetSelectedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
+					// An option was selected. Close the list again.
+					d.open = false
+					setFocus(d)
+					d.currentOption = index
+
+					// Trigger "selected" event.
+					if d.options[d.currentOption].Selected != nil {
+						d.options[d.currentOption].Selected()
+					}
+				})
+				setFocus(d.list)
+			case tcell.KeyEscape, tcell.KeyTab, tcell.KeyBacktab:
+				if d.done != nil {
+					d.done(key)
+				}
 			}
 		}
 	})
