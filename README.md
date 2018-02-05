@@ -60,7 +60,9 @@ This package is based on [github.com/gdamore/tcell](https://github.com/gdamore/t
 
 Add your issue here on GitHub. Feel free to get in touch if you have any questions.
 
-## Releases
+## Version History
+
+(There are no corresponding tags in the project. I only keep such a history in this README.)
 
 - v0.8 (2018-01-17)
   - Color tags can now be used almost everywhere.
