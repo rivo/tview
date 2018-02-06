@@ -12,7 +12,7 @@ const (
 
 // flexItem holds layout options for one item.
 type flexItem struct {
-	Item       Primitive // The item to be positioned.
+	Item       Primitive // The item to be positioned. May be nil for an empty item.
 	FixedSize  int       // The item's fixed size which may not be changed, 0 if it has no fixed size.
 	Proportion int       // The item's proportion.
 	Focus      bool      // Whether or not this item attracts the layout's focus.
@@ -72,6 +72,9 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 // If "focus" is set to true, the item will receive focus when the Flex
 // primitive receives focus. If multiple items have the "focus" flag set to
 // true, the first one will receive focus.
+//
+// You can provide a nil value for the primitive. This will still consume screen
+// space but nothing will be drawn.
 func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *Flex {
 	f.items = append(f.items, flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus})
 	return f
@@ -116,17 +119,21 @@ func (f *Flex) Draw(screen tcell.Screen) {
 			distSize -= size
 			proportionSum -= item.Proportion
 		}
-		if f.direction == FlexColumn {
-			item.Item.SetRect(pos, y, size, height)
-		} else {
-			item.Item.SetRect(x, pos, width, size)
+		if item.Item != nil {
+			if f.direction == FlexColumn {
+				item.Item.SetRect(pos, y, size, height)
+			} else {
+				item.Item.SetRect(x, pos, width, size)
+			}
 		}
 		pos += size
 
-		if item.Item.GetFocusable().HasFocus() {
-			defer item.Item.Draw(screen)
-		} else {
-			item.Item.Draw(screen)
+		if item.Item != nil {
+			if item.Item.GetFocusable().HasFocus() {
+				defer item.Item.Draw(screen)
+			} else {
+				item.Item.Draw(screen)
+			}
 		}
 	}
 }
@@ -134,7 +141,7 @@ func (f *Flex) Draw(screen tcell.Screen) {
 // Focus is called when this primitive receives focus.
 func (f *Flex) Focus(delegate func(p Primitive)) {
 	for _, item := range f.items {
-		if item.Focus {
+		if item.Item != nil && item.Focus {
 			delegate(item.Item)
 			return
 		}
@@ -144,7 +151,7 @@ func (f *Flex) Focus(delegate func(p Primitive)) {
 // HasFocus returns whether or not this primitive has focus.
 func (f *Flex) HasFocus() bool {
 	for _, item := range f.items {
-		if item.Item.GetFocusable().HasFocus() {
+		if item.Item != nil && item.Item.GetFocusable().HasFocus() {
 			return true
 		}
 	}
