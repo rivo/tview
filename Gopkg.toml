@@ -1,0 +1,16 @@
+[[constraint]]
+  name = "github.com/gdamore/tcell"
+  version = "1.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/lucasb-eyer/go-colorful"
+
+[[constraint]]
+  name = "github.com/mattn/go-runewidth"
+  version = "0.0.2"
+
+[prune]
+  go-tests = true
+  non-go = true
+  unused-packages = true
