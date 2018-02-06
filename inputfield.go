@@ -53,6 +53,10 @@ type InputField struct {
 	// are done entering text. The key which was pressed is provided (tab,
 	// shift-tab, enter, or escape).
 	done func(tcell.Key)
+
+	// A map of key handlers useful for listening for specific keys. Use
+	// RegisterKeyHandlers to add handlers to the map.
+	keyHandlers map[tcell.Key]func(event *tcell.EventKey) bool
 }
 
 // NewInputField returns a new input field.
@@ -62,6 +66,7 @@ func NewInputField() *InputField {
 		labelColor:           Styles.SecondaryTextColor,
 		fieldBackgroundColor: Styles.ContrastBackgroundColor,
 		fieldTextColor:       Styles.PrimaryTextColor,
+		keyHandlers:          make(map[tcell.Key]func(event *tcell.EventKey) bool),
 	}
 }
 
@@ -263,9 +268,25 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 	screen.ShowCursor(x, y)
 }
 
+// RegisterKeyHandler registers a function as the handler for a specific key input.
+// The handler function should return true if the InputHandler should continue to
+// handle the key as normal
+func (i *InputField) RegisterKeyHandler(key tcell.Key, handler func(event *tcell.EventKey) (cont bool)) {
+	i.keyHandlers[key] = handler
+}
+
 // InputHandler returns the handler for this primitive.
 func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return i.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		// Check for and run key handler
+		key := event.Key()
+		handler, exists := i.keyHandlers[key]
+		if exists {
+			if !handler(event) {
+				return
+			}
+		}
+
 		// Trigger changed events.
 		currentText := i.text
 		defer func() {
@@ -275,7 +296,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		}()
 
 		// Process key event.
-		switch key := event.Key(); key {
+		switch key {
 		case tcell.KeyRune: // Regular character.
 			newText := i.text + string(event.Rune())
 			if i.accept != nil {
