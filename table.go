@@ -295,6 +295,12 @@ func (t *Table) SetOffset(row, column int) *Table {
 	return t
 }
 
+// GetOffset returns current offset.
+// Refer to SetOffset() for details.
+func (t *Table) GetOffset() (row, column int) {
+	return t.rowOffset, t.columnOffset
+}
+
 // SetSelectedFunc sets a handler which is called whenever the user presses the
 // Enter key on a selected cell/row/column. The handler receives the position of
 // the selection and its cell contents. If entire rows are selected, the column
