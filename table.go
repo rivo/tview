@@ -295,8 +295,8 @@ func (t *Table) SetOffset(row, column int) *Table {
 	return t
 }
 
-// GetOffset returns current offset.
-// Refer to SetOffset() for details.
+// GetOffset returns the current row and column offset. This indicates how many
+// rows and columns the table is scrolled down and to the right.
 func (t *Table) GetOffset() (row, column int) {
 	return t.rowOffset, t.columnOffset
 }
