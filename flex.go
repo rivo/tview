@@ -18,7 +18,10 @@ type flexItem struct {
 	Focus      bool      // Whether or not this item attracts the layout's focus.
 }
 
-// Flex is a basic implementation of the Flexbox layout.
+// Flex is a basic implementation of the Flexbox layout. The contained
+// primitives are arranged horizontally or vertically. The way they are
+// distributed along that dimension depends on their layout settings, which is
+// either a fixed length or a proportional length. See AddItem() for details.
 //
 // See https://github.com/rivo/tview/wiki/Flex for an example.
 type Flex struct {
@@ -35,9 +38,9 @@ type Flex struct {
 	fullScreen bool
 }
 
-// NewFlex returns a new flexbox layout container with the given primitives.
-// The items all have no fixed size. If more control is needed, call AddItem().
-// The direction argument must be FlexRow or FlexColumn.
+// NewFlex returns a new flexbox layout container with no primitives and its
+// direction set to FlexColumn. To add primitives to this layout, see AddItem().
+// To change the direction, see SetDirection().
 func NewFlex() *Flex {
 	f := &Flex{
 		Box:       NewBox(),
