@@ -64,6 +64,8 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 (There are no corresponding tags in the project. I only keep such a history in this README.)
 
+- v0.9 (2018-02-21)
+  - Introduced `Grid` layout.
 - v0.8 (2018-01-17)
   - Color tags can now be used almost everywhere.
 - v0.7 (2018-01-16)

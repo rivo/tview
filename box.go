@@ -77,8 +77,8 @@ func (b *Box) GetRect() (int, int, int, int) {
 	return b.x, b.y, b.width, b.height
 }
 
-// GetInnerRect returns the position of the inner rectangle, without the border
-// and without any padding.
+// GetInnerRect returns the position of the inner rectangle (x, y, width,
+// height), without the border and without any padding.
 func (b *Box) GetInnerRect() (int, int, int, int) {
 	x, y, width, height := b.GetRect()
 	if b.border {

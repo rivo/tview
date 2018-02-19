@@ -108,17 +108,32 @@ func (g *Grid) SetColumns(columns ...int) *Grid {
 	return g
 }
 
+// SetSize is a shortcut for SetRows() and SetColumns() where all row and column
+// values are set to a value of 0. The cells of the resulting grid will
+// therefore be evenly distributed.
+func (g *Grid) SetSize(rows, columns int) *Grid {
+	g.rows = make([]int, rows)
+	g.columns = make([]int, columns)
+	return g
+}
+
 // SetMinSize sets an absolute minimum width for rows and an absolute minimum
-// height for columns.
+// height for columns. Panics if negative values are provided.
 func (g *Grid) SetMinSize(row, column int) *Grid {
+	if row < 0 || column < 0 {
+		panic("Invalid minimum row/column size")
+	}
 	g.minWidth, g.minHeight = row, column
 	return g
 }
 
 // SetGap sets the size of the gaps between neighboring primitives on the grid.
 // If borders are drawn (see SetBorders()), these values are ignored and a gap
-// of 1 is assumed.
+// of 1 is assumed. Panics if negative values are provided.
 func (g *Grid) SetGap(row, column int) *Grid {
+	if row < 0 || column < 0 {
+		panic("Invalid gap size")
+	}
 	g.gapRows, g.gapColumns = row, column
 	return g
 }
@@ -144,9 +159,8 @@ func (g *Grid) SetBorders(borders bool) *Grid {
 // The minGridWidth and minGridHeight values will then determine which of those
 // positions will be used. This is similar to CSS media queries. These minimum
 // values refer to the overall size of the grid. If multiple items for the same
-// primitive apply, the one with the highest minimum values (with a preference
-// for the minimum width) will be used, or the primitive added last if those
-// values are the same. Example:
+// primitive apply, the one that has at least one highest minimum value will be
+// used, or the primitive added last if those values are the same. Example:
 //
 //   grid.AddItem(p, 0, 0, 0, 0, 0, 0, true). // Hide in small grids.
 //     AddItem(p, 0, 0, 1, 2, 100, 0, true).  // One-column layout for medium grids.
@@ -158,7 +172,23 @@ func (g *Grid) SetBorders(borders bool) *Grid {
 // If the item's focus is set to true, it will receive focus when the grid
 // receives focus. If there are multiple items with a true focus flag, the last
 // visible one that was added will receive focus.
-func (g *Grid) AddItem(p Primitive, row, column, width, height, minGridWidth, minGridHeight int, focus bool) *Grid {
+func (g *Grid) AddItem(p Primitive, row, column, height, width, minGridHeight, minGridWidth int, focus bool) *Grid {
+	g.items = append(g.items, &gridItem{
+		Item:          p,
+		Row:           row,
+		Column:        column,
+		Height:        height,
+		Width:         width,
+		MinGridHeight: minGridHeight,
+		MinGridWidth:  minGridWidth,
+		Focus:         focus,
+	})
+	return g
+}
+
+// Clear removes all items from the grid.
+func (g *Grid) Clear() *Grid {
+	g.items = nil
 	return g
 }
 
@@ -242,5 +272,282 @@ func (g *Grid) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 // Draw draws this primitive onto the screen.
 func (g *Grid) Draw(screen tcell.Screen) {
 	g.Box.Draw(screen)
-	//TODO
+	x, y, width, height := g.GetInnerRect()
+
+	// Make a list of items which apply.
+	items := make(map[Primitive]*gridItem)
+	for _, item := range g.items {
+		item.visible = false
+		if item.Width <= 0 || item.Height <= 0 || width < item.MinGridWidth || height < item.MinGridHeight {
+			continue
+		}
+		previousItem, ok := items[item.Item]
+		if ok && item.Width < previousItem.Width && item.Height < previousItem.Height {
+			continue
+		}
+		items[item.Item] = item
+	}
+
+	// How many rows and columns do we have?
+	rows := len(g.rows)
+	columns := len(g.columns)
+	for _, item := range items {
+		rowEnd := item.Row + item.Height
+		if rowEnd > rows {
+			rows = rowEnd
+		}
+		columnEnd := item.Column + item.Width
+		if columnEnd > columns {
+			columns = columnEnd
+		}
+	}
+	if rows == 0 || columns == 0 {
+		return // No content.
+	}
+
+	// Where are they located?
+	rowPos := make([]int, rows)
+	rowHeight := make([]int, rows)
+	columnPos := make([]int, columns)
+	columnWidth := make([]int, columns)
+
+	// How much space do we distribute?
+	remainingWidth := width
+	remainingHeight := height
+	proportionalWidth := 0
+	proportionalHeight := 0
+	for index, row := range g.rows {
+		if row > 0 {
+			if row < g.minHeight {
+				row = g.minHeight
+			}
+			remainingHeight -= row
+			rowHeight[index] = row
+		} else if row == 0 {
+			proportionalHeight++
+		} else {
+			proportionalHeight += -row
+		}
+	}
+	for index, column := range g.columns {
+		if column > 0 {
+			if column < g.minWidth {
+				column = g.minWidth
+			}
+			remainingWidth -= column
+			columnWidth[index] = column
+		} else if column == 0 {
+			proportionalWidth++
+		} else {
+			proportionalWidth += -column
+		}
+	}
+	if g.borders {
+		remainingHeight -= rows + 1
+		remainingWidth -= columns + 1
+	} else {
+		remainingHeight -= (rows - 1) * g.gapRows
+		remainingWidth -= (columns - 1) * g.gapColumns
+	}
+	if rows > len(g.rows) {
+		proportionalHeight += rows - len(g.rows)
+	}
+	if columns > len(g.columns) {
+		proportionalWidth += columns - len(g.columns)
+	}
+
+	// Distribute proportional rows/columns.
+	gridWidth := 0
+	gridHeight := 0
+	for index := 0; index < rows; index++ {
+		row := 0
+		if index < len(g.rows) {
+			row = g.rows[index]
+		}
+		if row > 0 {
+			if row < g.minHeight {
+				row = g.minHeight
+			}
+			gridHeight += row
+			continue // Not proportional. We already know the width.
+		} else if row == 0 {
+			row = 1
+		} else {
+			row = -row
+		}
+		row = row * remainingHeight / proportionalHeight
+		if row < g.minHeight {
+			row = g.minHeight
+		}
+		rowHeight[index] = row
+		gridHeight += row
+	}
+	for index := 0; index < columns; index++ {
+		column := 0
+		if index < len(g.columns) {
+			column = g.columns[index]
+		}
+		if column > 0 {
+			if column < g.minWidth {
+				column = g.minWidth
+			}
+			gridWidth += column
+			continue // Not proportional. We already know the height.
+		} else if column == 0 {
+			column = 1
+		} else {
+			column = -column
+		}
+		column = column * remainingWidth / proportionalWidth
+		if column < g.minWidth {
+			column = g.minWidth
+		}
+		columnWidth[index] = column
+		gridWidth += column
+	}
+	if g.borders {
+		gridHeight += rows + 1
+		gridWidth += columns + 1
+	} else {
+		gridHeight += (rows - 1) * g.gapRows
+		gridWidth += (columns - 1) * g.gapColumns
+	}
+
+	// Calculate row/column positions.
+	columnX, rowY := x, y
+	if g.borders {
+		columnX++
+		rowY++
+	}
+	for index, row := range rowHeight {
+		rowPos[index] = rowY
+		gap := g.gapRows
+		if g.borders {
+			gap = 1
+		}
+		rowY += row + gap
+	}
+	for index, column := range columnWidth {
+		columnPos[index] = columnX
+		gap := g.gapColumns
+		if g.borders {
+			gap = 1
+		}
+		columnX += column + gap
+	}
+
+	// Calculate primitive positions.
+	var (
+		focus                     *gridItem // The item which has focus.
+		rightmost                 *gridItem // The rightmost item.
+		lowest                    *gridItem // The bottom item.
+		rightBorder, bottomBorder int
+	)
+	for primitive, item := range items {
+		px := columnPos[item.Column]
+		py := rowPos[item.Row]
+		var pw, ph int
+		for index := 0; index < item.Height; index++ {
+			ph += rowHeight[item.Row+index]
+		}
+		for index := 0; index < item.Width; index++ {
+			pw += columnWidth[item.Column+index]
+		}
+		if g.borders {
+			pw += item.Width - 1
+			ph += item.Height - 1
+		} else {
+			pw += (item.Width - 1) * g.gapColumns
+			ph += (item.Height - 1) * g.gapRows
+		}
+		item.x, item.y, item.w, item.h = px, py, pw, ph
+		item.visible = true
+		if primitive.GetFocusable().HasFocus() {
+			focus = item
+		}
+		if px+pw > rightBorder {
+			rightmost = item
+			rightBorder = px + pw
+		}
+		if py+ph > bottomBorder {
+			lowest = item
+			bottomBorder = py + ph
+		}
+	}
+
+	// Calculate screen offsets.
+	var offsetX, offsetY int
+	if g.rowOffset >= rows {
+		g.rowOffset = rows - 1
+	} else if g.rowOffset < 0 {
+		g.rowOffset = 0
+	}
+	if g.columnOffset >= columns {
+		g.columnOffset = columns - 1
+	} else if g.columnOffset < 0 {
+		g.columnOffset = 0
+	}
+	add := 0
+	if g.borders {
+		add = 1
+	}
+	if gridHeight > height && g.rowOffset > 0 {
+		offsetY = -rowPos[g.rowOffset]
+		if focus != nil {
+			if offsetY+focus.y+focus.h+add > height {
+				offsetY -= offsetY + focus.y + focus.h + add - height
+			}
+			if offsetY+focus.y-add < 0 {
+				offsetY -= offsetY + focus.y - add
+			}
+		}
+		if lowest != nil {
+			if offsetY+lowest.y+lowest.h+add > height {
+				offsetY -= offsetY + lowest.y + lowest.h + add - height
+			}
+		}
+	}
+	if gridWidth > width && g.columnOffset > 0 {
+		offsetX = -columnPos[g.columnOffset]
+		if focus != nil {
+			if offsetX+focus.x+focus.w+add > width {
+				offsetX -= offsetX + focus.x + focus.w + add - width
+			}
+			if offsetX+focus.x-add < 0 {
+				offsetX -= offsetX + focus.x - add
+			}
+		}
+		if rightmost != nil {
+			if offsetX+rightmost.x+rightmost.w+add > width {
+				offsetX -= offsetX + rightmost.x + rightmost.w + add - width
+			}
+		}
+	}
+
+	// Draw primitives.
+	for primitive, item := range items {
+		if !item.visible {
+			continue
+		}
+		item.x += offsetX
+		item.y += offsetY
+		if item.x+item.w > width {
+			item.w = width - item.x
+		}
+		if item.y+item.h > height {
+			item.h = height - item.y
+		}
+		if item.w <= 0 || item.h <= 0 {
+			item.visible = false
+			continue
+		}
+		primitive.SetRect(x+item.x, y+item.y, item.w, item.h)
+		if item == focus {
+			defer primitive.Draw(screen)
+		} else {
+			primitive.Draw(screen)
+		}
+	}
+
+	// Draw borders.
 }
