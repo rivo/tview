@@ -114,11 +114,16 @@ func (g *Grid) SetColumns(columns ...int) *Grid {
 }
 
 // SetSize is a shortcut for SetRows() and SetColumns() where all row and column
-// values are set to a value of 0. The cells of the resulting grid will
-// therefore be evenly distributed.
-func (g *Grid) SetSize(rows, columns int) *Grid {
+// values are set to the given size values. See SetRows() for details on sizes.
+func (g *Grid) SetSize(rows, columns, rowSize, columnSize int) *Grid {
 	g.rows = make([]int, rows)
+	for index := range g.rows {
+		g.rows[index] = rowSize
+	}
 	g.columns = make([]int, columns)
+	for index := range g.columns {
+		g.columns[index] = columnSize
+	}
 	return g
 }
 
