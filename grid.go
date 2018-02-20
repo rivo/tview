@@ -106,7 +106,7 @@ func (g *Grid) SetRows(rows ...int) *Grid {
 // behave the same as the row values provided with SetRows(), see there for
 // a definition and examples.
 //
-// The provided values correspond to column heights, the first value definining
+// The provided values correspond to column heights, the first value defining
 // the height of the topmost column.
 func (g *Grid) SetColumns(columns ...int) *Grid {
 	g.columns = columns

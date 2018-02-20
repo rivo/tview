@@ -208,7 +208,7 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 			runePos++
 		}
 
-		return text[startPos:len(text)], color
+		return text[startPos:], color
 	}
 
 	// We want to reduce everything to AlignLeft.

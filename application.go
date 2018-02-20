@@ -30,6 +30,14 @@ type Application struct {
 	// event to be forwarded to the default input handler (nil if nothing should
 	// be forwarded).
 	inputCapture func(event *tcell.EventKey) *tcell.EventKey
+
+	// An optional callback function which is invoked just before the root
+	// primitive is drawn.
+	beforeDraw func(screen tcell.Screen) bool
+
+	// An optional callback function which is invoked after the root primitive
+	// was drawn.
+	afterDraw func(screen tcell.Screen)
 }
 
 // NewApplication creates and returns a new application.
@@ -156,25 +164,66 @@ func (a *Application) Stop() {
 // root primitive and then syncs the screen buffer.
 func (a *Application) Draw() *Application {
 	a.RLock()
-	defer a.RUnlock()
+	screen := a.screen
+	root := a.root
+	fullscreen := a.rootAutoSize
+	before := a.beforeDraw
+	after := a.afterDraw
+	a.RUnlock()
 
 	// Maybe we're not ready yet or not anymore.
-	if a.screen == nil || a.root == nil {
+	if screen == nil || root == nil {
 		return a
 	}
 
 	// Resize if requested.
-	if a.rootAutoSize && a.root != nil {
-		width, height := a.screen.Size()
-		a.root.SetRect(0, 0, width, height)
+	if fullscreen && root != nil {
+		width, height := screen.Size()
+		root.SetRect(0, 0, width, height)
+	}
+
+	// Call before handler if there is one.
+	if before != nil {
+		if before(screen) {
+			screen.Show()
+			return a
+		}
 	}
 
 	// Draw all primitives.
-	a.root.Draw(a.screen)
+	root.Draw(screen)
+
+	// Call after handler if there is one.
+	if after != nil {
+		after(screen)
+	}
 
 	// Sync screen.
-	a.screen.Show()
+	screen.Show()
 
+	return a
+}
+
+// SetBeforeDrawFunc installs a callback function which is invoked just before
+// the root primitive is drawn during screen updates. If the function returns
+// true, drawing will not continue, i.e. the root primitive will not be drawn
+// (and an after-draw-handler will not be called).
+//
+// Note that the screen is not cleared by the application. To clear the screen,
+// you may call screen.Clear().
+//
+// Provide nil to uninstall the callback function.
+func (a *Application) SetBeforeDrawFunc(handler func(screen tcell.Screen) bool) *Application {
+	a.beforeDraw = handler
+	return a
+}
+
+// SetAfterDrawFunc installs a callback function which is invoked after the root
+// primitive was drawn during screen updates.
+//
+// Provide nil to uninstall the callback function.
+func (a *Application) SetAfterDrawFunc(handler func(screen tcell.Screen)) *Application {
+	a.afterDraw = handler
 	return a
 }
 
@@ -183,7 +232,6 @@ func (a *Application) Draw() *Application {
 //
 // It also calls SetFocus() on the primitive.
 func (a *Application) SetRoot(root Primitive, autoSize bool) *Application {
-
 	a.Lock()
 	a.root = root
 	a.rootAutoSize = autoSize
