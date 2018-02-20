@@ -41,6 +41,7 @@ func main() {
 		TextView2,
 		Table,
 		Flex,
+		Grid,
 		Colors,
 		End,
 	}
