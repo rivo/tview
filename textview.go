@@ -2,6 +2,7 @@ package tview
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"sync"
 	"unicode/utf8"
@@ -219,6 +220,14 @@ func (t *TextView) SetTextAlign(align int) *TextView {
 // dynamic colors are enabled).
 func (t *TextView) SetTextColor(color tcell.Color) *TextView {
 	t.textColor = color
+	return t
+}
+
+// SetText sets the text of this text view to the provided string. Previously
+// contained text will be removed.
+func (t *TextView) SetText(text string) *TextView {
+	t.Clear()
+	fmt.Fprint(t, text)
 	return t
 }
 

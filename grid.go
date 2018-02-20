@@ -23,8 +23,9 @@ type gridItem struct {
 //
 // Some settings can lead to the grid exceeding its available space. SetOffset()
 // can then be used to scroll in steps of rows and columns. These offset values
-// can also be controlled with the arrow keys while the grid has focus and none
-// of its contained primitives do.
+// can also be controlled with the arrow keys (or the "g","G", "j", "k", "h",
+// and "l" keys) while the grid has focus and none of its contained primitives
+// do.
 //
 // See https://github.com/rivo/tview/wiki/Grid for an example.
 type Grid struct {
@@ -52,12 +53,16 @@ type Grid struct {
 	// a gap size of 1 is automatically assumed (which is filled with the border
 	// graphics).
 	borders bool
+
+	// The color of the borders around grid items.
+	bordersColor tcell.Color
 }
 
 // NewGrid returns a new grid-based layout container with no initial primitives.
 func NewGrid() *Grid {
 	g := &Grid{
-		Box: NewBox(),
+		Box:          NewBox(),
+		bordersColor: Styles.GraphicsColor,
 	}
 	g.focus = g
 	return g
@@ -123,7 +128,7 @@ func (g *Grid) SetMinSize(row, column int) *Grid {
 	if row < 0 || column < 0 {
 		panic("Invalid minimum row/column size")
 	}
-	g.minWidth, g.minHeight = row, column
+	g.minHeight, g.minWidth = row, column
 	return g
 }
 
@@ -143,6 +148,12 @@ func (g *Grid) SetGap(row, column int) *Grid {
 // automatically assumed to be 1 where the border graphics are drawn.
 func (g *Grid) SetBorders(borders bool) *Grid {
 	g.borders = borders
+	return g
+}
+
+// SetBordersColor sets the color of the item borders.
+func (g *Grid) SetBordersColor(color tcell.Color) *Grid {
+	g.bordersColor = color
 	return g
 }
 
@@ -211,7 +222,7 @@ func (g *Grid) GetOffset() (rows, columns int) {
 // Focus is called when this primitive receives focus.
 func (g *Grid) Focus(delegate func(p Primitive)) {
 	for _, item := range g.items {
-		if item.visible && item.Focus {
+		if item.Focus {
 			delegate(item.Item)
 			return
 		}
@@ -375,12 +386,14 @@ func (g *Grid) Draw(screen tcell.Screen) {
 		} else {
 			row = -row
 		}
-		row = row * remainingHeight / proportionalHeight
-		if row < g.minHeight {
-			row = g.minHeight
+		rowAbs := row * remainingHeight / proportionalHeight
+		remainingHeight -= rowAbs
+		proportionalHeight -= row
+		if rowAbs < g.minHeight {
+			rowAbs = g.minHeight
 		}
-		rowHeight[index] = row
-		gridHeight += row
+		rowHeight[index] = rowAbs
+		gridHeight += rowAbs
 	}
 	for index := 0; index < columns; index++ {
 		column := 0
@@ -398,12 +411,14 @@ func (g *Grid) Draw(screen tcell.Screen) {
 		} else {
 			column = -column
 		}
-		column = column * remainingWidth / proportionalWidth
-		if column < g.minWidth {
-			column = g.minWidth
+		columnAbs := column * remainingWidth / proportionalWidth
+		remainingWidth -= columnAbs
+		proportionalWidth -= column
+		if columnAbs < g.minWidth {
+			columnAbs = g.minWidth
 		}
-		columnWidth[index] = column
-		gridWidth += column
+		columnWidth[index] = columnAbs
+		gridWidth += columnAbs
 	}
 	if g.borders {
 		gridHeight += rows + 1
@@ -437,12 +452,7 @@ func (g *Grid) Draw(screen tcell.Screen) {
 	}
 
 	// Calculate primitive positions.
-	var (
-		focus                     *gridItem // The item which has focus.
-		rightmost                 *gridItem // The rightmost item.
-		lowest                    *gridItem // The bottom item.
-		rightBorder, bottomBorder int
-	)
+	var focus *gridItem // The item which has focus.
 	for primitive, item := range items {
 		px := columnPos[item.Column]
 		py := rowPos[item.Row]
@@ -465,89 +475,134 @@ func (g *Grid) Draw(screen tcell.Screen) {
 		if primitive.GetFocusable().HasFocus() {
 			focus = item
 		}
-		if px+pw > rightBorder {
-			rightmost = item
-			rightBorder = px + pw
-		}
-		if py+ph > bottomBorder {
-			lowest = item
-			bottomBorder = py + ph
-		}
 	}
 
 	// Calculate screen offsets.
-	var offsetX, offsetY int
-	if g.rowOffset >= rows {
-		g.rowOffset = rows - 1
-	} else if g.rowOffset < 0 {
+	var offsetX, offsetY, add int
+	if g.rowOffset < 0 {
 		g.rowOffset = 0
 	}
-	if g.columnOffset >= columns {
-		g.columnOffset = columns - 1
-	} else if g.columnOffset < 0 {
+	if g.columnOffset < 0 {
 		g.columnOffset = 0
 	}
-	add := 0
 	if g.borders {
 		add = 1
 	}
-	if gridHeight > height && g.rowOffset > 0 {
-		offsetY = -rowPos[g.rowOffset]
-		if focus != nil {
-			if offsetY+focus.y+focus.h+add > height {
-				offsetY -= offsetY + focus.y + focus.h + add - height
+	for row := 0; row < rows-1; row++ {
+		remainingHeight := gridHeight - offsetY
+		if focus != nil && focus.y-add <= offsetY || // Don't let the focused item move out of screen.
+			row >= g.rowOffset && (focus == nil || focus != nil && focus.y-offsetY < height) || // We've reached the requested offset.
+			remainingHeight <= height { // We have enough space to show the rest.
+			if row > 0 {
+				if focus != nil && focus.y+focus.h+add-offsetY > height {
+					offsetY += focus.y + focus.h + add - offsetY - height
+				}
+				if remainingHeight < height {
+					offsetY = gridHeight - height
+				}
 			}
-			if offsetY+focus.y-add < 0 {
-				offsetY -= offsetY + focus.y - add
-			}
+			g.rowOffset = row
+			break
 		}
-		if lowest != nil {
-			if offsetY+lowest.y+lowest.h+add > height {
-				offsetY -= offsetY + lowest.y + lowest.h + add - height
-			}
-		}
+		offsetY = rowPos[row+1] - add
 	}
-	if gridWidth > width && g.columnOffset > 0 {
-		offsetX = -columnPos[g.columnOffset]
-		if focus != nil {
-			if offsetX+focus.x+focus.w+add > width {
-				offsetX -= offsetX + focus.x + focus.w + add - width
+	for column := 0; column < columns-1; column++ {
+		remainingWidth := gridWidth - offsetX
+		if focus != nil && focus.x-add <= offsetX || // Don't let the focused item move out of screen.
+			column >= g.columnOffset && (focus == nil || focus != nil && focus.x-offsetX < width) || // We've reached the requested offset.
+			remainingWidth <= width { // We have enough space to show the rest.
+			if column > 0 {
+				if focus != nil && focus.x+focus.w+add-offsetX > width {
+					offsetX += focus.x + focus.w + add - offsetX - width
+				} else if remainingWidth < width {
+					offsetX = gridWidth - width
+				}
 			}
-			if offsetX+focus.x-add < 0 {
-				offsetX -= offsetX + focus.x - add
-			}
+			g.columnOffset = column
+			break
 		}
-		if rightmost != nil {
-			if offsetX+rightmost.x+rightmost.w+add > width {
-				offsetX -= offsetX + rightmost.x + rightmost.w + add - width
-			}
-		}
+		offsetX = columnPos[column+1] - add
 	}
 
-	// Draw primitives.
+	// Draw primitives and borders.
 	for primitive, item := range items {
+		// Final primitive position.
 		if !item.visible {
 			continue
 		}
-		item.x += offsetX
-		item.y += offsetY
+		item.x -= offsetX
+		item.y -= offsetY
 		if item.x+item.w > width {
 			item.w = width - item.x
 		}
 		if item.y+item.h > height {
 			item.h = height - item.y
 		}
+		if item.x < 0 {
+			item.w += item.x
+			item.x = 0
+		}
+		if item.y < 0 {
+			item.h += item.y
+			item.y = 0
+		}
 		if item.w <= 0 || item.h <= 0 {
 			item.visible = false
 			continue
 		}
 		primitive.SetRect(x+item.x, y+item.y, item.w, item.h)
+
+		// Draw primitive.
 		if item == focus {
 			defer primitive.Draw(screen)
 		} else {
 			primitive.Draw(screen)
 		}
-	}
 
-	// Draw borders.
+		// Draw border around primitive.
+		if g.borders {
+			for bx := item.x; bx < item.x+item.w; bx++ { // Top/bottom lines.
+				if bx < 0 || bx >= width {
+					continue
+				}
+				by := item.y - 1
+				if by >= 0 && by < height {
+					PrintJoinedBorder(screen, x+bx, y+by, GraphicsHoriBar, g.bordersColor)
+				}
+				by = item.y + item.h
+				if by >= 0 && by < height {
+					PrintJoinedBorder(screen, x+bx, y+by, GraphicsHoriBar, g.bordersColor)
+				}
+			}
+			for by := item.y; by < item.y+item.h; by++ { // Left/right lines.
+				if by < 0 || by >= height {
+					continue
+				}
+				bx := item.x - 1
+				if bx >= 0 && bx < width {
+					PrintJoinedBorder(screen, x+bx, y+by, GraphicsVertBar, g.bordersColor)
+				}
+				bx = item.x + item.w
+				if bx >= 0 && bx < width {
+					PrintJoinedBorder(screen, x+bx, y+by, GraphicsVertBar, g.bordersColor)
+				}
+			}
+			bx, by := item.x-1, item.y-1 // Top-left corner.
+			if bx >= 0 && bx < width && by >= 0 && by < height {
+				PrintJoinedBorder(screen, x+bx, y+by, GraphicsTopLeftCorner, g.bordersColor)
+			}
+			bx, by = item.x+item.w, item.y-1 // Top-right corner.
+			if bx >= 0 && bx < width && by >= 0 && by < height {
+				PrintJoinedBorder(screen, x+bx, y+by, GraphicsTopRightCorner, g.bordersColor)
+			}
+			bx, by = item.x-1, item.y+item.h // Bottom-left corner.
+			if bx >= 0 && bx < width && by >= 0 && by < height {
+				PrintJoinedBorder(screen, x+bx, y+by, GraphicsBottomLeftCorner, g.bordersColor)
+			}
+			bx, by = item.x+item.w, item.y+item.h // Bottom-right corner.
+			if bx >= 0 && bx < width && by >= 0 && by < height {
+				PrintJoinedBorder(screen, x+bx, y+by, GraphicsBottomRightCorner, g.bordersColor)
+			}
+		}
+	}
 }

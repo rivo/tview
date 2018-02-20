@@ -13,7 +13,7 @@ Among these components are:
 - Navigable multi-color __text views__
 - Sophisticated navigable __table views__
 - Selectable __lists__
-- __Flexbox__ and __page layouts__
+- __Grid__, __Flexbox__ and __page layouts__
 - Modal __message windows__
 - An __application__ wrapper
 
