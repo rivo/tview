@@ -66,7 +66,7 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 - v0.9 (2018-02-20)
   - Introduced `Grid` layout.
-	- Direct access to the `screen` object through callbacks in `Application`.
+  - Direct access to the `screen` object through callbacks in `Application`.
 - v0.8 (2018-01-17)
   - Color tags can now be used almost everywhere.
 - v0.7 (2018-01-16)
