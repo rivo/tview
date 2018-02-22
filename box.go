@@ -16,6 +16,10 @@ type Box struct {
 	// The position of the rect.
 	x, y, width, height int
 
+	// The inner rect reserved for the box's content. This is only used if the
+	// "draw" callback is not nil.
+	innerX, innerY, innerWidth, innerHeight int
+
 	// Border padding.
 	paddingTop, paddingBottom, paddingLeft, paddingRight int
 
@@ -49,6 +53,9 @@ type Box struct {
 	// event to be forwarded to the primitive's default input handler (nil if
 	// nothing should be forwarded).
 	inputCapture func(event *tcell.EventKey) *tcell.EventKey
+
+	// An optional function which is called before the box is drawn.
+	draw func(screen tcell.Screen, x, y, width, height int) (int, int, int, int)
 }
 
 // NewBox returns a Box without a border.
@@ -80,6 +87,9 @@ func (b *Box) GetRect() (int, int, int, int) {
 // GetInnerRect returns the position of the inner rectangle (x, y, width,
 // height), without the border and without any padding.
 func (b *Box) GetInnerRect() (int, int, int, int) {
+	if b.draw != nil {
+		return b.innerX, b.innerY, b.innerWidth, b.innerHeight
+	}
 	x, y, width, height := b.GetRect()
 	if b.border {
 		x++
@@ -99,6 +109,19 @@ func (b *Box) SetRect(x, y, width, height int) {
 	b.y = y
 	b.width = width
 	b.height = height
+}
+
+// SetDrawFunc sets a callback function which is invoked after the box primitive
+// has been drawn. This allows you to add a more individual style to the box
+// (and all primitives which extend it).
+//
+// The function is provided with the box's dimensions (set via SetRect()). It
+// must return the box's inner dimensions (x, y, width, height) which will be
+// returned by GetInnerRect(), used by descendent primitives to draw their own
+// content.
+func (b *Box) SetDrawFunc(handler func(screen tcell.Screen, x, y, width, height int) (int, int, int, int)) *Box {
+	b.draw = handler
+	return b
 }
 
 // wrapInputHandler wraps an input handler (see InputHandler()) with the
@@ -228,6 +251,11 @@ func (b *Box) Draw(screen tcell.Screen) {
 				Print(screen, string(GraphicsEllipsis), b.x+b.width-2, b.y, 1, AlignLeft, fg)
 			}
 		}
+	}
+
+	// Call custom draw function.
+	if b.draw != nil {
+		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.draw(screen, b.x, b.y, b.width, b.height)
 	}
 }
 
