@@ -116,6 +116,38 @@ const tableSeparator = `[green]func[white] [yellow]main[white]() {
         [yellow]Run[white]()
 }`
 
+const tableExpanded = `[green]func[white] [yellow]main[white]() {
+    table := tview.[yellow]NewTable[white]().
+        [yellow]SetFixed[white]([red]1[white], [red]1[white]).
+        [yellow]SetExpanded[white]([red]3[white])
+    [yellow]for[white] row := [red]0[white]; row < [red]40[white]; row++ {
+        [yellow]for[white] column := [red]0[white]; column < [red]7[white]; column++ {
+            color := tcell.ColorWhite
+            [yellow]if[white] row == [red]0[white] {
+                color = tcell.ColorYellow
+            } [yellow]else[white] [yellow]if[white] column == [red]0[white] {
+                color = tcell.ColorDarkCyan
+            }
+            align := tview.AlignLeft
+            [yellow]if[white] row == [red]0[white] {
+                align = tview.AlignCenter
+            } [yellow]else[white] [yellow]if[white] column == [red]0[white] || column >= [red]4[white] {
+                align = tview.AlignRight
+            }
+            table.[yellow]SetCell[white](row,
+                column,
+                &tview.TableCell{
+                    Text:  [red]"..."[white],
+                    Color: color,
+                    Align: align,
+                })
+        }
+    }
+    tview.[yellow]NewApplication[white]().
+        [yellow]SetRoot[white](table, true).
+        [yellow]Run[white]()
+}`
+
 const tableBorders = `[green]func[white] [yellow]main[white]() {
     table := tview.[yellow]NewTable[white]().
         [yellow]SetFixed[white]([red]1[white], [red]1[white]).
@@ -296,6 +328,15 @@ func Table(nextSlide func()) (title string, content tview.Primitive) {
 			SetSeparator(tview.GraphicsVertBar)
 		code.Clear()
 		fmt.Fprint(code, tableSeparator)
+	}
+
+	expanded := func() {
+		table.SetBorders(false).
+			SetSelectable(false, false).
+			SetSeparator(' ').
+			SetExpandable(3)
+		code.Clear()
+		fmt.Fprint(code, tableExpanded)
 	}
 
 	borders := func() {
