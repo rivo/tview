@@ -170,6 +170,9 @@ type Table struct {
 	// The number of fixed rows / columns.
 	fixedRows, fixedColumns int
 
+	// The expandable column.
+	expandableColumn int
+
 	// Whether or not rows or columns can be selected. If both are set to true,
 	// cells can be selected.
 	rowsSelectable, columnsSelectable bool
@@ -205,10 +208,11 @@ type Table struct {
 // NewTable returns a new table.
 func NewTable() *Table {
 	return &Table{
-		Box:          NewBox(),
-		bordersColor: Styles.GraphicsColor,
-		separator:    ' ',
-		lastColumn:   -1,
+		Box:              NewBox(),
+		bordersColor:     Styles.GraphicsColor,
+		separator:        ' ',
+		lastColumn:       -1,
+		expandableColumn: -1,
 	}
 }
 
@@ -249,6 +253,16 @@ func (t *Table) SetSeparator(separator rune) *Table {
 // top-most ones. Columns are always the left-most ones.
 func (t *Table) SetFixed(rows, columns int) *Table {
 	t.fixedRows, t.fixedColumns = rows, columns
+	return t
+}
+
+// SetExpandable marks a column number to be expandable, meaning it takes
+// the remaining horizontal space (if available). This allows tables to always
+// occupy the full width, which makes some alignment scenarios easier.
+//
+// To remove the expandable mark, give -1 as argument.
+func (t *Table) SetExpandable(column int) *Table {
+	t.expandableColumn = column
 	return t
 }
 
@@ -594,6 +608,12 @@ ColumnLoop:
 	}
 	for columnIndex, column := range columns {
 		columnWidth := widths[columnIndex]
+
+		// Consume remaining horizontal space.
+		if t.expandableColumn == columnIndex && tableWidth < width {
+			columnWidth += width - tableWidth
+		}
+
 		for rowY, row := range rows {
 			if t.borders {
 				// Draw borders.
