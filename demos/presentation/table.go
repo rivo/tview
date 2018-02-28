@@ -314,60 +314,48 @@ func Table(nextSlide func()) (title string, content tview.Primitive) {
 
 	list := tview.NewList()
 
-	basic := func() {
-		table.SetBorders(false).
-			SetSelectable(false, false).
-			SetSeparator(' ')
-		code.Clear()
-		fmt.Fprint(code, tableBasic)
-	}
-
-	separator := func() {
-		table.SetBorders(false).
-			SetSelectable(false, false).
-			SetSeparator(tview.GraphicsVertBar)
-		code.Clear()
-		fmt.Fprint(code, tableSeparator)
-	}
-
-	expanded := func() {
+	// reset will undo any modifications and update the code view
+	reset := func(newCode string) {
 		table.SetBorders(false).
 			SetSelectable(false, false).
 			SetSeparator(' ').
-			SetExpandable(3)
+			SetExpandable(-1)
 		code.Clear()
-		fmt.Fprint(code, tableExpanded)
+		fmt.Fprint(code, newCode)
+	}
+
+	basic := func() {
+		reset(tableBasic)
+	}
+
+	separator := func() {
+		reset(tableSeparator)
+		table.SetSeparator(tview.GraphicsVertBar)
+	}
+
+	expanded := func() {
+		reset(tableExpanded)
+		table.SetExpandable(3)
 	}
 
 	borders := func() {
-		table.SetBorders(true).
-			SetSelectable(false, false)
-		code.Clear()
-		fmt.Fprint(code, tableBorders)
+		reset(tableBorders)
+		table.SetBorders(true)
 	}
 
 	selectRow := func() {
-		table.SetBorders(false).
-			SetSelectable(true, false).
-			SetSeparator(' ')
-		code.Clear()
-		fmt.Fprint(code, tableSelectRow)
+		reset(tableSelectRow)
+		table.SetSelectable(true, false)
 	}
 
 	selectColumn := func() {
-		table.SetBorders(false).
-			SetSelectable(false, true).
-			SetSeparator(' ')
-		code.Clear()
-		fmt.Fprint(code, tableSelectColumn)
+		reset(tableSelectColumn)
+		table.SetSelectable(false, true)
 	}
 
 	selectCell := func() {
-		table.SetBorders(false).
-			SetSelectable(true, true).
-			SetSeparator(' ')
-		code.Clear()
-		fmt.Fprint(code, tableSelectCell)
+		reset(tableSelectCell)
+		table.SetSelectable(true, true)
 	}
 
 	navigate := func() {
@@ -383,6 +371,7 @@ func Table(nextSlide func()) (title string, content tview.Primitive) {
 		AddItem("Basic table", "", 'b', basic).
 		AddItem("Table with separator", "", 's', separator).
 		AddItem("Table with borders", "", 'o', borders).
+		AddItem("Expand column 3 (Item)", "", 'e', expanded).
 		AddItem("Selectable rows", "", 'r', selectRow).
 		AddItem("Selectable columns", "", 'c', selectColumn).
 		AddItem("Selectable cells", "", 'l', selectCell).
