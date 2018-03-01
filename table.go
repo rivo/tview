@@ -601,18 +601,26 @@ ColumnLoop:
 		screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
 	}
 
+	// Helper function which returns the width for a column. If there's enough
+	// horizontal space, and the given index matches the expandableColumn,
+	// this will increase a columns width by remaining horizontal space.
+	expandX := width - tableWidth
+	colWidth := func(columnIndex int) (w int) {
+		w = widths[columnIndex]
+		if t.expandableColumn == columnIndex && tableWidth < width {
+			w += expandX
+		}
+		return w
+	}
+
 	// Draw the cells (and borders).
 	var columnX int
 	if !t.borders {
+		expandX++
 		columnX--
 	}
 	for columnIndex, column := range columns {
-		columnWidth := widths[columnIndex]
-
-		// Consume remaining horizontal space.
-		if t.expandableColumn == columnIndex && tableWidth < width {
-			columnWidth += width - tableWidth
-		}
+		columnWidth := colWidth(columnIndex)
 
 		for rowY, row := range rows {
 			if t.borders {
@@ -732,7 +740,7 @@ ColumnLoop:
 		columnX := 0
 		rowSelected := t.rowsSelectable && !t.columnsSelectable && row == t.selectedRow
 		for columnIndex, column := range columns {
-			columnWidth := widths[columnIndex]
+			columnWidth := colWidth(columnIndex)
 			cell := getCell(row, column)
 			if cell == nil {
 				continue
