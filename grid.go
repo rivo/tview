@@ -202,6 +202,17 @@ func (g *Grid) AddItem(p Primitive, row, column, height, width, minGridHeight, m
 	return g
 }
 
+// RemoveItem removes all items for the given primitive from the grid, keeping
+// the order of the remaining items intact.
+func (g *Grid) RemoveItem(p Primitive) *Grid {
+	for index := len(g.items) - 1; index >= 0; index-- {
+		if g.items[index].Item == p {
+			g.items = append(g.items[:index], g.items[index+1:]...)
+		}
+	}
+	return g
+}
+
 // Clear removes all items from the grid.
 func (g *Grid) Clear() *Grid {
 	g.items = nil

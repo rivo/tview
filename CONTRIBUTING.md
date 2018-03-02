@@ -28,3 +28,4 @@ I'm very picky about the code that goes into this repo. So if you violate any of
 - Function/type/variable/constant names must be as descriptive as they are right now. Follow the conventions of the package.
 - All functions/types/variables/constants, even private ones, must have comments in good English. These comments must be elaborate enough so that new users of the package understand them and can follow them. Provide examples if you have to.
 - Your changes must not decrease the project's [Go Report](https://goreportcard.com/report/github.com/rivo/tview) rating.
+- No breaking changes unless there is absolutely no other way.
