@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/gdamore/tcell"
 	runewidth "github.com/mattn/go-runewidth"
@@ -318,90 +319,111 @@ func StringWidth(text string) int {
 //
 // Text is always split at newline characters ('\n').
 func WordWrap(text string, width int) (lines []string) {
-	x := 0
-	start := 0
-	candidate := -1 // -1 = no candidate yet.
-	startAfterCandidate := 0
-	countAfterCandidate := 0
-	var evaluatingCandidate bool
-	text = strings.TrimSpace(text)
-	colorIndices := colorPattern.FindAllStringIndex(text, -1)
+	// Strip color tags.
+	strippedText := escapePattern.ReplaceAllString(colorPattern.ReplaceAllString(text, ""), "[$1$2]")
+
+	// Keep track of color tags and escape patterns so we can restore the original
+	// indices.
+	colorTagIndices := colorPattern.FindAllStringIndex(text, -1)
 	escapeIndices := escapePattern.FindAllStringIndex(text, -1)
 
-	var colorPos, escapePos int
-	for pos, ch := range text {
-		// Skip color tags.
-		if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
-			if pos == colorIndices[colorPos][1]-1 {
-				colorPos++
-			}
-			continue
-		}
+	// Find candidate breakpoints.
+	breakPoints := boundaryPattern.FindAllStringIndex(strippedText, -1)
 
-		// Handle escape tags.
-		if escapePos < len(escapeIndices) && pos >= escapeIndices[escapePos][0] && pos < escapeIndices[escapePos][1] {
-			if pos == escapeIndices[escapePos][1]-1 {
-				escapePos++
-			} else if pos == escapeIndices[escapePos][1]-2 {
-				continue
-			}
-		}
-
-		// What's the width of this rune?
-		chWidth := runewidth.RuneWidth(ch)
-
-		if !evaluatingCandidate && x >= width {
-			// We've exceeded the width, we must split.
-			if candidate >= 0 {
-				lines = append(lines, text[start:candidate])
-				start = startAfterCandidate
-				x = countAfterCandidate
+	// This helper function adds a new line to the result slice. The provided
+	// positions are in stripped index space.
+	addLine := func(from, to int) {
+		// Shift indices back to original index space.
+		var colorTagIndex, escapeIndex int
+		for colorTagIndex < len(colorTagIndices) && to >= colorTagIndices[colorTagIndex][0] ||
+			escapeIndex < len(escapeIndices) && to >= escapeIndices[escapeIndex][0] {
+			past := 0
+			if colorTagIndex < len(colorTagIndices) {
+				tagWidth := colorTagIndices[colorTagIndex][1] - colorTagIndices[colorTagIndex][0]
+				if colorTagIndices[colorTagIndex][0] < from {
+					from += tagWidth
+					to += tagWidth
+					colorTagIndex++
+				} else if colorTagIndices[colorTagIndex][0] < to {
+					to += tagWidth
+					colorTagIndex++
+				} else {
+					past++
+				}
 			} else {
-				lines = append(lines, text[start:pos])
-				start = pos
-				x = 0
+				past++
 			}
-			candidate = -1
-			evaluatingCandidate = false
-		}
-
-		switch {
-		// We have a candidate.
-		case ch >= '!' && ch <= '/', ch >= ':' && ch <= '@', ch >= '[' && ch <= '`', ch >= '{' && ch <= '~':
-			if x > 0 {
-				candidate = pos + 1
-				evaluatingCandidate = true
+			if escapeIndex < len(escapeIndices) {
+				tagWidth := escapeIndices[escapeIndex][1] - escapeIndices[escapeIndex][0]
+				if escapeIndices[escapeIndex][0] < from {
+					from += tagWidth
+					to += tagWidth
+					escapeIndex++
+				} else if escapeIndices[escapeIndex][0] < to {
+					to += tagWidth
+					escapeIndex++
+				} else {
+					past++
+				}
+			} else {
+				past++
 			}
-			// If we've had a candidate, skip whitespace. If not, we have a candidate.
-		case ch == ' ', ch == '\t':
-			if x > 0 && !evaluatingCandidate {
-				candidate = pos
-				evaluatingCandidate = true
-			}
-			// Split in any case.
-		case ch == '\n':
-			lines = append(lines, text[start:pos])
-			start = pos + 1
-			evaluatingCandidate = false
-			countAfterCandidate = 0
-			x = 0
-			continue
-		// If we've had a candidate, we have a new start.
-		default:
-			if evaluatingCandidate {
-				startAfterCandidate = pos
-				evaluatingCandidate = false
-				countAfterCandidate = 0
+			if past == 2 {
+				break // All other indices are beyond the requested string.
 			}
 		}
-		x += chWidth
-		countAfterCandidate += chWidth
+		lines = append(lines, text[from:to])
 	}
 
-	// Process remaining text.
-	text = strings.TrimSpace(text[start:])
-	if len(text) > 0 {
-		lines = append(lines, text)
+	// Determine final breakpoints.
+	var start, lastEnd, newStart, breakPoint int
+	for {
+		// What's our candidate string?
+		var candidate string
+		if breakPoint < len(breakPoints) {
+			candidate = text[start:breakPoints[breakPoint][1]]
+		} else {
+			candidate = text[start:]
+		}
+		candidate = strings.TrimRightFunc(candidate, unicode.IsSpace)
+
+		if runewidth.StringWidth(candidate) >= width {
+			// We're past the available width.
+			if lastEnd > start {
+				// Use the previous candidate.
+				addLine(start, lastEnd)
+				start = newStart
+			} else {
+				// We have no previous candidate. Make a hard break.
+				var lineWidth int
+				for index, ch := range text {
+					if index < start {
+						continue
+					}
+					chWidth := runewidth.RuneWidth(ch)
+					if lineWidth > 0 && lineWidth+chWidth >= width {
+						addLine(start, index)
+						start = index
+						break
+					}
+					lineWidth += chWidth
+				}
+			}
+		} else {
+			// We haven't hit the right border yet.
+			if breakPoint >= len(breakPoints) {
+				// It's the last line. We're done.
+				if len(candidate) > 0 {
+					addLine(start, len(strippedText))
+				}
+				break
+			} else {
+				// We have a new candidate.
+				lastEnd = start + len(candidate)
+				newStart = breakPoints[breakPoint][1]
+				breakPoint++
+			}
+		}
 	}
 
 	return
