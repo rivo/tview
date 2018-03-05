@@ -63,7 +63,7 @@ func main() {
 		}
 	})
 	textView.SetBorder(true)
-	if err := app.SetRoot(textView, true).SetFocus(textView).Run(); err != nil {
+	if err := app.SetRoot(textView, true).Run(); err != nil {
 		panic(err)
 	}
 }

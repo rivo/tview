@@ -24,7 +24,7 @@ type Application struct {
 	root Primitive
 
 	// Whether or not the application resizes the root primitive.
-	rootAutoSize bool
+	rootFullscreen bool
 
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the default input handler (nil if nothing should
@@ -136,10 +136,6 @@ func (a *Application) Run() error {
 		case *tcell.EventResize:
 			a.Lock()
 			screen := a.screen
-			if a.rootAutoSize && a.root != nil {
-				width, height := screen.Size()
-				a.root.SetRect(0, 0, width, height)
-			}
 			a.Unlock()
 			screen.Clear()
 			a.Draw()
@@ -166,7 +162,7 @@ func (a *Application) Draw() *Application {
 	a.RLock()
 	screen := a.screen
 	root := a.root
-	fullscreen := a.rootAutoSize
+	fullscreen := a.rootFullscreen
 	before := a.beforeDraw
 	after := a.afterDraw
 	a.RUnlock()
@@ -227,14 +223,17 @@ func (a *Application) SetAfterDrawFunc(handler func(screen tcell.Screen)) *Appli
 	return a
 }
 
-// SetRoot sets the root primitive for this application. This function must be
-// called or nothing will be displayed when the application starts.
+// SetRoot sets the root primitive for this application. If "fullscreen" is set
+// to true, the root primitive's position will be changed to fill the screen.
+//
+// This function must be called at least once or nothing will be displayed when
+// the application starts.
 //
 // It also calls SetFocus() on the primitive.
-func (a *Application) SetRoot(root Primitive, autoSize bool) *Application {
+func (a *Application) SetRoot(root Primitive, fullscreen bool) *Application {
 	a.Lock()
 	a.root = root
-	a.rootAutoSize = autoSize
+	a.rootFullscreen = fullscreen
 	if a.screen != nil {
 		a.screen.Clear()
 	}

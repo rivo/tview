@@ -6,7 +6,7 @@ import "github.com/rivo/tview"
 func main() {
 	app := tview.NewApplication()
 	checkbox := tview.NewCheckbox().SetLabel("Hit Enter to check box: ")
-	if err := app.SetRoot(checkbox, true).SetFocus(checkbox).Run(); err != nil {
+	if err := app.SetRoot(checkbox, true).Run(); err != nil {
 		panic(err)
 	}
 }

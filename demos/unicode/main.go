@@ -28,7 +28,7 @@ func main() {
 	form.SetBorder(true).SetTitle("输入一些内容").SetTitleAlign(tview.AlignLeft)
 	pages.AddPage("base", form, true, true)
 
-	if err := app.SetRoot(pages, true).SetFocus(pages).Run(); err != nil {
+	if err := app.SetRoot(pages, true).Run(); err != nil {
 		panic(err)
 	}
 }

@@ -89,7 +89,7 @@ func main() {
 	})
 
 	// Start the application.
-	if err := app.SetRoot(layout, true).SetFocus(layout).Run(); err != nil {
+	if err := app.SetRoot(layout, true).Run(); err != nil {
 		panic(err)
 	}
 }
