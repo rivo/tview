@@ -116,6 +116,38 @@ const tableSeparator = `[green]func[white] [yellow]main[white]() {
         [yellow]Run[white]()
 }`
 
+const tableExpanded = `[green]func[white] [yellow]main[white]() {
+    table := tview.[yellow]NewTable[white]().
+        [yellow]SetFixed[white]([red]1[white], [red]1[white]).
+        [yellow]SetExpanded[white]([red]3[white])
+    [yellow]for[white] row := [red]0[white]; row < [red]40[white]; row++ {
+        [yellow]for[white] column := [red]0[white]; column < [red]7[white]; column++ {
+            color := tcell.ColorWhite
+            [yellow]if[white] row == [red]0[white] {
+                color = tcell.ColorYellow
+            } [yellow]else[white] [yellow]if[white] column == [red]0[white] {
+                color = tcell.ColorDarkCyan
+            }
+            align := tview.AlignLeft
+            [yellow]if[white] row == [red]0[white] {
+                align = tview.AlignCenter
+            } [yellow]else[white] [yellow]if[white] column == [red]0[white] || column >= [red]4[white] {
+                align = tview.AlignRight
+            }
+            table.[yellow]SetCell[white](row,
+                column,
+                &tview.TableCell{
+                    Text:  [red]"..."[white],
+                    Color: color,
+                    Align: align,
+                })
+        }
+    }
+    tview.[yellow]NewApplication[white]().
+        [yellow]SetRoot[white](table, true).
+        [yellow]Run[white]()
+}`
+
 const tableBorders = `[green]func[white] [yellow]main[white]() {
     table := tview.[yellow]NewTable[white]().
         [yellow]SetFixed[white]([red]1[white], [red]1[white]).
@@ -282,51 +314,48 @@ func Table(nextSlide func()) (title string, content tview.Primitive) {
 
 	list := tview.NewList()
 
-	basic := func() {
+	// reset will undo any modifications and update the code view
+	reset := func(newCode string) {
 		table.SetBorders(false).
 			SetSelectable(false, false).
-			SetSeparator(' ')
+			SetSeparator(' ').
+			SetExpandable(-1)
 		code.Clear()
-		fmt.Fprint(code, tableBasic)
+		fmt.Fprint(code, newCode)
+	}
+
+	basic := func() {
+		reset(tableBasic)
 	}
 
 	separator := func() {
-		table.SetBorders(false).
-			SetSelectable(false, false).
-			SetSeparator(tview.GraphicsVertBar)
-		code.Clear()
-		fmt.Fprint(code, tableSeparator)
+		reset(tableSeparator)
+		table.SetSeparator(tview.GraphicsVertBar)
+	}
+
+	expanded := func() {
+		reset(tableExpanded)
+		table.SetExpandable(3)
 	}
 
 	borders := func() {
-		table.SetBorders(true).
-			SetSelectable(false, false)
-		code.Clear()
-		fmt.Fprint(code, tableBorders)
+		reset(tableBorders)
+		table.SetBorders(true)
 	}
 
 	selectRow := func() {
-		table.SetBorders(false).
-			SetSelectable(true, false).
-			SetSeparator(' ')
-		code.Clear()
-		fmt.Fprint(code, tableSelectRow)
+		reset(tableSelectRow)
+		table.SetSelectable(true, false)
 	}
 
 	selectColumn := func() {
-		table.SetBorders(false).
-			SetSelectable(false, true).
-			SetSeparator(' ')
-		code.Clear()
-		fmt.Fprint(code, tableSelectColumn)
+		reset(tableSelectColumn)
+		table.SetSelectable(false, true)
 	}
 
 	selectCell := func() {
-		table.SetBorders(false).
-			SetSelectable(true, true).
-			SetSeparator(' ')
-		code.Clear()
-		fmt.Fprint(code, tableSelectCell)
+		reset(tableSelectCell)
+		table.SetSelectable(true, true)
 	}
 
 	navigate := func() {
@@ -342,6 +371,7 @@ func Table(nextSlide func()) (title string, content tview.Primitive) {
 		AddItem("Basic table", "", 'b', basic).
 		AddItem("Table with separator", "", 's', separator).
 		AddItem("Table with borders", "", 'o', borders).
+		AddItem("Expand column 3 (Item)", "", 'e', expanded).
 		AddItem("Selectable rows", "", 'r', selectRow).
 		AddItem("Selectable columns", "", 'c', selectColumn).
 		AddItem("Selectable cells", "", 'l', selectCell).
