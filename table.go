@@ -23,6 +23,10 @@ type TableCell struct {
 	// is cut off. Set to 0 if there is no maximum width.
 	MaxWidth int
 
+	// If the total table width is less than the available width, this value is
+	// used to add extra width to a column. See SetExpansion() for details.
+	Expansion int
+
 	// The color of the cell text.
 	Color tcell.Color
 
@@ -66,6 +70,27 @@ func (c *TableCell) SetAlign(align int) *TableCell {
 // width is cut off. Set to 0 if there is no maximum width.
 func (c *TableCell) SetMaxWidth(maxWidth int) *TableCell {
 	c.MaxWidth = maxWidth
+	return c
+}
+
+// SetExpansion sets the value by which the column of this cell expands if the
+// available width for the table is more than the table width (prior to applying
+// this expansion value). This is a proportional value. The amount of unused
+// horizontal space is divided into widths to be added to each column. How much
+// extra width a column receives depends on the expansion value: A value of 0
+// (the default) will not cause the column to increase in width. Other values
+// are proportional, e.g. a value of 2 will cause a column to grow by twice
+// the amount of a column with a value of 1.
+//
+// Since this value affects an entire column, the maximum over all visible cells
+// in that column is used.
+//
+// This function panics if a negative value is provided.
+func (c *TableCell) SetExpansion(expansion int) *TableCell {
+	if expansion < 0 {
+		panic("Table cell expansion values may not be negative")
+	}
+	c.Expansion = expansion
 	return c
 }
 
@@ -525,7 +550,10 @@ func (t *Table) Draw(screen tcell.Screen) {
 			break
 		}
 	}
-	var skipped, lastTableWidth int
+	var (
+		skipped, lastTableWidth, expansionTotal int
+		expansions                              []int
+	)
 ColumnLoop:
 	for column := 0; ; column++ {
 		// If we've moved beyond the right border, we stop or skip a column.
@@ -556,8 +584,9 @@ ColumnLoop:
 			widths = append(widths[:t.fixedColumns], widths[t.fixedColumns+1:]...)
 		}
 
-		// What's this column's width?
+		// What's this column's width (without expansion)?
 		maxWidth := -1
+		expansion := 0
 		for _, row := range rows {
 			if cell := getCell(row, column); cell != nil {
 				cellWidth := StringWidth(cell.Text)
@@ -566,6 +595,9 @@ ColumnLoop:
 				}
 				if cellWidth > maxWidth {
 					maxWidth = cellWidth
+				}
+				if cell.Expansion > expansion {
+					expansion = cell.Expansion
 				}
 			}
 		}
@@ -578,8 +610,26 @@ ColumnLoop:
 		widths = append(widths, maxWidth)
 		lastTableWidth = tableWidth
 		tableWidth += maxWidth + 1
+		expansions = append(expansions, expansion)
+		expansionTotal += expansion
 	}
 	t.columnOffset = skipped
+
+	// If we have space left, distribute it.
+	if tableWidth < width {
+		toDistribute := width - tableWidth
+		for index := range widths {
+			if expansionTotal <= 0 {
+				break
+			}
+			expansion := expansions[index]
+			expWidth := toDistribute * expansion / expansionTotal
+			widths[index] += expWidth
+			tableWidth += expWidth
+			toDistribute -= expWidth
+			expansionTotal -= expansion
+		}
+	}
 
 	// Helper function which draws border runes.
 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)

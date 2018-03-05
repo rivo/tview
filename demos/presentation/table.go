@@ -265,12 +265,14 @@ func Table(nextSlide func()) (title string, content tview.Primitive) {
 			} else if column == 0 || column >= 4 {
 				align = tview.AlignRight
 			}
-			table.SetCell(row, column, &tview.TableCell{
-				Text:          cell,
-				Color:         color,
-				Align:         align,
-				NotSelectable: row == 0 || column == 0,
-			})
+			tableCell := tview.NewTableCell(cell).
+				SetTextColor(color).
+				SetAlign(align).
+				SetSelectable(row != 0 && column != 0)
+			if column >= 1 && column <= 3 {
+				tableCell.SetExpansion(1)
+			}
+			table.SetCell(row, column, tableCell)
 		}
 	}
 	table.SetBorder(true).SetTitle("Table")
