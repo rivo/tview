@@ -618,11 +618,10 @@ ColumnLoop:
 	// If we have space left, distribute it.
 	if tableWidth < width {
 		toDistribute := width - tableWidth
-		for index := range widths {
+		for index, expansion := range expansions {
 			if expansionTotal <= 0 {
 				break
 			}
-			expansion := expansions[index]
 			expWidth := toDistribute * expansion / expansionTotal
 			widths[index] += expWidth
 			tableWidth += expWidth
