@@ -124,6 +124,12 @@ func (b *Box) SetDrawFunc(handler func(screen tcell.Screen, x, y, width, height 
 	return b
 }
 
+// GetDrawFunc returns the callback function which was installed with
+// SetDrawFunc() or nil if no such function has been installed.
+func (b *Box) GetDrawFunc() func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+	return b.draw
+}
+
 // wrapInputHandler wraps an input handler (see InputHandler()) with the
 // functionality to capture input (see SetInputCapture()) before passing it
 // on to the provided (default) input handler.
@@ -153,6 +159,12 @@ func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primiti
 func (b *Box) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Box {
 	b.inputCapture = capture
 	return b
+}
+
+// GetInputCapture returns the function installed with SetInputCapture() or nil
+// if no such function has been installed.
+func (b *Box) GetInputCapture() func(event *tcell.EventKey) *tcell.EventKey {
+	return b.inputCapture
 }
 
 // SetBackgroundColor sets the box's background color.

@@ -59,6 +59,12 @@ func (a *Application) SetInputCapture(capture func(event *tcell.EventKey) *tcell
 	return a
 }
 
+// GetInputCapture returns the function installed with SetInputCapture() or nil
+// if no such function has been installed.
+func (a *Application) GetInputCapture() func(event *tcell.EventKey) *tcell.EventKey {
+	return a.inputCapture
+}
+
 // Run starts the application and thus the event loop. This function returns
 // when Stop() was called.
 func (a *Application) Run() error {
@@ -214,6 +220,12 @@ func (a *Application) SetBeforeDrawFunc(handler func(screen tcell.Screen) bool) 
 	return a
 }
 
+// GetBeforeDrawFunc returns the callback function installed with
+// SetBeforeDrawFunc() or nil if none has been installed.
+func (a *Application) GetBeforeDrawFunc() func(screen tcell.Screen) bool {
+	return a.beforeDraw
+}
+
 // SetAfterDrawFunc installs a callback function which is invoked after the root
 // primitive was drawn during screen updates.
 //
@@ -221,6 +233,12 @@ func (a *Application) SetBeforeDrawFunc(handler func(screen tcell.Screen) bool) 
 func (a *Application) SetAfterDrawFunc(handler func(screen tcell.Screen)) *Application {
 	a.afterDraw = handler
 	return a
+}
+
+// GetAfterDrawFunc returns the callback function installed with
+// SetAfterDrawFunc() or nil if none has been installed.
+func (a *Application) GetAfterDrawFunc() func(screen tcell.Screen) {
+	return a.afterDraw
 }
 
 // SetRoot sets the root primitive for this application. If "fullscreen" is set
