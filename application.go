@@ -270,9 +270,11 @@ func (a *Application) SetFocus(p Primitive) *Application {
 		a.screen.HideCursor()
 	}
 	a.Unlock()
-	p.Focus(func(p Primitive) {
-		a.SetFocus(p)
-	})
+	if p != nil {
+		p.Focus(func(p Primitive) {
+			a.SetFocus(p)
+		})
+	}
 
 	return a
 }

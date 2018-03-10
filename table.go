@@ -582,6 +582,7 @@ ColumnLoop:
 			tableWidth -= widths[t.fixedColumns] + 1
 			columns = append(columns[:t.fixedColumns], columns[t.fixedColumns+1:]...)
 			widths = append(widths[:t.fixedColumns], widths[t.fixedColumns+1:]...)
+			expansions = append(expansions[:t.fixedColumns], expansions[t.fixedColumns+1:]...)
 		}
 
 		// What's this column's width (without expansion)?
