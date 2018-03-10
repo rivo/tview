@@ -619,7 +619,7 @@ ColumnLoop:
 	if tableWidth < width {
 		toDistribute := width - tableWidth
 		for index, expansion := range expansions {
-			if expansionTotal <= 0 {
+			if expansionTotal <= 0 || index >= len(widths) {
 				break
 			}
 			expWidth := toDistribute * expansion / expansionTotal
