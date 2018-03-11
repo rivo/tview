@@ -254,8 +254,14 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		lwidth := maxWidth
 		lheight := len(d.options)
 		_, sheight := screen.Size()
-		if ly+lheight >= sheight && ly-lheight-1 >= 0 {
+		if ly+lheight >= sheight && ly-2 > lheight-ly {
 			ly = y - lheight
+			if ly < 0 {
+				ly = 0
+			}
+		}
+		if ly+lheight >= sheight {
+			lheight = sheight - ly
 		}
 		d.list.SetRect(lx, ly, lwidth, lheight)
 		d.list.Draw(screen)
