@@ -64,6 +64,8 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 (There are no corresponding tags in the project. I only keep such a history in this README.)
 
+- v0.12 (2018-03-13)
+  - Added "suspended mode" to `Application`.
 - v0.11 (2018-03-02)
   - Added a `RemoveItem()` function to `Grid` and `Flex`.
 - v0.10 (2018-02-22)
