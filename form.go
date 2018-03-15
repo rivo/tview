@@ -259,6 +259,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 
 	// Determine the dimensions.
 	x, y, width, height := f.GetInnerRect()
+	topLimit := y
 	bottomLimit := y + height
 	rightLimit := x + width
 	startX := x
@@ -274,13 +275,10 @@ func (f *Form) Draw(screen tcell.Screen) {
 	}
 	maxLabelWidth++ // Add one space.
 
-	// Set up and draw the input fields.
-	for _, item := range f.items {
-		// Stop if there is no more space.
-		if y >= bottomLimit {
-			return
-		}
-
+	// Calculate positions of form items.
+	positions := make([]struct{ x, y, width, height int }, len(f.items)+len(f.buttons))
+	var focusedPosition struct{ x, y, width, height int }
+	for index, item := range f.items {
 		// Calculate the space needed.
 		label := strings.TrimSpace(item.GetLabel())
 		labelWidth := StringWidth(label)
@@ -315,13 +313,15 @@ func (f *Form) Draw(screen tcell.Screen) {
 			f.backgroundColor,
 			f.fieldTextColor,
 			f.fieldBackgroundColor,
-		).SetRect(x, y, itemWidth, 1)
+		)
 
-		// Draw items with focus last (in case of overlaps).
+		// Save position.
+		positions[index].x = x
+		positions[index].y = y
+		positions[index].width = itemWidth
+		positions[index].height = 1
 		if item.GetFocusable().HasFocus() {
-			defer item.Draw(screen)
-		} else {
-			item.Draw(screen)
+			focusedPosition = positions[index]
 		}
 
 		// Advance to next item.
@@ -356,12 +356,8 @@ func (f *Form) Draw(screen tcell.Screen) {
 		}
 	}
 
-	// Draw them.
+	// Calculate positions of buttons.
 	for index, button := range f.buttons {
-		if y >= bottomLimit {
-			return // Stop here.
-		}
-
 		space := rightLimit - x
 		buttonWidth := buttonWidths[index]
 		if f.horizontal {
@@ -381,11 +377,65 @@ func (f *Form) Draw(screen tcell.Screen) {
 		button.SetLabelColor(f.buttonTextColor).
 			SetLabelColorActivated(f.buttonBackgroundColor).
 			SetBackgroundColorActivated(f.buttonTextColor).
-			SetBackgroundColor(f.buttonBackgroundColor).
-			SetRect(x, y, buttonWidth, 1)
-		button.Draw(screen)
+			SetBackgroundColor(f.buttonBackgroundColor)
+
+		buttonIndex := index + len(f.items)
+		positions[buttonIndex].x = x
+		positions[buttonIndex].y = y
+		positions[buttonIndex].width = buttonWidth
+		positions[buttonIndex].height = 1
+
+		if button.HasFocus() {
+			focusedPosition = positions[buttonIndex]
+		}
 
 		x += buttonWidth + 1
+	}
+
+	// Determine vertical offset based on the position of the focused item.
+	var offset int
+	if focusedPosition.y+focusedPosition.height > bottomLimit {
+		offset = focusedPosition.y + focusedPosition.height - bottomLimit
+		if focusedPosition.y-offset < topLimit {
+			offset = focusedPosition.y - topLimit
+		}
+	}
+
+	// Draw items.
+	for index, item := range f.items {
+		// Set position.
+		y := positions[index].y - offset
+		height := positions[index].height
+		item.SetRect(positions[index].x, y, positions[index].width, height)
+
+		// Is this item visible?
+		if y+height <= topLimit || y >= bottomLimit {
+			continue
+		}
+
+		// Draw items with focus last (in case of overlaps).
+		if item.GetFocusable().HasFocus() {
+			defer item.Draw(screen)
+		} else {
+			item.Draw(screen)
+		}
+	}
+
+	// Draw buttons.
+	for index, button := range f.buttons {
+		// Set position.
+		buttonIndex := index + len(f.items)
+		y := positions[buttonIndex].y - offset
+		height := positions[buttonIndex].height
+		button.SetRect(positions[buttonIndex].x, y, positions[buttonIndex].width, height)
+
+		// Is this button visible?
+		if y+height <= topLimit || y >= bottomLimit {
+			continue
+		}
+
+		// Draw button.
+		button.Draw(screen)
 	}
 }
 
