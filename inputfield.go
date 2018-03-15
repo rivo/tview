@@ -26,6 +26,9 @@ type InputField struct {
 	// The text to be displayed before the input area.
 	label string
 
+	// The text to be displayed in the input area when "text" is empty.
+	placeholder string
+
 	// The label color.
 	labelColor tcell.Color
 
@@ -34,6 +37,9 @@ type InputField struct {
 
 	// The text color of the input area.
 	fieldTextColor tcell.Color
+
+	// The text color of the placeholder.
+	placeholderTextColor tcell.Color
 
 	// The screen width of the input area. A value of 0 means extend as much as
 	// possible.
@@ -62,6 +68,7 @@ func NewInputField() *InputField {
 		labelColor:           Styles.SecondaryTextColor,
 		fieldBackgroundColor: Styles.ContrastBackgroundColor,
 		fieldTextColor:       Styles.PrimaryTextColor,
+		placeholderTextColor: Styles.ContrastSecondaryTextColor,
 	}
 }
 
@@ -90,6 +97,12 @@ func (i *InputField) GetLabel() string {
 	return i.label
 }
 
+// SetPlaceholder sets the text to be displayed when the input text is empty.
+func (i *InputField) SetPlaceholder(text string) *InputField {
+	i.placeholder = text
+	return i
+}
+
 // SetLabelColor sets the color of the label.
 func (i *InputField) SetLabelColor(color tcell.Color) *InputField {
 	i.labelColor = color
@@ -105,6 +118,12 @@ func (i *InputField) SetFieldBackgroundColor(color tcell.Color) *InputField {
 // SetFieldTextColor sets the text color of the input area.
 func (i *InputField) SetFieldTextColor(color tcell.Color) *InputField {
 	i.fieldTextColor = color
+	return i
+}
+
+// SetPlaceholderExtColor sets the text color of placeholder text.
+func (i *InputField) SetPlaceholderExtColor(color tcell.Color) *InputField {
+	i.placeholderTextColor = color
 	return i
 }
 
@@ -200,8 +219,13 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
 	}
 
-	// Draw entered text.
+	// Draw placeholder text.
 	text := i.text
+	if text == "" && i.placeholder != "" {
+		Print(screen, i.placeholder, x, y, fieldWidth, AlignLeft, i.placeholderTextColor)
+	}
+
+	// Draw entered text.
 	if i.maskCharacter > 0 {
 		text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
 	}

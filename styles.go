@@ -18,6 +18,7 @@ var Styles = struct {
 	SecondaryTextColor          tcell.Color // Secondary text (e.g. labels).
 	TertiaryTextColor           tcell.Color // Tertiary text (e.g. subtitles, notes).
 	InverseTextColor            tcell.Color // Text on primary-colored backgrounds.
+	ContrastSecondaryTextColor  tcell.Color // Secondary text on ContrastBackgroundColor-colored backgrounds.
 }{
 	PrimitiveBackgroundColor:    tcell.ColorBlack,
 	ContrastBackgroundColor:     tcell.ColorBlue,
@@ -29,4 +30,5 @@ var Styles = struct {
 	SecondaryTextColor:          tcell.ColorYellow,
 	TertiaryTextColor:           tcell.ColorGreen,
 	InverseTextColor:            tcell.ColorBlue,
+	ContrastSecondaryTextColor:  tcell.ColorDarkCyan,
 }
