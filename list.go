@@ -69,7 +69,8 @@ func NewList() *List {
 	}
 }
 
-// SetCurrentItem sets the currently selected item by its index.
+// SetCurrentItem sets the currently selected item by its index. This triggers
+// a "changed" event.
 func (l *List) SetCurrentItem(index int) *List {
 	l.currentItem = index
 	if l.currentItem < len(l.items) && l.changed != nil {
@@ -77,6 +78,11 @@ func (l *List) SetCurrentItem(index int) *List {
 		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 	}
 	return l
+}
+
+// GetCurrentItem returns the index of the currently selected list item.
+func (l *List) GetCurrentItem() int {
+	return l.currentItem
 }
 
 // SetMainTextColor sets the color of the items' main text.
