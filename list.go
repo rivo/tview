@@ -259,7 +259,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 // InputHandler returns the handler for this primitive.
 func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return l.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return l.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		previousItem := l.currentItem
 
 		switch key := event.Key(); key {

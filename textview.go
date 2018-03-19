@@ -839,7 +839,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 // InputHandler returns the handler for this primitive.
 func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return t.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		key := event.Key()
 
 		if key == tcell.KeyEscape || key == tcell.KeyEnter || key == tcell.KeyTab || key == tcell.KeyBacktab {

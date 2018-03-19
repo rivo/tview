@@ -130,10 +130,12 @@ func (b *Box) GetDrawFunc() func(screen tcell.Screen, x, y, width, height int) (
 	return b.draw
 }
 
-// wrapInputHandler wraps an input handler (see InputHandler()) with the
+// WrapInputHandler wraps an input handler (see InputHandler()) with the
 // functionality to capture input (see SetInputCapture()) before passing it
 // on to the provided (default) input handler.
-func (b *Box) wrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primitive))) func(*tcell.EventKey, func(p Primitive)) {
+//
+// This is only meant to be used by subclassing primitives.
+func (b *Box) WrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primitive))) func(*tcell.EventKey, func(p Primitive)) {
 	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		if b.inputCapture != nil {
 			event = b.inputCapture(event)
@@ -146,7 +148,7 @@ func (b *Box) wrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primiti
 
 // InputHandler returns nil.
 func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return b.wrapInputHandler(nil)
+	return b.WrapInputHandler(nil)
 }
 
 // SetInputCapture installs a function which captures key events before they are

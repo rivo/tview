@@ -263,7 +263,7 @@ func (g *Grid) HasFocus() bool {
 
 // InputHandler returns the handler for this primitive.
 func (g *Grid) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return g.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return g.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		switch event.Key() {
 		case tcell.KeyRune:
 			switch event.Rune() {

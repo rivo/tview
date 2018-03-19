@@ -299,7 +299,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 
 // InputHandler returns the handler for this primitive.
 func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return d.wrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return d.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		// A helper function which selects an item in the drop-down list based on
 		// the current prefix.
 		evalPrefix := func() {
