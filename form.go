@@ -264,6 +264,16 @@ func (f *Form) Draw(screen tcell.Screen) {
 	rightLimit := x + width
 	startX := x
 
+	// make sure limits aren't past the screen dimensions
+	sw, sh := screen.Size()
+	if rightLimit > sw {
+		rightLimit = sw
+	}
+
+	if bottomLimit > sh {
+		bottomLimit = sh
+	}
+
 	// Find the longest label.
 	var maxLabelWidth int
 	for _, item := range f.items {
