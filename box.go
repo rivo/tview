@@ -16,8 +16,7 @@ type Box struct {
 	// The position of the rect.
 	x, y, width, height int
 
-	// The inner rect reserved for the box's content. This is only used if the
-	// "draw" callback is not nil.
+	// The inner rect reserved for the box's content.
 	innerX, innerY, innerWidth, innerHeight int
 
 	// Border padding.
@@ -49,6 +48,10 @@ type Box struct {
 	// Whether or not this box has focus.
 	hasFocus bool
 
+	// If set to true, the inner rect of this box will be within the screen at the
+	// last time the box was drawn.
+	clampToScreen bool
+
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the primitive's default input handler (nil if
 	// nothing should be forwarded).
@@ -63,10 +66,12 @@ func NewBox() *Box {
 	b := &Box{
 		width:           15,
 		height:          10,
+		innerX:          -1, // Mark as uninitialized.
 		backgroundColor: Styles.PrimitiveBackgroundColor,
 		borderColor:     Styles.BorderColor,
 		titleColor:      Styles.TitleColor,
 		titleAlign:      AlignCenter,
+		clampToScreen:   true,
 	}
 	b.focus = b
 	return b
@@ -87,7 +92,7 @@ func (b *Box) GetRect() (int, int, int, int) {
 // GetInnerRect returns the position of the inner rectangle (x, y, width,
 // height), without the border and without any padding.
 func (b *Box) GetInnerRect() (int, int, int, int) {
-	if b.draw != nil {
+	if b.innerX >= 0 {
 		return b.innerX, b.innerY, b.innerWidth, b.innerHeight
 	}
 	x, y, width, height := b.GetRect()
@@ -270,6 +275,29 @@ func (b *Box) Draw(screen tcell.Screen) {
 	// Call custom draw function.
 	if b.draw != nil {
 		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.draw(screen, b.x, b.y, b.width, b.height)
+	} else {
+		// Remember the inner rect.
+		b.innerX = -1
+		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.GetInnerRect()
+	}
+
+	// Clamp inner rect to screen.
+	if b.clampToScreen {
+		width, height := screen.Size()
+		if b.innerX < 0 {
+			b.innerWidth += b.innerX
+			b.innerX = 0
+		}
+		if b.innerX+b.innerWidth >= width {
+			b.innerWidth = width - b.innerX
+		}
+		if b.innerY+b.innerHeight >= height {
+			b.innerHeight = height - b.innerY
+		}
+		if b.innerY < 0 {
+			b.innerHeight += b.innerY
+			b.innerY = 0
+		}
 	}
 }
 
