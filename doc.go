@@ -85,8 +85,8 @@ tag is as follows:
 
 Each of the three fields can be left blank and trailing fields can be ommitted.
 (Empty square brackets "[]", however, are not considered color tags.) Colors
-that are not specified will be changed. (If the flags field is indicated by a
-colon but left empty, it will reset any flags.)
+that are not specified will be left unchanged. (If the flags field is indicated
+by a colon but left empty, it will reset any flags.)
 
 You can specify the following flags (some flags may not be supported by your
 terminal):
