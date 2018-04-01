@@ -64,6 +64,8 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 (There are no corresponding tags in the project. I only keep such a history in this README.)
 
+- v0.13 (2018-04-01)
+  - Added background colors and text attributes to color tags.
 - v0.12 (2018-03-13)
   - Added "suspended mode" to `Application`.
 - v0.11 (2018-03-02)

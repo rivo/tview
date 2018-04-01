@@ -104,11 +104,18 @@ var joints = map[string]rune{
 
 // Common regular expressions.
 var (
-	colorPattern    = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})\]`)
+	colorPattern    = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([lbdru]+))?)?\]`)
 	regionPattern   = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
-	escapePattern   = regexp.MustCompile(`\[("[a-zA-Z0-9_,;: \-\.]*"|[a-zA-Z]+|#[0-9a-zA-Z]{6})\[(\[*)\]`)
+	escapePattern   = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
 	boundaryPattern = regexp.MustCompile("([[:punct:]]\\s*|\\s+)")
 	spacePattern    = regexp.MustCompile(`\s+`)
+)
+
+// Positions of substrings in regular expressions.
+const (
+	colorForegroundPos = 1
+	colorBackgroundPos = 3
+	colorFlagPos       = 5
 )
 
 // Predefined InputField acceptance functions.
@@ -150,40 +157,148 @@ func init() {
 	}
 }
 
+// styleFromTag takes the given style and modifies it based on the substrings
+// extracted by the regular expression for color tags. The new style is returned
+// as well as the flag indicating if any style attributes were explicitly
+// specified (whose original value is also returned).
+func styleFromTag(style tcell.Style, overwriteAttr bool, tagSubstrings []string) (tcell.Style, bool) {
+	// Colors.
+	if tagSubstrings[colorForegroundPos] != "" {
+		color := tagSubstrings[colorForegroundPos]
+		if color == "" {
+			style = style.Foreground(tcell.ColorDefault)
+		} else {
+			style = style.Foreground(tcell.GetColor(color))
+		}
+	}
+	if tagSubstrings[colorBackgroundPos-1] != "" {
+		color := tagSubstrings[colorBackgroundPos]
+		if color == "" {
+			style = style.Background(tcell.ColorDefault)
+		} else {
+			style = style.Background(tcell.GetColor(color))
+		}
+	}
+
+	// Flags.
+	specified := tagSubstrings[colorFlagPos-1] != ""
+	if specified {
+		overwriteAttr = true
+		style = style.Normal()
+		for _, flag := range tagSubstrings[colorFlagPos] {
+			switch flag {
+			case 'l':
+				style = style.Blink(true)
+			case 'b':
+				style = style.Bold(true)
+			case 'd':
+				style = style.Dim(true)
+			case 'r':
+				style = style.Reverse(true)
+			case 'u':
+				style = style.Underline(true)
+			}
+		}
+	}
+	return style, overwriteAttr
+}
+
+// overlayStyle mixes a bottom and a top style and returns the result. Top
+// colors (other than tcell.ColorDefault) overwrite bottom colors. Top
+// style attributes overwrite bottom style attributes only if overwriteAttr is
+// true.
+func overlayStyle(bottom, top tcell.Style, overwriteAttr bool) tcell.Style {
+	style := bottom
+	fg, bg, attr := top.Decompose()
+	if bg != tcell.ColorDefault {
+		style = style.Background(bg)
+	}
+	if fg != tcell.ColorDefault {
+		style = style.Foreground(fg)
+	}
+	if overwriteAttr {
+		style = style.Normal()
+		style |= tcell.Style(attr)
+	}
+	return style
+}
+
+// decomposeString returns information about a string which may contain color
+// tags. It returns the indices of the color tags (as returned by
+// re.FindAllStringIndex()), the color tags themselves (as returned by
+// re.FindAllStringSubmatch()), the indices of an escaped tags, the string
+// stripped by any color tags and escaped, and the screen width of the stripped
+// string.
+func decomposeString(text string) (colorIndices [][]int, colors [][]string, escapeIndices [][]int, stripped string, width int) {
+	// Get positions of color and escape tags.
+	colorIndices = colorPattern.FindAllStringIndex(text, -1)
+	colors = colorPattern.FindAllStringSubmatch(text, -1)
+	escapeIndices = escapePattern.FindAllStringIndex(text, -1)
+
+	// Because the color pattern detects empty tags, we need to filter them out.
+	for i := len(colorIndices) - 1; i >= 0; i-- {
+		if colorIndices[i][1]-colorIndices[i][0] == 2 {
+			colorIndices = append(colorIndices[:i], colorIndices[i+1:]...)
+			colors = append(colors[:i], colors[i+1:]...)
+		}
+	}
+
+	// Remove the color tags from the original string.
+	var from int
+	buf := make([]byte, 0, len(text))
+	for _, indices := range colorIndices {
+		buf = append(buf, []byte(text[from:indices[0]])...)
+		from = indices[1]
+	}
+	buf = append(buf, text[from:]...)
+
+	// Escape string.
+	stripped = string(escapePattern.ReplaceAll(buf, []byte("[$1$2]")))
+
+	// Get the width of the stripped string.
+	width = runewidth.StringWidth(stripped)
+
+	return
+}
+
 // Print prints text onto the screen into the given box at (x,y,maxWidth,1),
 // not exceeding that box. "align" is one of AlignLeft, AlignCenter, or
 // AlignRight. The screen's background color will not be changed.
 //
-// You can change the text color mid-text by inserting a color tag. See the
-// package description for details.
+// You can change the colors and text styles mid-text by inserting a color tag.
+// See the package description for details.
 //
 // Returns the number of actual runes printed (not including color tags) and the
 // actual width used for the printed runes.
 func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tcell.Color) (int, int) {
+	return printWithStyle(screen, text, x, y, maxWidth, align, tcell.StyleDefault.Foreground(color), false)
+}
+
+// printWithStyle works like Print() but it takes a style instead of just a
+// foreground color. The overwriteAttr indicates whether or not a style's
+// additional attributes (see tcell.AttrMask) should be overwritten.
+func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int, style tcell.Style, overwriteAttr bool) (int, int) {
 	if maxWidth < 0 {
 		return 0, 0
 	}
 
-	// Get positions of color and escape tags. Remove them from original string.
-	colorIndices := colorPattern.FindAllStringIndex(text, -1)
-	colors := colorPattern.FindAllStringSubmatch(text, -1)
-	escapeIndices := escapePattern.FindAllStringIndex(text, -1)
-	strippedText := escapePattern.ReplaceAllString(colorPattern.ReplaceAllString(text, ""), "[$1$2]")
+	// Decompose the text.
+	colorIndices, colors, escapeIndices, strippedText, _ := decomposeString(text)
 
 	// We deal with runes, not with bytes.
 	runes := []rune(strippedText)
 
 	// This helper function takes positions for a substring of "runes" and a start
-	// color and returns the substring with the original tags and the new start
-	// color.
-	substring := func(from, to int, color tcell.Color) (string, tcell.Color) {
+	// style and returns the substring with the original tags and the new start
+	// style.
+	substring := func(from, to int, style tcell.Style, overwriteAttr bool) (string, tcell.Style, bool) {
 		var colorPos, escapePos, runePos, startPos int
 		for pos := range text {
 			// Handle color tags.
 			if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
 				if pos == colorIndices[colorPos][1]-1 {
 					if runePos <= from {
-						color = tcell.GetColor(colors[colorPos][1])
+						style, overwriteAttr = styleFromTag(style, overwriteAttr, colors[colorPos])
 					}
 					colorPos++
 				}
@@ -203,13 +318,13 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 			if runePos == from {
 				startPos = pos
 			} else if runePos >= to {
-				return text[startPos:pos], color
+				return text[startPos:pos], style, overwriteAttr
 			}
 
 			runePos++
 		}
 
-		return text[startPos:], color
+		return text[startPos:], style, overwriteAttr
 	}
 
 	// We want to reduce everything to AlignLeft.
@@ -224,17 +339,17 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 			width += w
 			start = index
 		}
-		text, color = substring(start, len(runes), color)
-		return Print(screen, text, x+maxWidth-width, y, width, AlignLeft, color)
+		text, style, overwriteAttr = substring(start, len(runes), style, overwriteAttr)
+		return printWithStyle(screen, text, x+maxWidth-width, y, width, AlignLeft, style, overwriteAttr)
 	} else if align == AlignCenter {
 		width := runewidth.StringWidth(strippedText)
 		if width == maxWidth {
 			// Use the exact space.
-			return Print(screen, text, x, y, maxWidth, AlignLeft, color)
+			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style, overwriteAttr)
 		} else if width < maxWidth {
 			// We have more space than we need.
 			half := (maxWidth - width) / 2
-			return Print(screen, text, x+half, y, maxWidth-half, AlignLeft, color)
+			return printWithStyle(screen, text, x+half, y, maxWidth-half, AlignLeft, style, overwriteAttr)
 		} else {
 			// Chop off runes until we have a perfect fit.
 			var choppedLeft, choppedRight, leftIndex, rightIndex int
@@ -250,8 +365,8 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 					rightIndex--
 				}
 			}
-			text, color = substring(leftIndex, rightIndex, color)
-			return Print(screen, text, x, y, maxWidth, AlignLeft, color)
+			text, style, overwriteAttr = substring(leftIndex, rightIndex, style, overwriteAttr)
+			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style, overwriteAttr)
 		}
 	}
 
@@ -263,7 +378,7 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 		// Handle color tags.
 		if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
 			if pos == colorIndices[colorPos][1]-1 {
-				color = tcell.GetColor(colors[colorPos][1])
+				style, overwriteAttr = styleFromTag(style, overwriteAttr, colors[colorPos])
 				colorPos++
 			}
 			continue
@@ -286,11 +401,11 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 		finalX := x + drawnWidth
 
 		// Print the rune.
-		_, _, style, _ := screen.GetContent(finalX, y)
-		style = style.Foreground(color)
+		_, _, finalStyle, _ := screen.GetContent(finalX, y)
+		finalStyle = overlayStyle(finalStyle, style, overwriteAttr)
 		for offset := 0; offset < chWidth; offset++ {
 			// To avoid undesired effects, we place the same character in all cells.
-			screen.SetContent(finalX+offset, y, ch, nil, style)
+			screen.SetContent(finalX+offset, y, ch, nil, finalStyle)
 		}
 
 		drawn++
@@ -308,7 +423,8 @@ func PrintSimple(screen tcell.Screen, text string, x, y int) {
 // StringWidth returns the width of the given string needed to print it on
 // screen. The text may contain color tags which are not counted.
 func StringWidth(text string) int {
-	return runewidth.StringWidth(escapePattern.ReplaceAllString(colorPattern.ReplaceAllString(text, ""), "[$1$2]"))
+	_, _, _, _, width := decomposeString(text)
+	return width
 }
 
 // WordWrap splits a text such that each resulting line does not exceed the
@@ -319,13 +435,7 @@ func StringWidth(text string) int {
 //
 // Text is always split at newline characters ('\n').
 func WordWrap(text string, width int) (lines []string) {
-	// Strip color tags.
-	strippedText := escapePattern.ReplaceAllString(colorPattern.ReplaceAllString(text, ""), "[$1$2]")
-
-	// Keep track of color tags and escape patterns so we can restore the original
-	// indices.
-	colorTagIndices := colorPattern.FindAllStringIndex(text, -1)
-	escapeIndices := escapePattern.FindAllStringIndex(text, -1)
+	colorTagIndices, _, escapeIndices, strippedText, _ := decomposeString(text)
 
 	// Find candidate breakpoints.
 	breakPoints := boundaryPattern.FindAllStringIndex(strippedText, -1)

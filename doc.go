@@ -77,13 +77,49 @@ applies to almost everything from box titles, list text, form item labels, to
 table cells. In a TextView, this functionality has to be switched on explicitly.
 See the TextView documentation for more information.
 
+Color tags may contain not just the foreground (text) color but also the
+background color and additional flags. In fact, the full definition of a color
+tag is as follows:
+
+  [<foreground>:<background>:<flags>]
+
+Each of the three fields can be left blank and trailing fields can be ommitted.
+(Empty square brackets "[]", however, are not considered color tags.) Colors
+that are not specified will be changed. (If the flags field is indicated by a
+colon but left empty, it will reset any flags.)
+
+You can specify the following flags (some flags may not be supported by your
+terminal):
+
+  l: blink
+  b: bold
+  d: dim
+  r: reverse (switch foreground and background color)
+  u: underline
+
+Examples:
+
+  [yellow]Yellow text
+  [yellow:red]Yellow text on red background
+  [:red]Red background, text color unchanged
+  [yellow::u]Yellow text underlined
+  [::bl]Bold, blinking text
+  [::]Colors unchanged, flags reset
+  [:]No effect
+  []Not a valid color tag, will print square brackets as they are
+
 In the rare event that you want to display a string such as "[red]" or
 "[#00ff1a]" without applying its effect, you need to put an opening square
-bracket before the closing square bracket. Examples:
+bracket before the closing square bracket. Note that the text inside the
+brackets will be matched less strictly than region or colors tags. I.e. any
+character that may be used in color or region tags will be recognized. Examples:
 
   [red[]      will be output as [red]
   ["123"[]    will be output as ["123"]
   [#6aff00[[] will be output as [#6aff00[]
+  [a#"[[[]    will be output as [a#"[[]
+  []          will be output as [] (see color tags above)
+  [[]         will be output as [[] (not an escaped tag)
 
 Styles
 
