@@ -811,21 +811,28 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 			// Do we highlight this character?
 			finalStyle := style
+			var highlighted bool
 			if len(regionID) > 0 {
 				if _, ok := t.highlights[regionID]; ok {
-					fg, bg, _ := finalStyle.Decompose()
-					if bg == tcell.ColorDefault {
-						r, g, b := fg.RGB()
-						c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
-						_, _, li := c.Hcl()
-						if li < .5 {
-							bg = tcell.ColorWhite
-						} else {
-							bg = tcell.ColorBlack
-						}
-					}
-					finalStyle = style.Background(fg).Foreground(bg)
+					highlighted = true
 				}
+			}
+			if highlighted {
+				fg, bg, _ := finalStyle.Decompose()
+				if bg == tcell.ColorDefault {
+					r, g, b := fg.RGB()
+					c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
+					_, _, li := c.Hcl()
+					if li < .5 {
+						bg = tcell.ColorWhite
+					} else {
+						bg = tcell.ColorBlack
+					}
+				}
+				finalStyle = style.Background(fg).Foreground(bg)
+			} else {
+				_, _, existingStyle, _ := screen.GetContent(x+posX, y+line-t.lineOffset)
+				finalStyle = overlayStyle(existingStyle, style, overwriteAttr)
 			}
 
 			// Draw the character.
