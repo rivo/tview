@@ -246,6 +246,18 @@ func (f *Form) GetFormItem(index int) FormItem {
 	return f.items[index]
 }
 
+// GetFormItemByLabel returns the first form element with the given label. If
+// no such element is found, nil is returned. Buttons are not searched and will
+// therefore not be returned.
+func (f *Form) GetFormItemByLabel(label string) FormItem {
+	for _, item := range f.items {
+		if item.GetLabel() == label {
+			return item
+		}
+	}
+	return nil
+}
+
 // SetCancelFunc sets a handler which is called when the user hits the Escape
 // key.
 func (f *Form) SetCancelFunc(callback func()) *Form {
