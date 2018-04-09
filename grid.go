@@ -258,7 +258,7 @@ func (g *Grid) HasFocus() bool {
 			return true
 		}
 	}
-	return false
+	return g.hasFocus
 }
 
 // InputHandler returns the handler for this primitive.

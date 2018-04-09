@@ -51,6 +51,10 @@ type DropDown struct {
 	// The color for prefixes.
 	prefixTextColor tcell.Color
 
+	// The screen width of the label area. A value of 0 means use the width of
+	// the label text.
+	labelWidth int
+
 	// The screen width of the input area. A value of 0 means extend as much as
 	// possible.
 	fieldWidth int
@@ -113,6 +117,13 @@ func (d *DropDown) GetLabel() string {
 	return d.label
 }
 
+// SetLabelWidth sets the screen width of the label. A value of 0 will cause the
+// primitive to use the width of the label string.
+func (d *DropDown) SetLabelWidth(width int) *DropDown {
+	d.labelWidth = width
+	return d
+}
+
 // SetLabelColor sets the color of the label.
 func (d *DropDown) SetLabelColor(color tcell.Color) *DropDown {
 	d.labelColor = color
@@ -140,8 +151,8 @@ func (d *DropDown) SetPrefixTextColor(color tcell.Color) *DropDown {
 }
 
 // SetFormAttributes sets attributes shared by all form items.
-func (d *DropDown) SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
-	d.label = label
+func (d *DropDown) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	d.labelWidth = labelWidth
 	d.labelColor = labelColor
 	d.backgroundColor = bgColor
 	d.fieldTextColor = fieldTextColor
@@ -227,8 +238,17 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	_, drawnWidth := Print(screen, d.label, x, y, rightLimit-x, AlignLeft, d.labelColor)
-	x += drawnWidth
+	if d.labelWidth > 0 {
+		labelWidth := d.labelWidth
+		if labelWidth > rightLimit-x {
+			labelWidth = rightLimit - x
+		}
+		Print(screen, d.label, x, y, labelWidth, AlignLeft, d.labelColor)
+		x += labelWidth
+	} else {
+		_, drawnWidth := Print(screen, d.label, x, y, rightLimit-x, AlignLeft, d.labelColor)
+		x += drawnWidth
+	}
 
 	// What's the longest option text?
 	maxWidth := 0

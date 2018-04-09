@@ -41,6 +41,10 @@ type InputField struct {
 	// The text color of the placeholder.
 	placeholderTextColor tcell.Color
 
+	// The screen width of the label area. A value of 0 means use the width of
+	// the label text.
+	labelWidth int
+
 	// The screen width of the input area. A value of 0 means extend as much as
 	// possible.
 	fieldWidth int
@@ -97,6 +101,13 @@ func (i *InputField) GetLabel() string {
 	return i.label
 }
 
+// SetLabelWidth sets the screen width of the label. A value of 0 will cause the
+// primitive to use the width of the label string.
+func (i *InputField) SetLabelWidth(width int) *InputField {
+	i.labelWidth = width
+	return i
+}
+
 // SetPlaceholder sets the text to be displayed when the input text is empty.
 func (i *InputField) SetPlaceholder(text string) *InputField {
 	i.placeholder = text
@@ -121,15 +132,15 @@ func (i *InputField) SetFieldTextColor(color tcell.Color) *InputField {
 	return i
 }
 
-// SetPlaceholderExtColor sets the text color of placeholder text.
-func (i *InputField) SetPlaceholderExtColor(color tcell.Color) *InputField {
+// SetPlaceholderTextColor sets the text color of placeholder text.
+func (i *InputField) SetPlaceholderTextColor(color tcell.Color) *InputField {
 	i.placeholderTextColor = color
 	return i
 }
 
 // SetFormAttributes sets attributes shared by all form items.
-func (i *InputField) SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
-	i.label = label
+func (i *InputField) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	i.labelWidth = labelWidth
 	i.labelColor = labelColor
 	i.backgroundColor = bgColor
 	i.fieldTextColor = fieldTextColor
@@ -203,8 +214,17 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	_, drawnWidth := Print(screen, i.label, x, y, rightLimit-x, AlignLeft, i.labelColor)
-	x += drawnWidth
+	if i.labelWidth > 0 {
+		labelWidth := i.labelWidth
+		if labelWidth > rightLimit-x {
+			labelWidth = rightLimit - x
+		}
+		Print(screen, i.label, x, y, labelWidth, AlignLeft, i.labelColor)
+		x += labelWidth
+	} else {
+		_, drawnWidth := Print(screen, i.label, x, y, rightLimit-x, AlignLeft, i.labelColor)
+		x += drawnWidth
+	}
 
 	// Draw input area.
 	fieldWidth := i.fieldWidth
@@ -280,7 +300,11 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 	if i.fieldWidth > 0 && fieldWidth > i.fieldWidth-1 {
 		fieldWidth = i.fieldWidth - 1
 	}
-	x += StringWidth(i.label) + fieldWidth
+	if i.labelWidth > 0 {
+		x += i.labelWidth + fieldWidth
+	} else {
+		x += StringWidth(i.label) + fieldWidth
+	}
 	if x >= rightLimit {
 		x = rightLimit - 1
 	}

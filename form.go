@@ -1,8 +1,6 @@
 package tview
 
 import (
-	"strings"
-
 	"github.com/gdamore/tcell"
 )
 
@@ -20,7 +18,7 @@ type FormItem interface {
 	GetLabel() string
 
 	// SetFormAttributes sets a number of item attributes at once.
-	SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem
+	SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem
 
 	// GetFieldWidth returns the width of the form item's field (the area which
 	// is manipulated by the user) in number of screen cells. A value of 0
@@ -279,8 +277,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	// Find the longest label.
 	var maxLabelWidth int
 	for _, item := range f.items {
-		label := strings.TrimSpace(item.GetLabel())
-		labelWidth := StringWidth(label)
+		labelWidth := StringWidth(item.GetLabel())
 		if labelWidth > maxLabelWidth {
 			maxLabelWidth = labelWidth
 		}
@@ -292,20 +289,18 @@ func (f *Form) Draw(screen tcell.Screen) {
 	var focusedPosition struct{ x, y, width, height int }
 	for index, item := range f.items {
 		// Calculate the space needed.
-		label := strings.TrimSpace(item.GetLabel())
-		labelWidth := StringWidth(label)
+		labelWidth := StringWidth(item.GetLabel())
 		var itemWidth int
 		if f.horizontal {
 			fieldWidth := item.GetFieldWidth()
 			if fieldWidth == 0 {
 				fieldWidth = DefaultFormFieldWidth
 			}
-			label += " "
 			labelWidth++
 			itemWidth = labelWidth + fieldWidth
 		} else {
 			// We want all fields to align vertically.
-			label += strings.Repeat(" ", maxLabelWidth-labelWidth)
+			labelWidth = maxLabelWidth
 			itemWidth = width
 		}
 
@@ -320,7 +315,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 			itemWidth = rightLimit - x
 		}
 		item.SetFormAttributes(
-			label,
+			labelWidth,
 			f.labelColor,
 			f.backgroundColor,
 			f.fieldTextColor,

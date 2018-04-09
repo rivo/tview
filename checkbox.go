@@ -17,6 +17,10 @@ type Checkbox struct {
 	// The text to be displayed before the input area.
 	label string
 
+	// The screen width of the label area. A value of 0 means use the width of
+	// the label text.
+	labelWidth int
+
 	// The label color.
 	labelColor tcell.Color
 
@@ -68,6 +72,13 @@ func (c *Checkbox) GetLabel() string {
 	return c.label
 }
 
+// SetLabelWidth sets the screen width of the label. A value of 0 will cause the
+// primitive to use the width of the label string.
+func (c *Checkbox) SetLabelWidth(width int) *Checkbox {
+	c.labelWidth = width
+	return c
+}
+
 // SetLabelColor sets the color of the label.
 func (c *Checkbox) SetLabelColor(color tcell.Color) *Checkbox {
 	c.labelColor = color
@@ -87,8 +98,8 @@ func (c *Checkbox) SetFieldTextColor(color tcell.Color) *Checkbox {
 }
 
 // SetFormAttributes sets attributes shared by all form items.
-func (c *Checkbox) SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
-	c.label = label
+func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	c.labelWidth = labelWidth
 	c.labelColor = labelColor
 	c.backgroundColor = bgColor
 	c.fieldTextColor = fieldTextColor
@@ -138,8 +149,17 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	_, drawnWidth := Print(screen, c.label, x, y, rightLimit-x, AlignLeft, c.labelColor)
-	x += drawnWidth
+	if c.labelWidth > 0 {
+		labelWidth := c.labelWidth
+		if labelWidth > rightLimit-x {
+			labelWidth = rightLimit - x
+		}
+		Print(screen, c.label, x, y, labelWidth, AlignLeft, c.labelColor)
+		x += labelWidth
+	} else {
+		_, drawnWidth := Print(screen, c.label, x, y, rightLimit-x, AlignLeft, c.labelColor)
+		x += drawnWidth
+	}
 
 	// Draw checkbox.
 	fieldStyle := tcell.StyleDefault.Background(c.fieldBackgroundColor).Foreground(c.fieldTextColor)
