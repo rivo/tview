@@ -39,6 +39,9 @@ type DropDown struct {
 	// The text to be displayed before the input area.
 	label string
 
+	// The padding to using on the label.
+	labelPadding int
+
 	// The label color.
 	labelColor tcell.Color
 
@@ -116,6 +119,12 @@ func (d *DropDown) GetLabel() string {
 // SetLabelColor sets the color of the label.
 func (d *DropDown) SetLabelColor(color tcell.Color) *DropDown {
 	d.labelColor = color
+	return d
+}
+
+func (d *DropDown) setLabelPadding(padding int) FormItem {
+	d.labelPadding = padding
+
 	return d
 }
 
@@ -226,8 +235,11 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		return
 	}
 
+	// Get label with padding
+	label := d.label + strings.Repeat(" ", d.labelPadding)
+
 	// Draw label.
-	_, drawnWidth := Print(screen, d.label, x, y, rightLimit-x, AlignLeft, d.labelColor)
+	_, drawnWidth := Print(screen, label, x, y, rightLimit-x, AlignLeft, d.labelColor)
 	x += drawnWidth
 
 	// What's the longest option text?

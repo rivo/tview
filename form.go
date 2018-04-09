@@ -33,6 +33,8 @@ type FormItem interface {
 	// Enter key (we're done), the Escape key (cancel input), the Tab key (move to
 	// next field), and the Backtab key (move to previous field).
 	SetFinishedFunc(handler func(key tcell.Key)) FormItem
+
+	setLabelPadding(padding int) FormItem
 }
 
 // Form allows you to combine multiple one-line form elements into a vertical
@@ -290,6 +292,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	// Calculate positions of form items.
 	positions := make([]struct{ x, y, width, height int }, len(f.items)+len(f.buttons))
 	var focusedPosition struct{ x, y, width, height int }
+	var labelPadding int
 	for index, item := range f.items {
 		// Calculate the space needed.
 		label := strings.TrimSpace(item.GetLabel())
@@ -300,12 +303,12 @@ func (f *Form) Draw(screen tcell.Screen) {
 			if fieldWidth == 0 {
 				fieldWidth = DefaultFormFieldWidth
 			}
-			label += " "
+			labelPadding = 1
 			labelWidth++
 			itemWidth = labelWidth + fieldWidth
 		} else {
 			// We want all fields to align vertically.
-			label += strings.Repeat(" ", maxLabelWidth-labelWidth)
+			labelPadding = maxLabelWidth - labelWidth
 			itemWidth = width
 		}
 
@@ -325,7 +328,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 			f.backgroundColor,
 			f.fieldTextColor,
 			f.fieldBackgroundColor,
-		)
+		).setLabelPadding(labelPadding)
 
 		// Save position.
 		positions[index].x = x

@@ -26,6 +26,9 @@ type InputField struct {
 	// The text to be displayed before the input area.
 	label string
 
+	// The padding to using on the label.
+	labelPadding int
+
 	// The text to be displayed in the input area when "text" is empty.
 	placeholder string
 
@@ -106,6 +109,12 @@ func (i *InputField) SetPlaceholder(text string) *InputField {
 // SetLabelColor sets the color of the label.
 func (i *InputField) SetLabelColor(color tcell.Color) *InputField {
 	i.labelColor = color
+	return i
+}
+
+func (i *InputField) setLabelPadding(padding int) FormItem {
+	i.labelPadding = padding
+
 	return i
 }
 
@@ -202,8 +211,11 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		return
 	}
 
+	// Get label with padding
+	label := i.label + strings.Repeat(" ", i.labelPadding)
+
 	// Draw label.
-	_, drawnWidth := Print(screen, i.label, x, y, rightLimit-x, AlignLeft, i.labelColor)
+	_, drawnWidth := Print(screen, label, x, y, rightLimit-x, AlignLeft, i.labelColor)
 	x += drawnWidth
 
 	// Draw input area.
@@ -280,7 +292,7 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 	if i.fieldWidth > 0 && fieldWidth > i.fieldWidth-1 {
 		fieldWidth = i.fieldWidth - 1
 	}
-	x += StringWidth(i.label) + fieldWidth
+	x += StringWidth(i.label) + fieldWidth + i.labelPadding
 	if x >= rightLimit {
 		x = rightLimit - 1
 	}
