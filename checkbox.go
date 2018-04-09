@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"strings"
+
 	"github.com/gdamore/tcell"
 )
 
@@ -16,6 +18,9 @@ type Checkbox struct {
 
 	// The text to be displayed before the input area.
 	label string
+
+	// The padding to using on the label.
+	labelPadding int
 
 	// The label color.
 	labelColor tcell.Color
@@ -71,6 +76,12 @@ func (c *Checkbox) GetLabel() string {
 // SetLabelColor sets the color of the label.
 func (c *Checkbox) SetLabelColor(color tcell.Color) *Checkbox {
 	c.labelColor = color
+	return c
+}
+
+func (c *Checkbox) setLabelPadding(padding int) FormItem {
+	c.labelPadding = padding
+
 	return c
 }
 
@@ -137,8 +148,11 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 		return
 	}
 
+	// Get label with padding
+	label := c.label + strings.Repeat(" ", c.labelPadding)
+
 	// Draw label.
-	_, drawnWidth := Print(screen, c.label, x, y, rightLimit-x, AlignLeft, c.labelColor)
+	_, drawnWidth := Print(screen, label, x, y, rightLimit-x, AlignLeft, c.labelColor)
 	x += drawnWidth
 
 	// Draw checkbox.
