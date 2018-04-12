@@ -104,11 +104,12 @@ var joints = map[string]rune{
 
 // Common regular expressions.
 var (
-	colorPattern    = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([lbdru]+))?)?\]`)
-	regionPattern   = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
-	escapePattern   = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
-	boundaryPattern = regexp.MustCompile("([[:punct:]]\\s*|\\s+)")
-	spacePattern    = regexp.MustCompile(`\s+`)
+	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([lbdru]+))?)?\]`)
+	regionPattern    = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
+	escapePattern    = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
+	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
+	boundaryPattern  = regexp.MustCompile("([[:punct:]]\\s*|\\s+)")
+	spacePattern     = regexp.MustCompile(`\s+`)
 )
 
 // Positions of substrings in regular expressions.
@@ -563,4 +564,14 @@ func PrintJoinedBorder(screen tcell.Screen, x, y int, ch rune, color tcell.Color
 
 	// We only print something if we have something.
 	screen.SetContent(x, y, result, nil, style)
+}
+
+// Escape escapes the given text such that color and/or region tags are not
+// recognized and substituted by the print functions of this package. For
+// example, to include a tag-like string in a box title or in a TextView:
+//
+//   box.SetTitle(tview.Escape("[squarebrackets]"))
+//   fmt.Fprint(textView, tview.Escape(`["quoted"]`))
+func Escape(text string) string {
+	return nonEscapePattern.ReplaceAllString(text, "$1[]")
 }
