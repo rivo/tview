@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"strconv"
@@ -104,7 +105,7 @@ var joints = map[string]rune{
 
 // Common regular expressions.
 var (
-	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([lbdru]+))?)?\]`)
+	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbdru]+|\-)?)?)?\]`)
 	regionPattern    = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
 	escapePattern    = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
 	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
@@ -158,35 +159,72 @@ func init() {
 	}
 }
 
-// styleFromTag takes the given style and modifies it based on the substrings
-// extracted by the regular expression for color tags. The new style is returned
-// as well as the flag indicating if any style attributes were explicitly
-// specified (whose original value is also returned).
-func styleFromTag(style tcell.Style, overwriteAttr bool, tagSubstrings []string) (tcell.Style, bool) {
-	// Colors.
+// styleFromTag takes the given style, defined by a foreground color (fgColor),
+// a background color (bgColor), and style attributes, and modifies it based on
+// the substrings (tagSubstrings) extracted by the regular expression for color
+// tags. The new colors and attributes are returned where empty strings mean
+// "don't modify" and a dash ("-") means "reset to default".
+func styleFromTag(fgColor, bgColor, attributes string, tagSubstrings []string) (newFgColor, newBgColor, newAttributes string) {
 	if tagSubstrings[colorForegroundPos] != "" {
 		color := tagSubstrings[colorForegroundPos]
-		if color == "" {
-			style = style.Foreground(tcell.ColorDefault)
-		} else {
-			style = style.Foreground(tcell.GetColor(color))
-		}
-	}
-	if tagSubstrings[colorBackgroundPos-1] != "" {
-		color := tagSubstrings[colorBackgroundPos]
-		if color == "" {
-			style = style.Background(tcell.ColorDefault)
-		} else {
-			style = style.Background(tcell.GetColor(color))
+		if color == "-" {
+			fgColor = "-"
+		} else if color != "" {
+			fgColor = color
 		}
 	}
 
-	// Flags.
-	specified := tagSubstrings[colorFlagPos-1] != ""
-	if specified {
-		overwriteAttr = true
+	if tagSubstrings[colorBackgroundPos-1] != "" {
+		color := tagSubstrings[colorBackgroundPos]
+		if color == "-" {
+			bgColor = "-"
+		} else if color != "" {
+			bgColor = color
+		}
+	}
+
+	if tagSubstrings[colorFlagPos-1] != "" {
+		flags := tagSubstrings[colorFlagPos]
+		if flags == "-" {
+			attributes = "-"
+		} else if flags != "" {
+			attributes = flags
+		}
+	}
+
+	return fgColor, bgColor, attributes
+}
+
+// overlayStyle mixes a background color with a foreground color (fgColor),
+// a (possibly new) background color (bgColor), and style attributes, and
+// returns the resulting style. For a definition of the colors and attributes,
+// see styleFromTag(). Reset instructions cause the corresponding part of the
+// default style to be used.
+func overlayStyle(background tcell.Color, defaultStyle tcell.Style, fgColor, bgColor, attributes string) tcell.Style {
+	defFg, defBg, defAttr := defaultStyle.Decompose()
+	style := defaultStyle.Background(background)
+
+	if fgColor == "-" {
+		style = style.Foreground(defFg)
+	} else if fgColor != "" {
+		style = style.Foreground(tcell.GetColor(fgColor))
+	}
+
+	if bgColor == "-" {
+		style = style.Background(defBg)
+	} else if bgColor != "" {
+		style = style.Background(tcell.GetColor(bgColor))
+	}
+
+	if attributes == "-" {
+		style = style.Bold(defAttr&tcell.AttrBold > 0)
+		style = style.Blink(defAttr&tcell.AttrBlink > 0)
+		style = style.Reverse(defAttr&tcell.AttrReverse > 0)
+		style = style.Underline(defAttr&tcell.AttrUnderline > 0)
+		style = style.Dim(defAttr&tcell.AttrDim > 0)
+	} else if attributes != "" {
 		style = style.Normal()
-		for _, flag := range tagSubstrings[colorFlagPos] {
+		for _, flag := range attributes {
 			switch flag {
 			case 'l':
 				style = style.Blink(true)
@@ -201,26 +239,7 @@ func styleFromTag(style tcell.Style, overwriteAttr bool, tagSubstrings []string)
 			}
 		}
 	}
-	return style, overwriteAttr
-}
 
-// overlayStyle mixes a bottom and a top style and returns the result. Top
-// colors (other than tcell.ColorDefault) overwrite bottom colors. Top
-// style attributes overwrite bottom style attributes only if overwriteAttr is
-// true.
-func overlayStyle(bottom, top tcell.Style, overwriteAttr bool) tcell.Style {
-	style := bottom
-	fg, bg, attr := top.Decompose()
-	if bg != tcell.ColorDefault {
-		style = style.Background(bg)
-	}
-	if fg != tcell.ColorDefault {
-		style = style.Foreground(fg)
-	}
-	if overwriteAttr {
-		style = style.Normal()
-		style |= tcell.Style(attr)
-	}
 	return style
 }
 
@@ -272,13 +291,12 @@ func decomposeString(text string) (colorIndices [][]int, colors [][]string, esca
 // Returns the number of actual runes printed (not including color tags) and the
 // actual width used for the printed runes.
 func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tcell.Color) (int, int) {
-	return printWithStyle(screen, text, x, y, maxWidth, align, tcell.StyleDefault.Foreground(color), false)
+	return printWithStyle(screen, text, x, y, maxWidth, align, tcell.StyleDefault.Foreground(color))
 }
 
 // printWithStyle works like Print() but it takes a style instead of just a
-// foreground color. The overwriteAttr indicates whether or not a style's
-// additional attributes (see tcell.AttrMask) should be overwritten.
-func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int, style tcell.Style, overwriteAttr bool) (int, int) {
+// foreground color.
+func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int, style tcell.Style) (int, int) {
 	if maxWidth < 0 {
 		return 0, 0
 	}
@@ -289,17 +307,20 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 	// We deal with runes, not with bytes.
 	runes := []rune(strippedText)
 
-	// This helper function takes positions for a substring of "runes" and a start
-	// style and returns the substring with the original tags and the new start
-	// style.
-	substring := func(from, to int, style tcell.Style, overwriteAttr bool) (string, tcell.Style, bool) {
-		var colorPos, escapePos, runePos, startPos int
+	// This helper function takes positions for a substring of "runes" and returns
+	// a new string corresponding to this substring, making sure printing that
+	// substring will observe color tags.
+	substring := func(from, to int) string {
+		var (
+			colorPos, escapePos, runePos, startPos       int
+			foregroundColor, backgroundColor, attributes string
+		)
 		for pos := range text {
 			// Handle color tags.
 			if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
 				if pos == colorIndices[colorPos][1]-1 {
 					if runePos <= from {
-						style, overwriteAttr = styleFromTag(style, overwriteAttr, colors[colorPos])
+						foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
 					}
 					colorPos++
 				}
@@ -319,13 +340,13 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			if runePos == from {
 				startPos = pos
 			} else if runePos >= to {
-				return text[startPos:pos], style, overwriteAttr
+				return fmt.Sprintf(`[%s:%s:%s]%s`, foregroundColor, backgroundColor, attributes, text[startPos:pos])
 			}
 
 			runePos++
 		}
 
-		return text[startPos:], style, overwriteAttr
+		return fmt.Sprintf(`[%s:%s:%s]%s`, foregroundColor, backgroundColor, attributes, text[startPos:])
 	}
 
 	// We want to reduce everything to AlignLeft.
@@ -340,17 +361,16 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			width += w
 			start = index
 		}
-		text, style, overwriteAttr = substring(start, len(runes), style, overwriteAttr)
-		return printWithStyle(screen, text, x+maxWidth-width, y, width, AlignLeft, style, overwriteAttr)
+		return printWithStyle(screen, substring(start, len(runes)), x+maxWidth-width, y, width, AlignLeft, style)
 	} else if align == AlignCenter {
 		width := runewidth.StringWidth(strippedText)
 		if width == maxWidth {
 			// Use the exact space.
-			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style, overwriteAttr)
+			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style)
 		} else if width < maxWidth {
 			// We have more space than we need.
 			half := (maxWidth - width) / 2
-			return printWithStyle(screen, text, x+half, y, maxWidth-half, AlignLeft, style, overwriteAttr)
+			return printWithStyle(screen, text, x+half, y, maxWidth-half, AlignLeft, style)
 		} else {
 			// Chop off runes until we have a perfect fit.
 			var choppedLeft, choppedRight, leftIndex, rightIndex int
@@ -366,20 +386,22 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 					rightIndex--
 				}
 			}
-			text, style, overwriteAttr = substring(leftIndex, rightIndex, style, overwriteAttr)
-			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style, overwriteAttr)
+			return printWithStyle(screen, substring(leftIndex, rightIndex), x, y, maxWidth, AlignLeft, style)
 		}
 	}
 
 	// Draw text.
 	drawn := 0
 	drawnWidth := 0
-	var colorPos, escapePos int
+	var (
+		colorPos, escapePos                          int
+		foregroundColor, backgroundColor, attributes string
+	)
 	for pos, ch := range text {
 		// Handle color tags.
 		if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
 			if pos == colorIndices[colorPos][1]-1 {
-				style, overwriteAttr = styleFromTag(style, overwriteAttr, colors[colorPos])
+				foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
 				colorPos++
 			}
 			continue
@@ -403,7 +425,8 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 
 		// Print the rune.
 		_, _, finalStyle, _ := screen.GetContent(finalX, y)
-		finalStyle = overlayStyle(finalStyle, style, overwriteAttr)
+		_, background, _ := finalStyle.Decompose()
+		finalStyle = overlayStyle(background, style, foregroundColor, backgroundColor, attributes)
 		for offset := 0; offset < chWidth; offset++ {
 			// To avoid undesired effects, we place the same character in all cells.
 			screen.SetContent(finalX+offset, y, ch, nil, finalStyle)

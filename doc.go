@@ -85,8 +85,8 @@ tag is as follows:
 
 Each of the three fields can be left blank and trailing fields can be ommitted.
 (Empty square brackets "[]", however, are not considered color tags.) Colors
-that are not specified will be left unchanged. (If the flags field is indicated
-by a colon but left empty, it will reset any flags.)
+that are not specified will be left unchanged. A field with just a dash ("-")
+means "reset to default".
 
 You can specify the following flags (some flags may not be supported by your
 terminal):
@@ -104,7 +104,9 @@ Examples:
   [:red]Red background, text color unchanged
   [yellow::u]Yellow text underlined
   [::bl]Bold, blinking text
-  [::]Colors unchanged, flags reset
+  [::-]Colors unchanged, flags reset
+  [-]Reset foreground color
+  [-:-:-]Reset everything
   [:]No effect
   []Not a valid color tag, will print square brackets as they are
 

@@ -18,13 +18,14 @@ var TabSize = 4
 // textViewIndex contains information about each line displayed in the text
 // view.
 type textViewIndex struct {
-	Line          int         // The index into the "buffer" variable.
-	Pos           int         // The index into the "buffer" string (byte position).
-	NextPos       int         // The (byte) index of the next character in this buffer line.
-	Width         int         // The screen width of this line.
-	Style         tcell.Style // The starting style.
-	OverwriteAttr bool        // The starting flag indicating if style attributes should be overwritten.
-	Region        string      // The starting region ID.
+	Line            int    // The index into the "buffer" variable.
+	Pos             int    // The index into the "buffer" string (byte position).
+	NextPos         int    // The (byte) index of the next character in this buffer line.
+	Width           int    // The screen width of this line.
+	ForegroundColor string // The starting foreground color ("" = don't change, "-" = reset).
+	BackgroundColor string // The starting background color ("" = don't change, "-" = reset).
+	Attributes      string // The starting attributes ("" = don't change, "-" = reset).
+	Region          string // The starting region ID.
 }
 
 // TextView is a box which displays text. It implements the io.Writer interface
@@ -500,8 +501,7 @@ func (t *TextView) reindexBuffer(width int) {
 
 	// Initial states.
 	regionID := ""
-	var highlighted, overwriteAttr bool
-	style := tcell.StyleDefault.Foreground(t.textColor)
+	var highlighted bool
 
 	// Go through each line in the buffer.
 	for bufferIndex, str := range t.buffer {
@@ -558,14 +558,18 @@ func (t *TextView) reindexBuffer(width int) {
 		}
 
 		// Create index from split lines.
-		var originalPos, colorPos, regionPos, escapePos int
+		var (
+			originalPos, colorPos, regionPos, escapePos  int
+			foregroundColor, backgroundColor, attributes string
+		)
 		for _, splitLine := range splitLines {
 			line := &textViewIndex{
-				Line:          bufferIndex,
-				Pos:           originalPos,
-				Style:         style,
-				OverwriteAttr: overwriteAttr,
-				Region:        regionID,
+				Line:            bufferIndex,
+				Pos:             originalPos,
+				ForegroundColor: foregroundColor,
+				BackgroundColor: backgroundColor,
+				Attributes:      attributes,
+				Region:          regionID,
 			}
 
 			// Shift original position with tags.
@@ -574,7 +578,7 @@ func (t *TextView) reindexBuffer(width int) {
 				if colorPos < len(colorTagIndices) && colorTagIndices[colorPos][0] <= originalPos+lineLength {
 					// Process color tags.
 					originalPos += colorTagIndices[colorPos][1] - colorTagIndices[colorPos][0]
-					style, overwriteAttr = styleFromTag(style, overwriteAttr, colorTags[colorPos])
+					foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colorTags[colorPos])
 					colorPos++
 				} else if regionPos < len(regionIndices) && regionIndices[regionPos][0] <= originalPos+lineLength {
 					// Process region tags.
@@ -712,6 +716,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	}
 
 	// Draw the buffer.
+	defaultStyle := tcell.StyleDefault.Foreground(t.textColor)
 	for line := t.lineOffset; line < len(t.index); line++ {
 		// Are we done?
 		if line-t.lineOffset >= height {
@@ -721,8 +726,9 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		// Get the text for this line.
 		index := t.index[line]
 		text := t.buffer[index.Line][index.Pos:index.NextPos]
-		style := index.Style
-		overwriteAttr := index.OverwriteAttr
+		foregroundColor := index.ForegroundColor
+		backgroundColor := index.BackgroundColor
+		attributes := index.Attributes
 		regionID := index.Region
 
 		// Get color tags.
@@ -768,7 +774,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			// Get the color.
 			if currentTag < len(colorTags) && pos >= colorTagIndices[currentTag][0] && pos < colorTagIndices[currentTag][1] {
 				if pos == colorTagIndices[currentTag][1]-1 {
-					style, overwriteAttr = styleFromTag(style, overwriteAttr, colorTags[currentTag])
+					foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colorTags[currentTag])
 					currentTag++
 				}
 				continue
@@ -809,8 +815,12 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				break
 			}
 
+			// Mix the existing style with the new style.
+			_, _, existingStyle, _ := screen.GetContent(x+posX, y+line-t.lineOffset)
+			_, background, _ := existingStyle.Decompose()
+			style := overlayStyle(background, defaultStyle, foregroundColor, backgroundColor, attributes)
+
 			// Do we highlight this character?
-			finalStyle := style
 			var highlighted bool
 			if len(regionID) > 0 {
 				if _, ok := t.highlights[regionID]; ok {
@@ -818,7 +828,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				}
 			}
 			if highlighted {
-				fg, bg, _ := finalStyle.Decompose()
+				fg, bg, _ := style.Decompose()
 				if bg == tcell.ColorDefault {
 					r, g, b := fg.RGB()
 					c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
@@ -829,15 +839,12 @@ func (t *TextView) Draw(screen tcell.Screen) {
 						bg = tcell.ColorBlack
 					}
 				}
-				finalStyle = style.Background(fg).Foreground(bg)
-			} else {
-				_, _, existingStyle, _ := screen.GetContent(x+posX, y+line-t.lineOffset)
-				finalStyle = overlayStyle(existingStyle, style, overwriteAttr)
+				style = style.Background(fg).Foreground(bg)
 			}
 
 			// Draw the character.
 			for offset := 0; offset < chWidth; offset++ {
-				screen.SetContent(x+posX+offset, y+line-t.lineOffset, ch, nil, finalStyle)
+				screen.SetContent(x+posX+offset, y+line-t.lineOffset, ch, nil, style)
 			}
 
 			// Advance.
