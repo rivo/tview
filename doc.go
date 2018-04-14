@@ -123,6 +123,8 @@ character that may be used in color or region tags will be recognized. Examples:
   []          will be output as [] (see color tags above)
   [[]         will be output as [[] (not an escaped tag)
 
+You can use the Escape() function to insert brackets automatically where needed.
+
 Styles
 
 When primitives are instantiated, they are initialized with colors taken from
