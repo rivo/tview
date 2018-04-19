@@ -63,6 +63,10 @@ type InputField struct {
 	// are done entering text. The key which was pressed is provided (tab,
 	// shift-tab, enter, or escape).
 	done func(tcell.Key)
+
+	// A callback function set by the Form class and called when the user leaves
+	// this form item.
+	finished func(tcell.Key)
 }
 
 // NewInputField returns a new input field.
@@ -197,9 +201,10 @@ func (i *InputField) SetDoneFunc(handler func(key tcell.Key)) *InputField {
 	return i
 }
 
-// SetFinishedFunc calls SetDoneFunc().
+// SetFinishedFunc sets a callback invoked when the user leaves this form item.
 func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	return i.SetDoneFunc(handler)
+	i.finished = handler
+	return i
 }
 
 // Draw draws this primitive onto the screen.
@@ -346,6 +351,9 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		case tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if i.done != nil {
 				i.done(key)
+			}
+			if i.finished != nil {
+				i.finished(key)
 			}
 		}
 	})

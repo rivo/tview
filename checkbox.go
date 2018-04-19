@@ -38,6 +38,10 @@ type Checkbox struct {
 	// are done entering text. The key which was pressed is provided (tab,
 	// shift-tab, or escape).
 	done func(tcell.Key)
+
+	// A callback function set by the Form class and called when the user leaves
+	// this form item.
+	finished func(tcell.Key)
 }
 
 // NewCheckbox returns a new input field.
@@ -132,9 +136,10 @@ func (c *Checkbox) SetDoneFunc(handler func(key tcell.Key)) *Checkbox {
 	return c
 }
 
-// SetFinishedFunc calls SetDoneFunc().
+// SetFinishedFunc sets a callback invoked when the user leaves this form item.
 func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	return c.SetDoneFunc(handler)
+	c.finished = handler
+	return c
 }
 
 // Draw draws this primitive onto the screen.
@@ -189,6 +194,9 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if c.done != nil {
 				c.done(key)
+			}
+			if c.finished != nil {
+				c.finished(key)
 			}
 		}
 	})

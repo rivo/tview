@@ -63,6 +63,10 @@ type DropDown struct {
 	// are done selecting options. The key which was pressed is provided (tab,
 	// shift-tab, or escape).
 	done func(tcell.Key)
+
+	// A callback function set by the Form class and called when the user leaves
+	// this form item.
+	finished func(tcell.Key)
 }
 
 // NewDropDown returns a new drop-down.
@@ -221,9 +225,10 @@ func (d *DropDown) SetDoneFunc(handler func(key tcell.Key)) *DropDown {
 	return d
 }
 
-// SetFinishedFunc calls SetDoneFunc().
+// SetFinishedFunc sets a callback invoked when the user leaves this form item.
 func (d *DropDown) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	return d.SetDoneFunc(handler)
+	d.finished = handler
+	return d
 }
 
 // Draw draws this primitive onto the screen.
@@ -378,6 +383,9 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyEscape, tcell.KeyTab, tcell.KeyBacktab:
 			if d.done != nil {
 				d.done(key)
+			}
+			if d.finished != nil {
+				d.finished(key)
 			}
 		}
 	})

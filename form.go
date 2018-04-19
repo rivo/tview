@@ -231,7 +231,14 @@ func (f *Form) Clear(includeButtons bool) *Form {
 
 // AddFormItem adds a new item to the form. This can be used to add your own
 // objects to the form. Note, however, that the Form class will override some
-// of its attributes to make it work in the form context.
+// of its attributes to make it work in the form context. Specifically, these
+// are:
+//
+//   - The label width
+//   - The label color
+//   - The background color
+//   - The field text color
+//   - The field background color
 func (f *Form) AddFormItem(item FormItem) *Form {
 	f.items = append(f.items, item)
 	return f
