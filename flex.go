@@ -69,8 +69,8 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 // that its size is flexible and may be changed. The "proportion" argument
 // defines the relative size of the item compared to other flexible-size items.
 // For example, items with a proportion of 2 will be twice as large as items
-// with a proportion of 1. Must be at least 1 if fixedSize > 0 (ignored
-// otherwise)
+// with a proportion of 1. The proportion must be at least 1 if fixedSize == 0
+// (ignored otherwise).
 //
 // If "focus" is set to true, the item will receive focus when the Flex
 // primitive receives focus. If multiple items have the "focus" flag set to
