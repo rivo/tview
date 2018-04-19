@@ -173,6 +173,26 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 	return l
 }
 
+// GetItemCount returns the number of items in the list.
+func (l *List) GetItemCount() int {
+	return len(l.items)
+}
+
+// GetItemText returns an item's texts (main and secondary). Panics if the index
+// is out of range.
+func (l *List) GetItemText(index int) (main, secondary string) {
+	return l.items[index].MainText, l.items[index].SecondaryText
+}
+
+// SetItemText sets an item's main and secondary text. Panics if the index is
+// out of range.
+func (l *List) SetItemText(index int, main, secondary string) *List {
+	item := l.items[index]
+	item.MainText = main
+	item.SecondaryText = secondary
+	return l
+}
+
 // Clear removes all items from the list.
 func (l *List) Clear() *List {
 	l.items = nil
