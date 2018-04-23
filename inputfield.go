@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"strings"
@@ -20,11 +21,25 @@ import (
 type InputField struct {
 	*Box
 
+	align int
+
+	labelFiller string
+
+	disable bool
+
+	lockColors bool
+
 	// The text that was entered.
 	text string
 
 	// The text to be displayed before the input area.
 	label string
+
+	// The text to be displayed before the input area.
+	subLabel string
+
+	// The item sub label color.
+	subLabelColor tcell.Color
 
 	// The text to be displayed in the input area when "text" is empty.
 	placeholder string
@@ -37,6 +52,12 @@ type InputField struct {
 
 	// The text color of the input area.
 	fieldTextColor tcell.Color
+
+	// The background color of the input area.
+	fieldDisableBackgroundColor tcell.Color
+
+	// The text color of the input area.
+	fieldDisableTextColor tcell.Color
 
 	// The text color of the placeholder.
 	placeholderTextColor tcell.Color
@@ -71,13 +92,21 @@ type InputField struct {
 
 // NewInputField returns a new input field.
 func NewInputField() *InputField {
-	return &InputField{
-		Box:                  NewBox(),
-		labelColor:           Styles.SecondaryTextColor,
-		fieldBackgroundColor: Styles.ContrastBackgroundColor,
-		fieldTextColor:       Styles.PrimaryTextColor,
-		placeholderTextColor: Styles.ContrastSecondaryTextColor,
+	input := &InputField{
+		Box:                         NewBox(),
+		labelColor:                  Styles.LabelTextColor,
+		subLabelColor:               Styles.LabelTextColor,
+		fieldBackgroundColor:        Styles.FieldBackgroundColor,
+		fieldTextColor:              Styles.FieldTextColor,
+		placeholderTextColor:        Styles.ContrastSecondaryTextColor,
+		fieldDisableBackgroundColor: Styles.FieldDisableBackgroundColor,
+		fieldDisableTextColor:       Styles.FieldDisableTextColor,
+		align:       AlignLeft,
+		labelFiller: " ",
 	}
+	input.height = 1
+
+	return input
 }
 
 // SetText sets the current text of the input field.
@@ -94,8 +123,17 @@ func (i *InputField) GetText() string {
 	return i.text
 }
 
+// SetLockColors locks the change of colors by form
+func (i *InputField) SetLockColors(lock bool) *InputField {
+	i.lockColors = lock
+	return i
+}
+
 // SetLabel sets the text to be displayed before the input area.
 func (i *InputField) SetLabel(label string) *InputField {
+	if !strings.Contains(label, "%s") {
+		label += "%s"
+	}
 	i.label = label
 	return i
 }
@@ -103,6 +141,11 @@ func (i *InputField) SetLabel(label string) *InputField {
 // GetLabel returns the text to be displayed before the input area.
 func (i *InputField) GetLabel() string {
 	return i.label
+}
+
+// GetLabelWidth returns label width.
+func (i *InputField) GetLabelWidth() int {
+	return StringWidth(strings.Replace(i.subLabel+i.label, "%s", "", -1))
 }
 
 // SetLabelWidth sets the screen width of the label. A value of 0 will cause the
@@ -121,6 +164,18 @@ func (i *InputField) SetPlaceholder(text string) *InputField {
 // SetLabelColor sets the color of the label.
 func (i *InputField) SetLabelColor(color tcell.Color) *InputField {
 	i.labelColor = color
+	return i
+}
+
+// SetSubLabel sets the text to be displayed before the input area.
+func (i *InputField) SetSubLabel(label string) *InputField {
+	i.subLabel = label
+	return i
+}
+
+// SetSubLabelColor sets the color of the subLabel.
+func (i *InputField) SetSubLabelColor(color tcell.Color) *InputField {
+	i.subLabelColor = color
 	return i
 }
 
@@ -143,13 +198,32 @@ func (i *InputField) SetPlaceholderTextColor(color tcell.Color) *InputField {
 }
 
 // SetFormAttributes sets attributes shared by all form items.
-func (i *InputField) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
-	i.labelWidth = labelWidth
-	i.labelColor = labelColor
-	i.backgroundColor = bgColor
-	i.fieldTextColor = fieldTextColor
-	i.fieldBackgroundColor = fieldBgColor
+func (i *InputField) SetFormAttributes(labelWidth, fieldWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	if i.fieldWidth == 0 {
+		i.fieldWidth = fieldWidth
+	}
+	if i.labelWidth == 0 {
+		i.labelWidth = labelWidth
+	}
+	if !i.lockColors {
+		i.labelColor = labelColor
+		i.backgroundColor = bgColor
+		i.fieldTextColor = fieldTextColor
+		i.fieldBackgroundColor = fieldBgColor
+	}
 	return i
+}
+
+// SetFieldAlign sets the input alignment within the radiobutton box. This must be
+// either AlignLeft, AlignCenter, or AlignRight.
+func (i *InputField) SetFieldAlign(align int) FormItem {
+	i.align = align
+	return i
+}
+
+// GetFieldAlign returns the input alignment within the radiobutton box.
+func (i *InputField) GetFieldAlign() (align int) {
+	return i.align
 }
 
 // SetFieldWidth sets the screen width of the input area. A value of 0 means
@@ -162,6 +236,12 @@ func (i *InputField) SetFieldWidth(width int) *InputField {
 // GetFieldWidth returns this primitive's field width.
 func (i *InputField) GetFieldWidth() int {
 	return i.fieldWidth
+}
+
+// SetDisable sets an input field like disabled
+func (i *InputField) SetDisable(disable bool) *InputField {
+	i.disable = disable
+	return i
 }
 
 // SetMaskCharacter sets a character that masks user input on a screen. A value
@@ -211,6 +291,14 @@ func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 func (i *InputField) Draw(screen tcell.Screen) {
 	i.Box.Draw(screen)
 
+	fieldBackgroundColor := i.fieldBackgroundColor
+	fieldTextColor := i.fieldTextColor
+
+	if i.disable {
+		fieldBackgroundColor = i.fieldDisableBackgroundColor
+		fieldTextColor = i.fieldDisableTextColor
+	}
+
 	// Prepare
 	x, y, width, height := i.GetInnerRect()
 	rightLimit := x + width
@@ -218,17 +306,41 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		return
 	}
 
+	//fmt.Println("-", i.label, i.labelWidth, i.fieldWidth)
+
 	// Draw label.
-	if i.labelWidth > 0 {
+	var labels = []struct {
+		text  string
+		color tcell.Color
+	}{{
+		text:  i.subLabel,
+		color: i.subLabelColor,
+	}, {
+		text:  i.label,
+		color: i.labelColor,
+	}}
+
+	if len(labels) > 0 {
 		labelWidth := i.labelWidth
 		if labelWidth > rightLimit-x {
 			labelWidth = rightLimit - x
 		}
-		Print(screen, i.label, x, y, labelWidth, AlignLeft, i.labelColor)
-		x += labelWidth
-	} else {
-		_, drawnWidth := Print(screen, i.label, x, y, rightLimit-x, AlignLeft, i.labelColor)
-		x += drawnWidth
+
+		addCount := labelWidth - i.GetLabelWidth()
+
+		for _, label := range labels {
+			if addCount > 0 && strings.Contains(label.text, "%s") {
+				label.text = fmt.Sprintf(label.text, strings.Repeat(i.labelFiller, addCount))
+				addCount = 0
+			} else {
+				label.text = strings.Replace(label.text, "%s", "", -1)
+			}
+
+			labelWidth = StringWidth(label.text)
+			Print(screen, label.text, x, y, labelWidth, AlignLeft, label.color)
+			x += labelWidth
+		}
+		x++
 	}
 
 	// Draw input area.
@@ -239,7 +351,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	if rightLimit-x < fieldWidth {
 		fieldWidth = rightLimit - x
 	}
-	fieldStyle := tcell.StyleDefault.Background(i.fieldBackgroundColor)
+	fieldStyle := tcell.StyleDefault.Background(fieldBackgroundColor)
 	for index := 0; index < fieldWidth; index++ {
 		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
 	}
@@ -264,7 +376,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 				break
 			}
 			_, _, style, _ := screen.GetContent(x+fieldWidth-w, y)
-			style = style.Foreground(i.fieldTextColor)
+			style = style.Foreground(fieldTextColor)
 			for w > 0 {
 				fieldWidth--
 				screen.SetContent(x+fieldWidth, y, ch, nil, style)
@@ -276,7 +388,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		for _, ch := range text {
 			w := runewidth.RuneWidth(ch)
 			_, _, style, _ := screen.GetContent(x+pos, y)
-			style = style.Foreground(i.fieldTextColor)
+			style = style.Foreground(fieldTextColor)
 			for w > 0 {
 				screen.SetContent(x+pos, y, ch, nil, style)
 				pos++
@@ -286,15 +398,15 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 
 	// Set cursor.
-	if i.focus.HasFocus() {
+	if !i.disable && i.focus.HasFocus() {
 		i.setCursor(screen)
 	}
 }
 
 // setCursor sets the cursor position.
 func (i *InputField) setCursor(screen tcell.Screen) {
-	x := i.x
-	y := i.y
+	x := i.x + i.paddingLeft
+	y := i.y + i.paddingTop
 	rightLimit := x + i.width
 	if i.border {
 		x++
@@ -306,9 +418,9 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 		fieldWidth = i.fieldWidth - 1
 	}
 	if i.labelWidth > 0 {
-		x += i.labelWidth + fieldWidth
+		x += i.labelWidth + 1 + fieldWidth
 	} else {
-		x += StringWidth(i.label) + fieldWidth
+		x += StringWidth(i.subLabel+i.label) + 1 + fieldWidth
 	}
 	if x >= rightLimit {
 		x = rightLimit - 1
@@ -357,4 +469,13 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			}
 		}
 	})
+}
+
+// Focus is called when this primitive receives focus.
+func (i *InputField) Focus(delegate func(p Primitive)) {
+	if i.disable && i.finished != nil {
+		i.finished(tcell.KeyTAB)
+		return
+	}
+	i.hasFocus = true
 }

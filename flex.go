@@ -113,11 +113,22 @@ func (f *Flex) Draw(screen tcell.Screen) {
 	if f.direction == FlexRow {
 		distSize = height
 	}
-	for _, item := range f.items {
-		if item.FixedSize > 0 {
-			distSize -= item.FixedSize
-		} else {
-			proportionSum += item.Proportion
+
+	for i := 0; i < len(f.items); i++ {
+		if f.items[i].FixedSize == 0 && f.items[i].Proportion == 0 {
+			_, _, w, h := f.items[i].Item.GetRect()
+			if f.direction == FlexRow {
+				f.items[i].FixedSize = h
+			} else {
+				f.items[i].FixedSize = w
+			}
+		}
+
+		switch {
+		case f.items[i].FixedSize > 0:
+			distSize -= f.items[i].FixedSize
+		default:
+			proportionSum += f.items[i].Proportion
 		}
 	}
 

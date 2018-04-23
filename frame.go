@@ -86,7 +86,7 @@ func (f *Frame) Draw(screen tcell.Screen) {
 
 	// Calculate start positions.
 	x, top, width, height := f.GetInnerRect()
-	bottom := top + height - 1
+	bottom := top + height
 	x += f.left
 	top += f.top
 	bottom -= f.bottom

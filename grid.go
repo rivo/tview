@@ -583,11 +583,11 @@ func (g *Grid) Draw(screen tcell.Screen) {
 				}
 				by := item.y - 1
 				if by >= 0 && by < height {
-					PrintJoinedBorder(screen, x+bx, y+by, GraphicsHoriBar, g.bordersColor)
+					PrintJoinedBorder(screen, x+bx, y+by, Styles.GraphicsHoriBar, g.bordersColor)
 				}
 				by = item.y + item.h
 				if by >= 0 && by < height {
-					PrintJoinedBorder(screen, x+bx, y+by, GraphicsHoriBar, g.bordersColor)
+					PrintJoinedBorder(screen, x+bx, y+by, Styles.GraphicsHoriBar, g.bordersColor)
 				}
 			}
 			for by := item.y; by < item.y+item.h; by++ { // Left/right lines.
@@ -596,28 +596,28 @@ func (g *Grid) Draw(screen tcell.Screen) {
 				}
 				bx := item.x - 1
 				if bx >= 0 && bx < width {
-					PrintJoinedBorder(screen, x+bx, y+by, GraphicsVertBar, g.bordersColor)
+					PrintJoinedBorder(screen, x+bx, y+by, Styles.GraphicsVertBar, g.bordersColor)
 				}
 				bx = item.x + item.w
 				if bx >= 0 && bx < width {
-					PrintJoinedBorder(screen, x+bx, y+by, GraphicsVertBar, g.bordersColor)
+					PrintJoinedBorder(screen, x+bx, y+by, Styles.GraphicsVertBar, g.bordersColor)
 				}
 			}
 			bx, by := item.x-1, item.y-1 // Top-left corner.
 			if bx >= 0 && bx < width && by >= 0 && by < height {
-				PrintJoinedBorder(screen, x+bx, y+by, GraphicsTopLeftCorner, g.bordersColor)
+				PrintJoinedBorder(screen, x+bx, y+by, Styles.GraphicsTopLeftCorner, g.bordersColor)
 			}
 			bx, by = item.x+item.w, item.y-1 // Top-right corner.
 			if bx >= 0 && bx < width && by >= 0 && by < height {
-				PrintJoinedBorder(screen, x+bx, y+by, GraphicsTopRightCorner, g.bordersColor)
+				PrintJoinedBorder(screen, x+bx, y+by, Styles.GraphicsTopRightCorner, g.bordersColor)
 			}
 			bx, by = item.x-1, item.y+item.h // Bottom-left corner.
 			if bx >= 0 && bx < width && by >= 0 && by < height {
-				PrintJoinedBorder(screen, x+bx, y+by, GraphicsBottomLeftCorner, g.bordersColor)
+				PrintJoinedBorder(screen, x+bx, y+by, Styles.GraphicsBottomLeftCorner, g.bordersColor)
 			}
 			bx, by = item.x+item.w, item.y+item.h // Bottom-right corner.
 			if bx >= 0 && bx < width && by >= 0 && by < height {
-				PrintJoinedBorder(screen, x+bx, y+by, GraphicsBottomRightCorner, g.bordersColor)
+				PrintJoinedBorder(screen, x+bx, y+by, Styles.GraphicsBottomRightCorner, g.bordersColor)
 			}
 		}
 	}

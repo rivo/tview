@@ -2,6 +2,7 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
+	"github.com/rivo/tview"
 )
 
 // DefaultFormFieldWidth is the default field screen width of form elements
@@ -16,15 +17,23 @@ type FormItem interface {
 
 	// GetLabel returns the item's label text.
 	GetLabel() string
+	// GetLabelWidth returns the item's label width.
+	GetLabelWidth() int
+
+	// GetFieldWidth returns the item's field width.
+	GetFieldWidth() int
+
+	GetFieldAlign() (align int)
+
+	GetBorderPadding() (top, bottom, left, right int)
 
 	// SetFormAttributes sets a number of item attributes at once.
-	SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem
+	SetFormAttributes(labelWidth, fieldWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem
 
 	// GetFieldWidth returns the width of the form item's field (the area which
 	// is manipulated by the user) in number of screen cells. A value of 0
 	// indicates the the field width is flexible and may use as much space as
 	// required.
-	GetFieldWidth() int
 
 	// SetEnteredFunc sets the handler function for when the user finished
 	// entering data into the item. The handler may receive events for the
@@ -55,6 +64,9 @@ type Form struct {
 	// The alignment of the buttons.
 	buttonsAlign int
 
+	buttonsPaddingTop      int
+	buttonsPaddingSeparate int
+
 	// The number of empty rows between items.
 	itemPadding int
 
@@ -79,6 +91,13 @@ type Form struct {
 
 	// An optional function which is called when the user hits Escape.
 	cancel func()
+
+	// The content alignment, one of AlignLeft, AlignCenter, or AlignRight.
+	align int
+
+	itemsColumn []int
+
+	columnPadding int
 }
 
 // NewForm returns a new form.
@@ -86,17 +105,30 @@ func NewForm() *Form {
 	box := NewBox().SetBorderPadding(1, 1, 1, 1)
 
 	f := &Form{
-		Box:                   box,
-		itemPadding:           1,
-		labelColor:            Styles.SecondaryTextColor,
-		fieldBackgroundColor:  Styles.ContrastBackgroundColor,
-		fieldTextColor:        Styles.PrimaryTextColor,
-		buttonBackgroundColor: Styles.ContrastBackgroundColor,
-		buttonTextColor:       Styles.PrimaryTextColor,
+		Box:                    box,
+		align:                  AlignLeft,
+		columnPadding:          1,
+		itemPadding:            1,
+		buttonsPaddingTop:      2,
+		buttonsPaddingSeparate: 4,
+		labelColor:             Styles.LabelTextColor,
+		fieldBackgroundColor:   Styles.FieldBackgroundColor,
+		fieldTextColor:         Styles.FieldTextColor,
+		buttonBackgroundColor:  Styles.ButtonBackgroundColor,
+		buttonTextColor:        Styles.ButtonTextColor,
 	}
 
+	f.width = 0
+	f.height = 0
 	f.focus = f
 
+	return f
+}
+
+// SetAlign sets the content alignment within the flex. This must be
+// either AlignLeft, AlignCenter, or AlignRight.
+func (f *Form) SetAlign(align int) *Form {
+	f.align = align
 	return f
 }
 
@@ -105,6 +137,12 @@ func NewForm() *Form {
 // layouts.
 func (f *Form) SetItemPadding(padding int) *Form {
 	f.itemPadding = padding
+	return f
+}
+
+// SetColumnPadding sets the number of empty rows between form columns.
+func (f *Form) SetColumnPadding(padding int) *Form {
+	f.columnPadding = padding
 	return f
 }
 
@@ -160,12 +198,13 @@ func (f *Form) SetButtonTextColor(color tcell.Color) *Form {
 // accept any text), and an (optional) callback function which is invoked when
 // the input field's text has changed.
 func (f *Form) AddInputField(label, value string, fieldWidth int, accept func(textToCheck string, lastChar rune) bool, changed func(text string)) *Form {
-	f.items = append(f.items, NewInputField().
+	item := NewInputField().
 		SetLabel(label).
 		SetText(value).
 		SetFieldWidth(fieldWidth).
 		SetAcceptanceFunc(accept).
-		SetChangedFunc(changed))
+		SetChangedFunc(changed)
+	f.items = append(f.items, item)
 	return f
 }
 
@@ -192,11 +231,20 @@ func (f *Form) AddPasswordField(label, value string, fieldWidth int, mask rune, 
 // and an (optional) callback function which is invoked when an option was
 // selected. The initial option may be a negative value to indicate that no
 // option is currently selected.
-func (f *Form) AddDropDown(label string, options []string, initialOption int, selected func(option string, optionIndex int)) *Form {
+func (f *Form) AddDropDown(label string, options []*DropDownOption, initialOption int, selected func(option *DropDownOption, optionIndex int)) *Form {
 	f.items = append(f.items, NewDropDown().
 		SetLabel(label).
 		SetCurrentOption(initialOption).
 		SetOptions(options, selected))
+	return f
+}
+
+// AddRadioButton adds a radio button element to the form
+func (f *Form) AddRadioButton(label string, options []*RadioOption, initialOption int, selected func(option *RadioOption, optionIndex int)) *Form {
+	f.items = append(f.items, NewRadioButtons().
+		SetLabel(label).
+		SetCurrentOption(initialOption).
+		SetOptions(options))
 	return f
 }
 
@@ -240,7 +288,13 @@ func (f *Form) Clear(includeButtons bool) *Form {
 //   - The field text color
 //   - The field background color
 func (f *Form) AddFormItem(item FormItem) *Form {
+	return f.AddFormItemWithColumn(item, 0)
+}
+
+// AddFormItemWithColumn adds a new item to the form and sets the column.
+func (f *Form) AddFormItemWithColumn(item FormItem, column int) *Form {
 	f.items = append(f.items, item)
+	f.itemsColumn = append(f.itemsColumn, column)
 	return f
 }
 
@@ -270,45 +324,166 @@ func (f *Form) SetCancelFunc(callback func()) *Form {
 	return f
 }
 
+// GetRect returns the current position of the rectangle, x, y, width, and
+// height.
+func (f *Form) GetRect() (int, int, int, int) {
+	x, y, width, height := f.Box.GetRect()
+
+	maxColumns := f.getColoumnsCount()
+	if width == 0 {
+		maxWidth, _, _ := f.getMaxWidthItems()
+		for column := 0; column < maxColumns; column++ {
+			if width < maxWidth[column] {
+				width = maxWidth[column]
+			}
+		}
+		width += f.paddingLeft + f.paddingRight
+		if f.border {
+			width += 2
+		}
+	}
+
+	if height == 0 {
+		maxHeight := make([]int, maxColumns)
+		if len(f.items) > 0 {
+			for i := 0; i < len(f.items); i++ {
+				column := f.itemsColumn[i]
+				_, _, _, h := f.items[i].GetRect()
+				maxHeight[column] += h + f.itemPadding
+			}
+
+			for column := 0; column < maxColumns; column++ {
+				if height < maxHeight[column] {
+					height = maxHeight[column]
+				}
+			}
+			height -= f.itemPadding
+		}
+
+		if len(f.buttons) > 0 {
+			height += 1 + f.buttonsPaddingTop
+		}
+
+		if f.border {
+			height += 2
+		}
+		height += f.paddingTop + f.paddingBottom
+	}
+	return x, y, width, height
+}
+
+func (f *Form) getColoumnsCount() int {
+	var maxColumns int
+	for _, num := range f.itemsColumn {
+		if maxColumns < num {
+			maxColumns = num
+		}
+	}
+	return maxColumns + 1
+}
+
+func (f *Form) getMaxWidthItems() (maxWidth, maxLabelWidth, maxFieldWidth []int) {
+	maxColumns := f.getColoumnsCount()
+
+	// Find the longest label.
+	maxLabelWidth = make([]int, maxColumns)
+	maxFieldWidth = make([]int, maxColumns)
+
+	for index, item := range f.items {
+		_, _, leftPadding, rightPadding := item.GetBorderPadding()
+		labelWidth := item.GetLabelWidth() + leftPadding
+		fieldWidth := item.GetFieldWidth() + rightPadding
+		column := f.itemsColumn[index]
+
+		if labelWidth > 0 && labelWidth > maxLabelWidth[column]-1 && item.GetFieldAlign() == AlignCenter {
+			maxLabelWidth[column] = labelWidth + 1
+		}
+		if fieldWidth > maxFieldWidth[column] {
+			maxFieldWidth[column] = fieldWidth
+		}
+	}
+
+	maxWidth = make([]int, maxColumns)
+	for index, item := range f.items {
+		_, _, leftPadding, rightPadding := item.GetBorderPadding()
+		labelWidth := item.GetLabelWidth() + leftPadding
+		fieldWidth := item.GetFieldWidth() + rightPadding
+		column := f.itemsColumn[index]
+		if labelWidth+fieldWidth > maxWidth[column] {
+			maxWidth[column] = labelWidth + fieldWidth
+		}
+		if item.GetFieldAlign() == AlignCenter {
+			maxWidth[column] = maxLabelWidth[column] + maxFieldWidth[column]
+		}
+	}
+
+	return
+}
+
 // Draw draws this primitive onto the screen.
 func (f *Form) Draw(screen tcell.Screen) {
 	f.Box.Draw(screen)
 
 	// Determine the dimensions.
-	x, y, width, height := f.GetInnerRect()
+	x, y, boxWidth, boxHeight := f.GetInnerRect()
 	topLimit := y
-	bottomLimit := y + height
-	rightLimit := x + width
+	bottomLimit := y + boxHeight
+	rightLimit := x + boxWidth
 	startX := x
 
-	// Find the longest label.
-	var maxLabelWidth int
-	for _, item := range f.items {
-		labelWidth := StringWidth(item.GetLabel())
-		if labelWidth > maxLabelWidth {
-			maxLabelWidth = labelWidth
-		}
+	maxColumns := f.getColoumnsCount()
+	maxColWidth, maxColLabelWidth, _ := f.getMaxWidthItems()
+
+	var maxWidth int
+	for width, column := 0, 0; column < maxColumns; column++ {
+		width += maxColWidth[column]
+		maxWidth = width
+		width += 1 + f.columnPadding
 	}
-	maxLabelWidth++ // Add one space.
+
+	switch f.align {
+	case tview.AlignCenter:
+		x += (boxWidth - maxWidth) / 2
+	case tview.AlignRight:
+		x += boxWidth - maxWidth
+	}
+
+	var colX, colY []int
+	for width, column := 0, 0; column < maxColumns; column++ {
+		colX = append(colX, x+width)
+		colY = append(colY, topLimit)
+		width += maxColWidth[column] + 1 + f.columnPadding
+	}
 
 	// Calculate positions of form items.
 	positions := make([]struct{ x, y, width, height int }, len(f.items)+len(f.buttons))
 	var focusedPosition struct{ x, y, width, height int }
 	for index, item := range f.items {
-		// Calculate the space needed.
-		labelWidth := StringWidth(item.GetLabel())
+		column := f.itemsColumn[index]
+		x = colX[column]
+		y = colY[column]
+		_, _, leftPadding, rightPadding := item.GetBorderPadding()
+		labelWidth := item.GetLabelWidth() + leftPadding
+		fieldWidth := item.GetFieldWidth() + rightPadding
 		var itemWidth int
 		if f.horizontal {
-			fieldWidth := item.GetFieldWidth()
 			if fieldWidth == 0 {
 				fieldWidth = DefaultFormFieldWidth
 			}
-			labelWidth++
 			itemWidth = labelWidth + fieldWidth
 		} else {
-			// We want all fields to align vertically.
-			labelWidth = maxLabelWidth
-			itemWidth = width
+			itemWidth = boxWidth
+			fieldWidth := item.GetFieldWidth()
+			// Implement alignment of field
+			switch item.GetFieldAlign() {
+			case AlignCenter:
+				labelWidth = maxColLabelWidth[column] - leftPadding
+				fieldWidth = maxColWidth[column] - labelWidth - rightPadding
+			case AlignRight:
+				labelWidth = maxColWidth[column] - leftPadding - fieldWidth - rightPadding
+			case AlignLeft:
+				fieldWidth = maxColWidth[column] - leftPadding - labelWidth - rightPadding
+			}
 		}
 
 		// Advance to next line if there is no space.
@@ -323,8 +498,9 @@ func (f *Form) Draw(screen tcell.Screen) {
 		}
 		item.SetFormAttributes(
 			labelWidth,
+			fieldWidth,
 			f.labelColor,
-			f.backgroundColor,
+			tcell.ColorBlack,
 			f.fieldTextColor,
 			f.fieldBackgroundColor,
 		)
@@ -332,8 +508,8 @@ func (f *Form) Draw(screen tcell.Screen) {
 		// Save position.
 		positions[index].x = x
 		positions[index].y = y
-		positions[index].width = itemWidth
-		positions[index].height = 1
+		positions[index].width = maxColWidth[column]
+		_, _, _, positions[index].height = item.GetRect()
 		if item.GetFocusable().HasFocus() {
 			focusedPosition = positions[index]
 		}
@@ -342,8 +518,9 @@ func (f *Form) Draw(screen tcell.Screen) {
 		if f.horizontal {
 			x += itemWidth + f.itemPadding
 		} else {
-			y += 1 + f.itemPadding
+			y += positions[index].height + f.itemPadding
 		}
+		colY[column] = y
 	}
 
 	// How wide are the buttons?
@@ -352,7 +529,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	for index, button := range f.buttons {
 		w := StringWidth(button.GetLabel()) + 4
 		buttonWidths[index] = w
-		buttonsWidth += w + 1
+		buttonsWidth += w + f.buttonsPaddingSeparate
 	}
 	buttonsWidth--
 
@@ -361,15 +538,21 @@ func (f *Form) Draw(screen tcell.Screen) {
 		if f.buttonsAlign == AlignRight {
 			x = rightLimit - buttonsWidth
 		} else if f.buttonsAlign == AlignCenter {
-			x = (x + rightLimit - buttonsWidth) / 2
+			x = (boxWidth-buttonsWidth)/2 + startX
 		}
 
 		// In vertical layouts, buttons always appear after an empty line.
 		if f.itemPadding == 0 {
 			y++
 		}
-	}
 
+	}
+	if len(f.items) > 0 {
+		y -= f.itemPadding
+	}
+	if len(f.buttons) > 0 {
+		y += f.buttonsPaddingTop
+	}
 	// Calculate positions of buttons.
 	for index, button := range f.buttons {
 		space := rightLimit - x
@@ -378,7 +561,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 			if space < buttonWidth-4 {
 				x = startX
 				y += 2
-				space = width
+				space = boxWidth
 			}
 		} else {
 			if space < 1 {
@@ -403,7 +586,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 			focusedPosition = positions[buttonIndex]
 		}
 
-		x += buttonWidth + 1
+		x += buttonWidth + f.buttonsPaddingSeparate
 	}
 
 	// Determine vertical offset based on the position of the focused item.
@@ -423,7 +606,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 		item.SetRect(positions[index].x, y, positions[index].width, height)
 
 		// Is this item visible?
-		if y+height <= topLimit || y >= bottomLimit {
+		if y+height <= topLimit || (y > bottomLimit) {
 			continue
 		}
 
@@ -444,13 +627,18 @@ func (f *Form) Draw(screen tcell.Screen) {
 		button.SetRect(positions[buttonIndex].x, y, positions[buttonIndex].width, height)
 
 		// Is this button visible?
-		if y+height <= topLimit || y >= bottomLimit {
+		if y+height <= topLimit || (y >= bottomLimit && boxHeight > 0) {
 			continue
 		}
 
 		// Draw button.
 		button.Draw(screen)
 	}
+}
+
+// ResetFocus sets focus on the first element
+func (f *Form) ResetFocus() {
+	f.focusedElement = 0
 }
 
 // Focus is called by the application when the primitive receives focus.

@@ -22,6 +22,9 @@ type Box struct {
 	// Border padding.
 	paddingTop, paddingBottom, paddingLeft, paddingRight int
 
+	// Border padding to be measured by percent.
+	paddingPercentTop, paddingPercentBottom, paddingPercentLeft, paddingPercentRight int
+
 	// The box's background color.
 	backgroundColor tcell.Color
 
@@ -77,10 +80,35 @@ func NewBox() *Box {
 	return b
 }
 
+// SetHeight sets height of the box
+func (b *Box) SetHeight(height int) *Box {
+	b.height = height
+	return b
+}
+
+// SetWidth sets width of the box
+func (b *Box) SetWidth(width int) *Box {
+	b.width = width
+	return b
+}
+
+// SetPercentPadding sets border in percents. This feature implements resizable paddingPercent of the box relative to the size of the screen
+func (b *Box) SetPercentPadding(top, bottom, left, right int) *Box {
+	b.paddingPercentTop, b.paddingPercentBottom, b.paddingPercentLeft, b.paddingPercentRight = top, bottom, left, right
+	return b
+}
+
 // SetBorderPadding sets the size of the borders around the box content.
 func (b *Box) SetBorderPadding(top, bottom, left, right int) *Box {
 	b.paddingTop, b.paddingBottom, b.paddingLeft, b.paddingRight = top, bottom, left, right
 	return b
+}
+
+// GetBorderPadding returns padding of the box
+func (b *Box) GetBorderPadding() (top, bottom, left, right int) {
+	outerX, outerY, outerWidth, outerHeight := b.GetRect()
+	innerX, innerY, innerWidth, innerHeight := b.GetInnerRect()
+	return innerY - outerY, (outerY + outerHeight) - (innerY + innerHeight), innerX - outerX, (outerX + outerWidth) - (innerX + innerWidth)
 }
 
 // GetRect returns the current position of the rectangle, x, y, width, and
@@ -102,10 +130,19 @@ func (b *Box) GetInnerRect() (int, int, int, int) {
 		width -= 2
 		height -= 2
 	}
-	return x + b.paddingLeft,
-		y + b.paddingTop,
-		width - b.paddingLeft - b.paddingRight,
-		height - b.paddingTop - b.paddingBottom
+	x, y, width, height = x+b.paddingLeft,
+		y+b.paddingTop,
+		width-b.paddingLeft-b.paddingRight,
+		height-b.paddingTop-b.paddingBottom
+
+	// Percent padding
+	left := int(float64(width) / 100 * float64(b.paddingPercentLeft))
+	top := int(float64(height) / 100 * float64(b.paddingPercentTop))
+	right := int(float64(width) / 100 * float64(b.paddingPercentRight))
+	bottom := int(float64(height) / 100 * float64(b.paddingPercentBottom))
+
+	return x + left, y + top, width - left - right, height - top - bottom
+
 }
 
 // SetRect sets a new position of the primitive.
@@ -187,6 +224,11 @@ func (b *Box) SetBorder(show bool) *Box {
 	return b
 }
 
+// GetBorder returns the flag indicating whether or not the box was set
+func (b *Box) GetBorder() bool {
+	return b.border
+}
+
 // SetBorderColor sets the box's border color.
 func (b *Box) SetBorderColor(color tcell.Color) *Box {
 	b.borderColor = color
@@ -234,19 +276,19 @@ func (b *Box) Draw(screen tcell.Screen) {
 		border := background.Foreground(b.borderColor)
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
 		if b.focus.HasFocus() {
-			vertical = GraphicsDbVertBar
-			horizontal = GraphicsDbHorBar
-			topLeft = GraphicsDbTopLeftCorner
-			topRight = GraphicsDbTopRightCorner
-			bottomLeft = GraphicsDbBottomLeftCorner
-			bottomRight = GraphicsDbBottomRightCorner
+			horizontal = Styles.GraphicsDbVertBar
+			vertical = Styles.GraphicsDbHorBar
+			topLeft = Styles.GraphicsDbTopLeftCorner
+			topRight = Styles.GraphicsDbTopRightCorner
+			bottomLeft = Styles.GraphicsDbBottomLeftCorner
+			bottomRight = Styles.GraphicsDbBottomRightCorner
 		} else {
-			vertical = GraphicsHoriBar
-			horizontal = GraphicsVertBar
-			topLeft = GraphicsTopLeftCorner
-			topRight = GraphicsTopRightCorner
-			bottomLeft = GraphicsBottomLeftCorner
-			bottomRight = GraphicsBottomRightCorner
+			horizontal = Styles.GraphicsVertBar
+			vertical = Styles.GraphicsHoriBar
+			topLeft = Styles.GraphicsTopLeftCorner
+			topRight = Styles.GraphicsTopRightCorner
+			bottomLeft = Styles.GraphicsBottomLeftCorner
+			bottomRight = Styles.GraphicsBottomRightCorner
 		}
 		for x := b.x + 1; x < b.x+b.width-1; x++ {
 			screen.SetContent(x, b.y, vertical, nil, border)
@@ -263,11 +305,12 @@ func (b *Box) Draw(screen tcell.Screen) {
 
 		// Draw title.
 		if b.title != "" && b.width >= 4 {
-			_, printed := Print(screen, b.title, b.x+1, b.y, b.width-2, b.titleAlign, b.titleColor)
-			if StringWidth(b.title)-printed > 0 && printed > 0 {
+			title := "  " + b.title + "  "
+			_, printed := Print(screen, title, b.x+1, b.y, b.width-2, b.titleAlign, b.titleColor)
+			if StringWidth(title)-printed > 0 && printed > 0 {
 				_, _, style, _ := screen.GetContent(b.x+b.width-2, b.y)
 				fg, _, _ := style.Decompose()
-				Print(screen, string(GraphicsEllipsis), b.x+b.width-2, b.y, 1, AlignLeft, fg)
+				Print(screen, string(Styles.GraphicsEllipsis), b.x+b.width-2, b.y, 1, AlignLeft, fg)
 			}
 		}
 	}

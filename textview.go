@@ -158,6 +158,8 @@ type TextView struct {
 	// An optional function which is called when the user presses one of the
 	// following keys: Escape, Enter, Tab, Backtab.
 	done func(tcell.Key)
+
+	scrollEnded func(screen tcell.Screen)
 }
 
 // NewTextView returns a new text view.
@@ -267,6 +269,14 @@ func (t *TextView) SetChangedFunc(handler func()) *TextView {
 // handler.
 func (t *TextView) SetDoneFunc(handler func(key tcell.Key)) *TextView {
 	t.done = handler
+	return t
+}
+
+// SetScrollEndedFunc sets a handler function which is called when the text of the
+// text view has changed. This is typically used to cause the application to
+// redraw the screen.
+func (t *TextView) SetScrollEndedFunc(handler func(screen tcell.Screen)) *TextView {
+	t.scrollEnded = handler
 	return t
 }
 
@@ -718,6 +728,10 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	// Draw the buffer.
 	defaultStyle := tcell.StyleDefault.Foreground(t.textColor)
 	for line := t.lineOffset; line < len(t.index); line++ {
+		if t.scrollEnded != nil && line == len(t.index)-1 {
+			t.scrollEnded(screen)
+		}
+
 		// Are we done?
 		if line-t.lineOffset >= height {
 			break
