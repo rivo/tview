@@ -64,6 +64,8 @@ Add your issue here on GitHub. Feel free to get in touch if you have any questio
 
 (There are no corresponding tags in the project. I only keep such a history in this README.)
 
+- v0.15 (2018-05-02)
+  - `Flex` and `Grid` don't clear their background per default, thus allowing for custom modals. See the [Wiki](https://github.com/rivo/tview/wiki/Modal) for an example.
 - v0.14 (2018-04-13)
   - Added an `Escape()` function which keep strings like color or region tags from being recognized as such.
   - Added `ANSIIWriter()` and `TranslateANSII()` which convert ANSII escape sequences to `tview` color tags.
