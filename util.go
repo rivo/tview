@@ -361,6 +361,9 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			width += w
 			start = index
 		}
+		for runewidth.RuneWidth(runes[start]) == 0 && start < len(runes) {
+			start++
+		}
 		return printWithStyle(screen, substring(start, len(runes)), x+maxWidth-width, y, width, AlignLeft, style)
 	} else if align == AlignCenter {
 		width := runewidth.StringWidth(strippedText)
@@ -376,12 +379,15 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			var choppedLeft, choppedRight, leftIndex, rightIndex int
 			rightIndex = len(runes) - 1
 			for rightIndex > leftIndex && width-choppedLeft-choppedRight > maxWidth {
-				leftWidth := runewidth.RuneWidth(runes[leftIndex])
-				rightWidth := runewidth.RuneWidth(runes[rightIndex])
 				if choppedLeft < choppedRight {
+					leftWidth := runewidth.RuneWidth(runes[leftIndex])
 					choppedLeft += leftWidth
 					leftIndex++
+					for runewidth.RuneWidth(runes[leftIndex]) == 0 && leftIndex < len(runes) && leftIndex < rightIndex {
+						leftIndex++
+					}
 				} else {
+					rightWidth := runewidth.RuneWidth(runes[rightIndex])
 					choppedRight += rightWidth
 					rightIndex--
 				}
@@ -397,9 +403,39 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 		colorPos, escapePos                          int
 		foregroundColor, backgroundColor, attributes string
 	)
+	runeSequence := make([]rune, 0, 10)
+	runeSeqWidth := 0
+	flush := func() {
+		if len(runeSequence) == 0 {
+			return // Nothing to flush.
+		}
+
+		// Print the rune sequence.
+		finalX := x + drawnWidth
+		_, _, finalStyle, _ := screen.GetContent(finalX, y)
+		_, background, _ := finalStyle.Decompose()
+		finalStyle = overlayStyle(background, style, foregroundColor, backgroundColor, attributes)
+		var comb []rune
+		if len(runeSequence) > 1 {
+			// Allocate space for the combining characters only when necessary.
+			comb = make([]rune, len(runeSequence)-1)
+			copy(comb, runeSequence[1:])
+		}
+		for offset := 0; offset < runeSeqWidth; offset++ {
+			// To avoid undesired effects, we place the same character in all cells.
+			screen.SetContent(finalX+offset, y, runeSequence[0], comb, finalStyle)
+		}
+
+		// Advance and reset.
+		drawn += len(runeSequence)
+		drawnWidth += runeSeqWidth
+		runeSequence = runeSequence[:0]
+		runeSeqWidth = 0
+	}
 	for pos, ch := range text {
 		// Handle color tags.
 		if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
+			flush()
 			if pos == colorIndices[colorPos][1]-1 {
 				foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
 				colorPos++
@@ -409,6 +445,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 
 		// Handle escape tags.
 		if escapePos < len(escapeIndices) && pos >= escapeIndices[escapePos][0] && pos < escapeIndices[escapePos][1] {
+			flush()
 			if pos == escapeIndices[escapePos][1]-1 {
 				escapePos++
 			} else if pos == escapeIndices[escapePos][1]-2 {
@@ -419,21 +456,26 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 		// Check if we have enough space for this rune.
 		chWidth := runewidth.RuneWidth(ch)
 		if drawnWidth+chWidth > maxWidth {
-			break
-		}
-		finalX := x + drawnWidth
-
-		// Print the rune.
-		_, _, finalStyle, _ := screen.GetContent(finalX, y)
-		_, background, _ := finalStyle.Decompose()
-		finalStyle = overlayStyle(background, style, foregroundColor, backgroundColor, attributes)
-		for offset := 0; offset < chWidth; offset++ {
-			// To avoid undesired effects, we place the same character in all cells.
-			screen.SetContent(finalX+offset, y, ch, nil, finalStyle)
+			break // No. We're done then.
 		}
 
-		drawn++
-		drawnWidth += chWidth
+		// Put this rune in the queue.
+		if chWidth == 0 {
+			// If this is not a modifier, we treat it as a space character.
+			if len(runeSequence) == 0 {
+				ch = ' '
+				chWidth = 1
+			}
+		} else {
+			// We have a character. Flush all previous runes.
+			flush()
+		}
+		runeSequence = append(runeSequence, ch)
+		runeSeqWidth += chWidth
+
+	}
+	if drawnWidth+runeSeqWidth <= maxWidth {
+		flush()
 	}
 
 	return drawn, drawnWidth

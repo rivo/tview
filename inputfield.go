@@ -248,40 +248,18 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	text := i.text
 	if text == "" && i.placeholder != "" {
 		Print(screen, i.placeholder, x, y, fieldWidth, AlignLeft, i.placeholderTextColor)
-	}
-
-	// Draw entered text.
-	if i.maskCharacter > 0 {
-		text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
-	}
-	fieldWidth-- // We need one cell for the cursor.
-	if fieldWidth < runewidth.StringWidth(text) {
-		runes := []rune(text)
-		for pos := len(runes) - 1; pos >= 0; pos-- {
-			ch := runes[pos]
-			w := runewidth.RuneWidth(ch)
-			if fieldWidth-w < 0 {
-				break
-			}
-			_, _, style, _ := screen.GetContent(x+fieldWidth-w, y)
-			style = style.Foreground(i.fieldTextColor)
-			for w > 0 {
-				fieldWidth--
-				screen.SetContent(x+fieldWidth, y, ch, nil, style)
-				w--
-			}
-		}
 	} else {
-		pos := 0
-		for _, ch := range text {
-			w := runewidth.RuneWidth(ch)
-			_, _, style, _ := screen.GetContent(x+pos, y)
-			style = style.Foreground(i.fieldTextColor)
-			for w > 0 {
-				screen.SetContent(x+pos, y, ch, nil, style)
-				pos++
-				w--
-			}
+		// Draw entered text.
+		if i.maskCharacter > 0 {
+			text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
+		} else {
+			text = Escape(text)
+		}
+		fieldWidth-- // We need one cell for the cursor.
+		if fieldWidth < runewidth.StringWidth(text) {
+			Print(screen, text, x, y, fieldWidth, AlignRight, i.fieldTextColor)
+		} else {
+			Print(screen, text, x, y, fieldWidth, AlignLeft, i.fieldTextColor)
 		}
 	}
 
