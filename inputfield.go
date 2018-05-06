@@ -70,6 +70,8 @@ type InputField struct {
 	// possible.
 	fieldWidth int
 
+	cursorPosition int
+
 	// A character to mask entered text (useful for password fields). A value of 0
 	// disables masking.
 	maskCharacter rune
@@ -287,6 +289,11 @@ func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return i
 }
 
+// GetFinishedFunc returns SetDoneFunc().
+func (i *InputField) GetFinishedFunc() func(key tcell.Key) {
+	return i.finished
+}
+
 // Draw draws this primitive onto the screen.
 func (i *InputField) Draw(screen tcell.Screen) {
 	i.Box.Draw(screen)
@@ -362,14 +369,27 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		Print(screen, i.placeholder, x, y, fieldWidth, AlignLeft, i.placeholderTextColor)
 	}
 
+	textWidth := runewidth.StringWidth(text)
 	// Draw entered text.
 	if i.maskCharacter > 0 {
 		text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
 	}
+	if i.cursorPosition < 0 {
+		i.cursorPosition = 0
+	}
+	if i.cursorPosition > textWidth {
+		i.cursorPosition = textWidth
+	}
+
 	fieldWidth-- // We need one cell for the cursor.
-	if fieldWidth < runewidth.StringWidth(text) {
+
+	if fieldWidth < textWidth {
 		runes := []rune(text)
-		for pos := len(runes) - 1; pos >= 0; pos-- {
+		p := len(runes)
+		if i.cursorPosition-1 < textWidth-fieldWidth {
+			p = i.cursorPosition + fieldWidth
+		}
+		for pos := p - 1; pos >= 0; pos-- {
 			ch := runes[pos]
 			w := runewidth.RuneWidth(ch)
 			if fieldWidth-w < 0 {
@@ -413,14 +433,28 @@ func (i *InputField) setCursor(screen tcell.Screen) {
 		y++
 		rightLimit -= 2
 	}
-	fieldWidth := runewidth.StringWidth(i.text)
-	if i.fieldWidth > 0 && fieldWidth > i.fieldWidth-1 {
-		fieldWidth = i.fieldWidth - 1
+
+	cursorIndent := i.cursorPosition
+
+	textWidth := runewidth.StringWidth(i.text)
+	if textWidth > i.fieldWidth {
+		overflow := textWidth - (i.fieldWidth - 2)
+		if overflow > textWidth-cursorIndent {
+
+		}
+		cursorIndent -= overflow
+	}
+	if cursorIndent < 0 {
+		cursorIndent = 0
+	}
+
+	if i.fieldWidth > 0 && cursorIndent > i.fieldWidth-1 {
+		cursorIndent = i.fieldWidth - 1
 	}
 	if i.labelWidth > 0 {
-		x += i.labelWidth + 1 + fieldWidth
+		x += i.labelWidth + 1 + cursorIndent
 	} else {
-		x += StringWidth(i.subLabel+i.label) + 1 + fieldWidth
+		x += StringWidth(i.subLabel+i.label) + 1 + cursorIndent
 	}
 	if x >= rightLimit {
 		x = rightLimit - 1
@@ -442,12 +476,13 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyRune: // Regular character.
-			newText := i.text + string(event.Rune())
+			newText := i.text[0:i.cursorPosition] + string(event.Rune()) + i.text[i.cursorPosition:]
 			if i.accept != nil {
 				if !i.accept(newText, event.Rune()) {
 					break
 				}
 			}
+			i.cursorPosition++
 			i.text = newText
 		case tcell.KeyCtrlU: // Delete all.
 			i.text = ""
@@ -455,11 +490,30 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			lastWord := regexp.MustCompile(`\s*\S+\s*$`)
 			i.text = lastWord.ReplaceAllString(i.text, "")
 		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete last character.
-			if len(i.text) == 0 {
+			if len(i.text) == 0 || i.cursorPosition < 1 {
 				break
 			}
+			newText := i.text[0:i.cursorPosition-1] + i.text[i.cursorPosition:]
 			runes := []rune(i.text)
-			i.text = string(runes[:len(runes)-1])
+			if i.accept != nil {
+				if !i.accept(newText, runes[i.cursorPosition-1]) {
+					break
+				}
+			}
+			i.cursorPosition--
+			i.text = newText
+		case tcell.KeyDelete:
+			if len(i.text) == 0 || i.cursorPosition < 1 || len(i.text) == i.cursorPosition {
+				break
+			}
+			newText := i.text[0:i.cursorPosition] + i.text[i.cursorPosition+1:]
+			runes := []rune(i.text)
+			if i.accept != nil {
+				if !i.accept(newText, runes[i.cursorPosition]) {
+					break
+				}
+			}
+			i.text = newText
 		case tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if i.done != nil {
 				i.done(key)
@@ -467,6 +521,14 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			if i.finished != nil {
 				i.finished(key)
 			}
+		case tcell.KeyLeft:
+			i.cursorPosition--
+		case tcell.KeyRight:
+			i.cursorPosition++
+		case tcell.KeyHome:
+			i.cursorPosition = 0
+		case tcell.KeyEnd:
+			i.cursorPosition = runewidth.StringWidth(i.text)
 		}
 	})
 }

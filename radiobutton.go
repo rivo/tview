@@ -76,10 +76,16 @@ type RadioButtons struct {
 
 	labelWidth int
 
+	joinElements   []*RadioButtons
+	currentElement int
 	// An optional function which is called when the user indicated that they
 	// are done selecting options. The key which was pressed is provided (tab,
 	// shift-tab, or escape).
 	done func(tcell.Key)
+
+	// A callback function set by the Form class and called when the user leaves
+	// this form item.
+	finished func(tcell.Key)
 
 	// If set to true, instead of position items and buttons from top to bottom,
 	// they are positioned from left to right.
@@ -90,6 +96,8 @@ type RadioButtons struct {
 	// An optional function which is called when the user has navigated to a list
 	// item.
 	changed func(*RadioOption)
+
+	inputHandler func() func(event *tcell.EventKey, setFocus func(p Primitive))
 }
 
 // NewRadioButtons returns a new radio button primitive.
@@ -108,7 +116,20 @@ func NewRadioButtons() *RadioButtons {
 	}
 
 	r.focus = r
+	r.joinElements = append(r.joinElements, r)
+	r.inputHandler = r.defaultInputHandler
 
+	return r
+}
+
+// Join combines two element the same type in one, for navigation
+func (r *RadioButtons) Join(elements ...*RadioButtons) *RadioButtons {
+	for i := 0; i < len(elements); i++ {
+		elements[i].inputHandler = r.inputHandler
+		elements[i].id = r.id
+		elements[i].currentOption = -1
+	}
+	r.joinElements = append(r.joinElements, elements...)
 	return r
 }
 
@@ -133,28 +154,81 @@ func (r *RadioButtons) SetAlign(align int) *RadioButtons {
 	return r
 }
 
+// Focus is called when this primitive receives focus.
+func (r *RadioButtons) Focus(delegate func(p Primitive)) {
+	if r != r.joinElements[r.currentElement] {
+		delegate(r.joinElements[r.currentElement])
+		return
+	}
+	r.hasFocus = true
+}
+
 // InputHandler returns the handler for this primitive.
 func (r *RadioButtons) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	if r.inputHandler != nil {
+		return r.inputHandler()
+	}
+	return r.Box.InputHandler()
+}
+
+// InputHandler returns the handler for this primitive.
+func (r *RadioButtons) defaultInputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return r.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		parent := r
+		r = parent.joinElements[parent.currentElement]
+
 		switch key := event.Key(); key {
 		case tcell.KeyUp, tcell.KeyLeft:
 			r.currentOption--
 			if r.currentOption < 0 {
+				if len(parent.joinElements) > 1 {
+					parent.currentElement--
+					if parent.currentElement < 0 {
+						parent.currentElement = len(parent.joinElements) - 1
+					}
+					nextElement := parent.joinElements[parent.currentElement]
+					setFocus(nextElement)
+					nextElement.currentOption = len(nextElement.options) - 1
+					break
+				}
 				r.currentOption = len(r.options) - 1 - int(math.Mod(float64(len(r.options)), float64(r.currentOption)))
+			}
+			if r.changed != nil {
+				r.changed(r.options[r.currentOption])
 			}
 		case tcell.KeyDown, tcell.KeyRight:
 			r.currentOption++
 			if r.currentOption >= len(r.options) {
+				if len(parent.joinElements) > 1 {
+					parent.currentElement++
+					if parent.currentElement >= len(parent.joinElements) {
+						parent.currentElement = 0
+					}
+					nextElement := parent.joinElements[parent.currentElement]
+					setFocus(nextElement)
+					nextElement.currentOption = 0
+					break
+				}
 				r.currentOption = int(math.Mod(float64(len(r.options)), float64(r.currentOption)))
 			}
-		case tcell.KeyEnter, tcell.KeyRune: // We're done.
-			r.selectedOption = r.currentOption
 			if r.changed != nil {
 				r.changed(r.options[r.currentOption])
 			}
-		case tcell.KeyTab, tcell.KeyBacktab: // We're done.
-			if r.done != nil {
-				r.done(key)
+		case tcell.KeyEnter, tcell.KeyRune: // We're done.
+			for index, element := range parent.joinElements {
+				if parent.currentElement != index {
+					element.currentOption = -1
+				}
+			}
+			if r.changed != nil {
+				r.changed(r.options[r.currentOption])
+			}
+		case tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
+			if parent.done != nil {
+				parent.done(key)
+			}
+			if parent.finished != nil {
+				parent.finished(key)
 			}
 		}
 	})
@@ -261,7 +335,13 @@ func (r *RadioButtons) SetDoneFunc(handler func(key tcell.Key)) *RadioButtons {
 
 // SetFinishedFunc calls SetDoneFunc().
 func (r *RadioButtons) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	return r.SetDoneFunc(handler)
+	r.finished = handler
+	return r
+}
+
+// GetFinishedFunc returns SetDoneFunc().
+func (r *RadioButtons) GetFinishedFunc() func(key tcell.Key) {
+	return r.finished
 }
 
 // SetLabel sets the text to be displayed before the input area.
@@ -328,9 +408,9 @@ func (r *RadioButtons) SetHorizontal(horizontal bool) *RadioButtons {
 func (r *RadioButtons) SetCurrentOptionByName(name string) *RadioButtons {
 	for i := 0; i < len(r.options); i++ {
 		if r.options[i].Name == name {
-			r.selectedOption = i
+			r.currentOption = i
 			if r.changed != nil {
-				r.changed(r.options[r.selectedOption])
+				r.changed(r.options[r.currentOption])
 			}
 			break
 		}
@@ -341,9 +421,9 @@ func (r *RadioButtons) SetCurrentOptionByName(name string) *RadioButtons {
 // SetCurrentOption sets the index of the currently selected option. This may
 // be a negative value to indicate that no option is currently selected.
 func (r *RadioButtons) SetCurrentOption(index int) *RadioButtons {
-	r.selectedOption = index
+	r.currentOption = index
 	if r.changed != nil {
-		r.changed(r.options[r.selectedOption])
+		r.changed(r.options[r.currentOption])
 	}
 	return r
 }
@@ -351,12 +431,20 @@ func (r *RadioButtons) SetCurrentOption(index int) *RadioButtons {
 // GetCurrentOption returns the index of the currently selected option as well
 // as its text. If no option was selected, -1 and an empty string is returned.
 func (r *RadioButtons) GetCurrentOption() *RadioOption {
-	return r.options[r.selectedOption]
+	r = r.joinElements[r.currentElement]
+	if len(r.options) > r.currentOption {
+		return r.options[r.currentOption]
+	}
+	return nil
 }
 
 // GetCurrentOptionName returns the name of the currently selected option.
 func (r *RadioButtons) GetCurrentOptionName() string {
-	return r.options[r.selectedOption].Name
+	r = r.joinElements[r.currentElement]
+	if len(r.options) > r.currentOption {
+		return r.options[r.currentOption].Name
+	}
+	return ""
 }
 
 // SetChangedFunc sets the function which is called when the user navigates to
@@ -420,7 +508,7 @@ func (r *RadioButtons) Draw(screen tcell.Screen) {
 			break
 		}
 		radioButton := Styles.GraphicsRadioUnchecked // Unchecked.
-		if index == r.selectedOption {
+		if index == r.currentOption {
 			radioButton = Styles.GraphicsRadioChecked // Checked.
 		}
 

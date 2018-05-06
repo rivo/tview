@@ -2,7 +2,6 @@ package tview
 
 import (
 	"github.com/gdamore/tcell"
-	"github.com/rivo/tview"
 )
 
 // DefaultFormFieldWidth is the default field screen width of form elements
@@ -40,6 +39,8 @@ type FormItem interface {
 	// Enter key (we're done), the Escape key (cancel input), the Tab key (move to
 	// next field), and the Backtab key (move to previous field).
 	SetFinishedFunc(handler func(key tcell.Key)) FormItem
+
+	GetID() int
 }
 
 // Form allows you to combine multiple one-line form elements into a vertical
@@ -64,8 +65,8 @@ type Form struct {
 	// The alignment of the buttons.
 	buttonsAlign int
 
-	buttonsPaddingTop      int
-	buttonsPaddingSeparate int
+	buttonsPaddingTop int
+	buttonsIndent     int
 
 	// The number of empty rows between items.
 	itemPadding int
@@ -105,17 +106,17 @@ func NewForm() *Form {
 	box := NewBox().SetBorderPadding(1, 1, 1, 1)
 
 	f := &Form{
-		Box:                    box,
-		align:                  AlignLeft,
-		columnPadding:          1,
-		itemPadding:            1,
-		buttonsPaddingTop:      2,
-		buttonsPaddingSeparate: 4,
-		labelColor:             Styles.LabelTextColor,
-		fieldBackgroundColor:   Styles.FieldBackgroundColor,
-		fieldTextColor:         Styles.FieldTextColor,
-		buttonBackgroundColor:  Styles.ButtonBackgroundColor,
-		buttonTextColor:        Styles.ButtonTextColor,
+		Box:                   box,
+		align:                 AlignLeft,
+		columnPadding:         1,
+		itemPadding:           1,
+		buttonsPaddingTop:     2,
+		buttonsIndent:         4,
+		labelColor:            Styles.LabelTextColor,
+		fieldBackgroundColor:  Styles.FieldBackgroundColor,
+		fieldTextColor:        Styles.FieldTextColor,
+		buttonBackgroundColor: Styles.ButtonBackgroundColor,
+		buttonTextColor:       Styles.ButtonTextColor,
 	}
 
 	f.width = 0
@@ -143,6 +144,18 @@ func (f *Form) SetItemPadding(padding int) *Form {
 // SetColumnPadding sets the number of empty rows between form columns.
 func (f *Form) SetColumnPadding(padding int) *Form {
 	f.columnPadding = padding
+	return f
+}
+
+// SetButtonPadding sets the number of empty rows between fields.
+func (f *Form) SetButtonPadding(padding int) *Form {
+	f.buttonsPaddingTop = padding
+	return f
+}
+
+// SetButtonIndent makes indent between buttons
+func (f *Form) SetButtonIndent(padding int) *Form {
+	f.buttonsIndent = padding
 	return f
 }
 
@@ -305,6 +318,13 @@ func (f *Form) GetFormItem(index int) FormItem {
 	return f.items[index]
 }
 
+// GetFormButton returns the form element at the given position, starting with
+// index 0. Elements are referenced in the order they were added. Buttons are
+// not included.
+func (f *Form) GetFormButton(index int) *Button {
+	return f.buttons[index]
+}
+
 // GetFormItemByLabel returns the first form element with the given label. If
 // no such element is found, nil is returned. Buttons are not searched and will
 // therefore not be returned.
@@ -344,21 +364,7 @@ func (f *Form) GetRect() (int, int, int, int) {
 	}
 
 	if height == 0 {
-		maxHeight := make([]int, maxColumns)
-		if len(f.items) > 0 {
-			for i := 0; i < len(f.items); i++ {
-				column := f.itemsColumn[i]
-				_, _, _, h := f.items[i].GetRect()
-				maxHeight[column] += h + f.itemPadding
-			}
-
-			for column := 0; column < maxColumns; column++ {
-				if height < maxHeight[column] {
-					height = maxHeight[column]
-				}
-			}
-			height -= f.itemPadding
-		}
+		height = f.getMaxHeightColumn()
 
 		if len(f.buttons) > 0 {
 			height += 1 + f.buttonsPaddingTop
@@ -380,6 +386,28 @@ func (f *Form) getColoumnsCount() int {
 		}
 	}
 	return maxColumns + 1
+}
+
+func (f *Form) getMaxHeightColumn() (height int) {
+	maxColumns := f.getColoumnsCount()
+	maxHeight := make([]int, maxColumns)
+
+	if len(f.items) > 0 {
+		for i := 0; i < len(f.items); i++ {
+			column := f.itemsColumn[i]
+			_, _, _, h := f.items[i].GetRect()
+			maxHeight[column] += h + f.itemPadding
+		}
+
+		for column := 0; column < maxColumns; column++ {
+			if height < maxHeight[column] {
+				height = maxHeight[column]
+			}
+		}
+		height -= f.itemPadding
+	}
+
+	return
 }
 
 func (f *Form) getMaxWidthItems() (maxWidth, maxLabelWidth, maxFieldWidth []int) {
@@ -442,9 +470,9 @@ func (f *Form) Draw(screen tcell.Screen) {
 	}
 
 	switch f.align {
-	case tview.AlignCenter:
+	case AlignCenter:
 		x += (boxWidth - maxWidth) / 2
-	case tview.AlignRight:
+	case AlignRight:
 		x += boxWidth - maxWidth
 	}
 
@@ -460,8 +488,8 @@ func (f *Form) Draw(screen tcell.Screen) {
 	var focusedPosition struct{ x, y, width, height int }
 	for index, item := range f.items {
 		column := f.itemsColumn[index]
-		x = colX[column]
-		y = colY[column]
+		x := colX[column]
+		y := colY[column]
 		_, _, leftPadding, rightPadding := item.GetBorderPadding()
 		labelWidth := item.GetLabelWidth() + leftPadding
 		fieldWidth := item.GetFieldWidth() + rightPadding
@@ -523,13 +551,15 @@ func (f *Form) Draw(screen tcell.Screen) {
 		colY[column] = y
 	}
 
+	y = topLimit + f.getMaxHeightColumn()
+
 	// How wide are the buttons?
 	buttonWidths := make([]int, len(f.buttons))
 	buttonsWidth := 0
 	for index, button := range f.buttons {
 		w := StringWidth(button.GetLabel()) + 4
 		buttonWidths[index] = w
-		buttonsWidth += w + f.buttonsPaddingSeparate
+		buttonsWidth += w + f.buttonsIndent
 	}
 	buttonsWidth--
 
@@ -542,17 +572,16 @@ func (f *Form) Draw(screen tcell.Screen) {
 		}
 
 		// In vertical layouts, buttons always appear after an empty line.
-		if f.itemPadding == 0 {
-			y++
-		}
+		// if f.itemPadding == 0 {
+		// 	y++
+		// }
 
 	}
-	if len(f.items) > 0 {
-		y -= f.itemPadding
-	}
+
 	if len(f.buttons) > 0 {
 		y += f.buttonsPaddingTop
 	}
+
 	// Calculate positions of buttons.
 	for index, button := range f.buttons {
 		space := rightLimit - x
@@ -586,7 +615,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 			focusedPosition = positions[buttonIndex]
 		}
 
-		x += buttonWidth + f.buttonsPaddingSeparate
+		x += buttonWidth + f.buttonsIndent
 	}
 
 	// Determine vertical offset based on the position of the focused item.
@@ -651,10 +680,57 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 	if f.focusedElement < 0 || f.focusedElement >= len(f.items)+len(f.buttons) {
 		f.focusedElement = 0
 	}
-	handler := func(key tcell.Key) {
+
+	itemHandler := func(key tcell.Key) {
 		switch key {
 		case tcell.KeyTab, tcell.KeyEnter:
+			previous := f.focusedElement
+			for {
+				f.focusedElement++
+				if f.focusedElement < len(f.items) && f.items[previous].GetID() == f.items[f.focusedElement].GetID() {
+					continue
+				}
+				break
+			}
+			f.Focus(delegate)
+		case tcell.KeyBacktab:
+			f.focusedElement--
+			if f.focusedElement < 0 {
+				f.focusedElement = len(f.items) + len(f.buttons) - 1
+			}
+			f.Focus(delegate)
+		case tcell.KeyEscape:
+			if f.cancel != nil {
+				f.cancel()
+			} else {
+				f.focusedElement = 0
+				f.Focus(delegate)
+			}
+		}
+	}
+
+	buttonHandler := func(key tcell.Key) {
+		switch key {
+		case tcell.KeyRight:
+			f.focusedElement--
+			if f.focusedElement <= len(f.items)-1 {
+				f.focusedElement = len(f.items) + len(f.buttons) - 1
+			}
+			f.Focus(delegate)
+		case tcell.KeyLeft:
 			f.focusedElement++
+			if f.focusedElement >= len(f.items)+len(f.buttons) {
+				f.focusedElement = len(f.items)
+			}
+			f.Focus(delegate)
+		case tcell.KeyTab:
+			for {
+				f.focusedElement++
+				if f.focusedElement >= len(f.items) && f.focusedElement < len(f.items)+len(f.buttons) {
+					continue
+				}
+				break
+			}
 			f.Focus(delegate)
 		case tcell.KeyBacktab:
 			f.focusedElement--
@@ -675,12 +751,13 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 	if f.focusedElement < len(f.items) {
 		// We're selecting an item.
 		item := f.items[f.focusedElement]
-		item.SetFinishedFunc(handler)
+		item.SetFinishedFunc(itemHandler)
 		delegate(item)
 	} else {
 		// We're selecting a button.
-		button := f.buttons[f.focusedElement-len(f.items)]
-		button.SetBlurFunc(handler)
+		//		fmt.Println(len(f.buttons) - 1 - (f.focusedElement - len(f.items)))
+		button := f.buttons[len(f.buttons)-1-(f.focusedElement-len(f.items))]
+		button.SetBlurFunc(buttonHandler)
 		delegate(button)
 	}
 }

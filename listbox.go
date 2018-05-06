@@ -56,6 +56,7 @@ type ListBox struct {
 	// The index of the currently selected item.
 	currentItem int
 
+	offset int
 	// Whether or not to show the secondary item texts.
 	showSecondaryText bool
 
@@ -84,6 +85,10 @@ type ListBox struct {
 
 	// An optional function which is called when the user presses the Escape key.
 	done func(tcell.Key)
+
+	// A callback function set by the Form class and called when the user leaves
+	// this form item.
+	finished func(tcell.Key)
 }
 
 // NewListBox returns a new form.
@@ -96,8 +101,8 @@ func NewListBox() *ListBox {
 		selectedTextColor:       Styles.PrimitiveBackgroundColor,
 		selectedBackgroundColor: Styles.PrimaryTextColor,
 		labelColor:              Styles.SecondaryTextColor,
-		fieldBackgroundColor:    Styles.ContrastBackgroundColor,
-		fieldTextColor:          Styles.PrimaryTextColor,
+		fieldBackgroundColor:    Styles.FieldBackgroundColor,
+		fieldTextColor:          Styles.FieldTextColor,
 		align:                   AlignLeft,
 		labelFiller:             " ",
 	}
@@ -109,7 +114,9 @@ func NewListBox() *ListBox {
 // SetCurrentItem sets the currently selected item by its index. This triggers
 // a "changed" event.
 func (l *ListBox) SetCurrentItem(index int) *ListBox {
+	_, _, _, height := l.GetInnerRect()
 	l.currentItem = index
+	l.offset = l.currentItem - height/2
 	if l.currentItem < len(l.items) && l.changed != nil {
 		item := l.items[l.currentItem]
 		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
@@ -132,6 +139,14 @@ func (l *ListBox) SetCurrentItemByText(text string) *ListBox {
 // GetCurrentItem returns the index of the currently selected list item.
 func (l *ListBox) GetCurrentItem() int {
 	return l.currentItem
+}
+
+// GetCurrentItemText returns the index of the currently selected list item.
+func (l *ListBox) GetCurrentItemText() string {
+	if len(l.items) == 0 {
+		return ""
+	}
+	return l.items[l.currentItem].MainText
 }
 
 // SetMainTextColor sets the color of the items' main text.
@@ -249,20 +264,21 @@ func (l *ListBox) Draw(screen tcell.Screen) {
 	}
 
 	// We want to keep the current selection in view. What is our offset?
-	var offset int
 	if l.showSecondaryText {
 		if l.currentItem >= height/2 {
-			offset = l.currentItem + 1 - (height / 2)
+			l.offset = l.currentItem + 1 - (height / 2)
 		}
 	} else {
-		if l.currentItem >= height {
-			offset = l.currentItem + 1 - height
+		if l.offset > 0 && l.offset > l.currentItem {
+			l.offset--
+		} else if l.currentItem >= height && l.offset <= l.currentItem-height {
+			l.offset = l.currentItem + 1 - height
 		}
 	}
 
 	// Draw the list items.
 	for index, item := range l.items {
-		if index < offset {
+		if index < l.offset {
 			continue
 		}
 
@@ -287,11 +303,14 @@ func (l *ListBox) Draw(screen tcell.Screen) {
 				if fg == l.mainTextColor {
 					fg = l.selectedTextColor
 				}
-				style = style.Background(l.selectedBackgroundColor).Foreground(fg)
+				if l.focus.HasFocus() {
+					style = style.Background(l.fieldBackgroundColor).Foreground(fg)
+				} else {
+					style = style.Background(l.fieldTextColor).Foreground(l.fieldBackgroundColor).Underline(true)
+				}
 				screen.SetContent(x+bx, y, m, c, style)
 			}
 		}
-
 		y++
 
 		if y >= bottomLimit {
@@ -313,19 +332,49 @@ func (l *ListBox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pri
 		previousItem := l.currentItem
 
 		switch key := event.Key(); key {
-		case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
+		case tcell.KeyTab, tcell.KeyBacktab: // We're done.
+			if l.done != nil {
+				l.done(key)
+			}
+			if l.finished != nil {
+				l.finished(key)
+			}
+		case tcell.KeyDown, tcell.KeyRight:
 			l.currentItem++
-		case tcell.KeyBacktab, tcell.KeyUp, tcell.KeyLeft:
+			if l.currentItem >= len(l.items) {
+				l.currentItem = 0
+				l.offset = 0
+			}
+		case tcell.KeyUp, tcell.KeyLeft:
 			l.currentItem--
+			if l.currentItem < 0 {
+				l.currentItem = len(l.items) - 1
+			}
 		case tcell.KeyHome:
 			l.currentItem = 0
 		case tcell.KeyEnd:
 			l.currentItem = len(l.items) - 1
 		case tcell.KeyPgDn:
-			l.currentItem += height
+			if l.currentItem < l.offset+height-1 {
+				l.currentItem = l.offset + height - 1
+			} else {
+				l.currentItem += height
+			}
+			if l.currentItem >= len(l.items) {
+				l.currentItem = 0
+				l.offset = 0
+			}
 		case tcell.KeyPgUp:
-			l.currentItem -= height
+			if l.currentItem > l.offset {
+				l.currentItem = l.offset
+			} else {
+				l.currentItem -= height
+				l.offset = l.currentItem
+			}
 		case tcell.KeyEnter:
+			if len(l.items) == 0 {
+				break
+			}
 			item := l.items[l.currentItem]
 			if item.Selected != nil {
 				item.Selected()
@@ -336,6 +385,9 @@ func (l *ListBox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pri
 		case tcell.KeyEscape:
 			if l.done != nil {
 				l.done(key)
+			}
+			if l.finished != nil {
+				l.finished(key)
 			}
 		case tcell.KeyRune:
 			ch := event.Rune()
@@ -439,7 +491,13 @@ func (l *ListBox) GetLabel() string {
 
 // SetFinishedFunc calls SetDoneFunc().
 func (l *ListBox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	return l.SetDoneFunc(handler)
+	l.finished = handler
+	return l
+}
+
+// GetFinishedFunc returns SetDoneFunc().
+func (l *ListBox) GetFinishedFunc() func(key tcell.Key) {
+	return l.finished
 }
 
 // SetFormAttributes sets attributes shared by all form items.

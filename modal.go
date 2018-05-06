@@ -40,9 +40,10 @@ func NewModal() *Modal {
 	}
 	m.form = NewForm().
 		SetButtonsAlign(AlignCenter).
-		SetButtonBackgroundColor(Styles.PrimitiveBackgroundColor).
-		SetButtonTextColor(Styles.PrimaryTextColor)
-	m.form.SetBackgroundColor(Styles.ContrastBackgroundColor).SetBorderPadding(0, 0, 0, 0)
+		SetButtonBackgroundColor(Styles.ButtonBackgroundColor).
+		SetButtonTextColor(Styles.ButtonTextColor)
+	m.form.SetButtonPadding(0)
+	m.form.SetBackgroundColor(Styles.ModalBackgroundColor).SetBorderPadding(0, 0, 0, 0)
 	m.frame = NewFrame(m.form).SetBorders(0, 0, 1, 0, 0, 0)
 	m.frame.SetBorder(true).
 		SetBackgroundColor(Styles.ModalBackgroundColor).
@@ -71,6 +72,12 @@ func (m *Modal) SetDoneFunc(handler func(buttonIndex int, buttonLabel string)) *
 // window.
 func (m *Modal) SetText(text string) *Modal {
 	m.text = text
+	return m
+}
+
+// SetTip is hard code, which will need to fix
+func (m *Modal) SetTip() *Modal {
+	m.form.AddFormItem(NewInputField())
 	return m
 }
 

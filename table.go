@@ -411,7 +411,14 @@ func (t *Table) GetColumnCount() int {
 
 // GetPageCount returns quantity of pages
 func (t *Table) GetPageCount() int {
-	return t.GetRowCount() / t.visibleRows
+	_, _, _, height := t.GetInnerRect()
+
+	visibleRows := height
+	if t.borders {
+		visibleRows = height / 2
+	}
+
+	return t.GetRowCount() / visibleRows
 }
 
 // ScrollToBeginning scrolls the table to the beginning to that the top left

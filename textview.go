@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"unicode/utf8"
 
@@ -85,6 +86,8 @@ type TextView struct {
 	sync.Mutex
 	*Box
 
+	maxWidth, maxHeight, minWidth, minHeight int
+
 	// The text buffer.
 	buffer []string
 
@@ -160,11 +163,15 @@ type TextView struct {
 	done func(tcell.Key)
 
 	scrollEnded func(screen tcell.Screen)
+
+	// A callback function set by the Form class and called when the user leaves
+	// this form item.
+	finished func(tcell.Key)
 }
 
 // NewTextView returns a new text view.
 func NewTextView() *TextView {
-	return &TextView{
+	textview := &TextView{
 		Box:           NewBox(),
 		highlights:    make(map[string]struct{}),
 		lineOffset:    -1,
@@ -174,6 +181,23 @@ func NewTextView() *TextView {
 		textColor:     Styles.PrimaryTextColor,
 		dynamicColors: false,
 	}
+	textview.height = 0
+
+	return textview
+}
+
+// SetMinSize sets min size of the box
+func (t *TextView) SetMinSize(width, height int) *TextView {
+	t.minWidth = width
+	t.minHeight = height
+	return t
+}
+
+// SetMaxSize sets max size of the box
+func (t *TextView) SetMaxSize(width, height int) *TextView {
+	t.maxWidth = width
+	t.maxHeight = height
+	return t
 }
 
 // SetScrollable sets the flag that decides whether or not the text view is
@@ -648,6 +672,31 @@ func (t *TextView) reindexBuffer(width int) {
 	}
 }
 
+// GetInnerRect returns the position of the inner rectangle (x, y, width,
+// height), without the border and without any padding.
+func (t *TextView) GetInnerRect() (int, int, int, int) {
+	x, y, boxWidth, boxHeight := t.Box.GetInnerRect()
+
+	width := boxWidth
+	switch {
+	case t.maxWidth > 0 && width > t.maxWidth:
+		width = t.maxWidth
+		x += (boxWidth - width) / 2
+	case t.minWidth > 0 && width < t.minWidth:
+		width = t.minWidth
+	}
+
+	height := boxHeight
+	switch {
+	case t.maxHeight > 0 && height > t.maxHeight:
+		height = t.maxHeight
+	case t.minHeight > 0 && height < t.minHeight:
+		height = t.minHeight
+	}
+
+	return x, y, width, height
+}
+
 // Draw draws this primitive onto the screen.
 func (t *TextView) Draw(screen tcell.Screen) {
 	t.Lock()
@@ -844,8 +893,8 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			if highlighted {
 				fg, bg, _ := style.Decompose()
 				if bg == tcell.ColorDefault {
-					r, g, b := fg.RGB()
-					c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
+					r, g, t := fg.RGB()
+					c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(t) / 255}
 					_, _, li := c.Hcl()
 					if li < .5 {
 						bg = tcell.ColorWhite
@@ -878,10 +927,12 @@ func (t *TextView) Draw(screen tcell.Screen) {
 func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		key := event.Key()
-
 		if key == tcell.KeyEscape || key == tcell.KeyEnter || key == tcell.KeyTab || key == tcell.KeyBacktab {
 			if t.done != nil {
 				t.done(key)
+			}
+			if t.finished != nil {
+				t.finished(key)
 			}
 			return
 		}
@@ -933,4 +984,59 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.lineOffset -= t.pageSize
 		}
 	})
+}
+
+// GetLabel returns the text to be displayed before the input area.
+func (t *TextView) GetLabel() string {
+	return strings.Join(t.buffer, " ")
+}
+
+// GetLabelWidth returns label width.
+func (t *TextView) GetLabelWidth() int {
+	return StringWidth(strings.Replace(strings.Join(t.buffer, " "), "%s", "", -1))
+}
+
+// SetFieldAlign sets the input alignment within the radiobutton box. This must be
+// either AlignLeft, AlignCenter, or AlignRight.
+func (t *TextView) SetFieldAlign(align int) FormItem {
+	t.align = align
+	return t
+}
+
+// GetFieldWidth returns this primitive's field width.
+func (t *TextView) GetFieldWidth() int {
+	return 0
+}
+
+// GetFieldAlign returns the input alignment within the radiobutton box.
+func (t *TextView) GetFieldAlign() (align int) {
+	return t.align
+}
+
+// SetFormAttributes sets attributes shared by all form items.
+func (t *TextView) SetFormAttributes(labelWidth, fieldWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	t.height = 1
+	t.textColor = labelColor
+	t.backgroundColor = bgColor
+	return t
+}
+
+// SetFinishedFunc sets a callback invoked when the user leaves this form item.
+func (t *TextView) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
+	t.finished = handler
+	return t
+}
+
+// GetFinishedFunc returns SetDoneFunc().
+func (t *TextView) GetFinishedFunc() func(key tcell.Key) {
+	return t.finished
+}
+
+// Focus is called when this primitive receives focus.
+func (t *TextView) Focus(delegate func(p Primitive)) {
+	if t.finished != nil {
+		t.finished(tcell.KeyTAB)
+		return
+	}
+	t.hasFocus = true
 }

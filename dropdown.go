@@ -289,6 +289,11 @@ func (d *DropDown) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return d
 }
 
+// GetFinishedFunc returns SetDoneFunc().
+func (d *DropDown) GetFinishedFunc() func(key tcell.Key) {
+	return d.finished
+}
+
 // Draw draws this primitive onto the screen.
 func (d *DropDown) Draw(screen tcell.Screen) {
 	d.Box.Draw(screen)
