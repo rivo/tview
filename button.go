@@ -25,6 +25,8 @@ type Button struct {
 	// An optional function which is called when the button was selected.
 	selected func()
 
+	hidden bool
+
 	// An optional function which is called when the user leaves the button. A
 	// key is provided indicating which key was pressed to leave (tab or backtab).
 	blur func(tcell.Key)
@@ -32,15 +34,26 @@ type Button struct {
 
 // NewButton returns a new input field.
 func NewButton(label string) *Button {
-	box := NewBox().SetBackgroundColor(Styles.ContrastBackgroundColor)
+	box := NewBox().SetBackgroundColor(Styles.ButtonBackgroundColor)
 	box.SetRect(0, 0, StringWidth(label)+4, 1)
 	return &Button{
 		Box:                      box,
 		label:                    label,
-		labelColor:               Styles.PrimaryTextColor,
+		labelColor:               Styles.ButtonTextColor,
 		labelColorActivated:      Styles.InverseTextColor,
 		backgroundColorActivated: Styles.PrimaryTextColor,
 	}
+}
+
+// SetHidden hides button
+func (b *Button) SetHidden(hidden bool) *Button {
+	b.hidden = hidden
+	return b
+}
+
+// GetHidden returns state of button
+func (b *Button) GetHidden() bool {
+	return b.hidden
 }
 
 // SetLabel sets the button text.
@@ -94,6 +107,9 @@ func (b *Button) SetBlurFunc(handler func(key tcell.Key)) *Button {
 
 // Draw draws this primitive onto the screen.
 func (b *Button) Draw(screen tcell.Screen) {
+	if b.hidden {
+		return
+	}
 	// Draw the box.
 	borderColor := b.borderColor
 	backgroundColor := b.backgroundColor
@@ -128,7 +144,7 @@ func (b *Button) InputHandler() func(event *tcell.EventKey, setFocus func(p Prim
 			if b.selected != nil {
 				b.selected()
 			}
-		case tcell.KeyBacktab, tcell.KeyTab, tcell.KeyEscape: // Leave. No action.
+		case tcell.KeyBacktab, tcell.KeyTab, tcell.KeyEscape, tcell.KeyLeft, tcell.KeyRight: // Leave. No action.
 			if b.blur != nil {
 				b.blur(key)
 			}

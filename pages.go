@@ -227,6 +227,7 @@ func (p *Pages) Focus(delegate func(p Primitive)) {
 			topItem = page.Item
 		}
 	}
+
 	if topItem != nil {
 		delegate(topItem)
 	}

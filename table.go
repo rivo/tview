@@ -409,6 +409,18 @@ func (t *Table) GetColumnCount() int {
 	return t.lastColumn + 1
 }
 
+// GetPageCount returns quantity of pages
+func (t *Table) GetPageCount() int {
+	_, _, _, height := t.GetInnerRect()
+
+	visibleRows := height
+	if t.borders {
+		visibleRows = height / 2
+	}
+
+	return t.GetRowCount() / visibleRows
+}
+
 // ScrollToBeginning scrolls the table to the beginning to that the top left
 // corner of the table is shown. Note that this position may be corrected if
 // there is a selection.
@@ -649,24 +661,24 @@ ColumnLoop:
 				// Draw borders.
 				rowY *= 2
 				for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
-					drawBorder(columnX+pos+1, rowY, GraphicsHoriBar)
+					drawBorder(columnX+pos+1, rowY, Styles.GraphicsHoriBar)
 				}
-				ch := GraphicsCross
+				ch := Styles.GraphicsCross
 				if columnIndex == 0 {
 					if rowY == 0 {
-						ch = GraphicsTopLeftCorner
+						ch = Styles.GraphicsTopLeftCorner
 					} else {
-						ch = GraphicsLeftT
+						ch = Styles.GraphicsLeftT
 					}
 				} else if rowY == 0 {
-					ch = GraphicsTopT
+					ch = Styles.GraphicsTopT
 				}
 				drawBorder(columnX, rowY, ch)
 				rowY++
 				if rowY >= height {
 					break // No space for the text anymore.
 				}
-				drawBorder(columnX, rowY, GraphicsVertBar)
+				drawBorder(columnX, rowY, Styles.GraphicsVertBar)
 			} else if columnIndex > 0 {
 				// Draw separator.
 				drawBorder(columnX, rowY, t.separator)
@@ -688,18 +700,18 @@ ColumnLoop:
 			if StringWidth(cell.Text)-printed > 0 && printed > 0 {
 				_, _, style, _ := screen.GetContent(x+columnX+1+finalWidth-1, y+rowY)
 				fg, _, _ := style.Decompose()
-				Print(screen, string(GraphicsEllipsis), x+columnX+1+finalWidth-1, y+rowY, 1, AlignLeft, fg)
+				Print(screen, string(Styles.GraphicsEllipsis), x+columnX+1+finalWidth-1, y+rowY, 1, AlignLeft, fg)
 			}
 		}
 
 		// Draw bottom border.
 		if rowY := 2 * len(rows); t.borders && rowY < height {
 			for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
-				drawBorder(columnX+pos+1, rowY, GraphicsHoriBar)
+				drawBorder(columnX+pos+1, rowY, Styles.GraphicsHoriBar)
 			}
-			ch := GraphicsBottomT
+			ch := Styles.GraphicsBottomT
 			if columnIndex == 0 {
-				ch = GraphicsBottomLeftCorner
+				ch = Styles.GraphicsBottomLeftCorner
 			}
 			drawBorder(columnX, rowY, ch)
 		}
@@ -712,16 +724,16 @@ ColumnLoop:
 		for rowY := range rows {
 			rowY *= 2
 			if rowY+1 < height {
-				drawBorder(columnX, rowY+1, GraphicsVertBar)
+				drawBorder(columnX, rowY+1, Styles.GraphicsVertBar)
 			}
-			ch := GraphicsRightT
+			ch := Styles.GraphicsRightT
 			if rowY == 0 {
-				ch = GraphicsTopRightCorner
+				ch = Styles.GraphicsTopRightCorner
 			}
 			drawBorder(columnX, rowY, ch)
 		}
 		if rowY := 2 * len(rows); rowY < height {
-			drawBorder(columnX, rowY, GraphicsBottomRightCorner)
+			drawBorder(columnX, rowY, Styles.GraphicsBottomRightCorner)
 		}
 	}
 

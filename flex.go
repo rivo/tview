@@ -90,6 +90,12 @@ func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *F
 	return f
 }
 
+// AddModal adds a new model window
+func (f *Flex) AddModal(item Primitive) *Flex {
+	f.items = append(f.items, flexItem{Item: item, FixedSize: -1, Proportion: 0, Focus: false})
+	return f
+}
+
 // RemoveItem removes all items for the given primitive from the container,
 // keeping the order of the remaining items intact.
 func (f *Flex) RemoveItem(p Primitive) *Flex {
@@ -118,11 +124,22 @@ func (f *Flex) Draw(screen tcell.Screen) {
 	if f.direction == FlexRow {
 		distSize = height
 	}
-	for _, item := range f.items {
-		if item.FixedSize > 0 {
-			distSize -= item.FixedSize
-		} else {
-			proportionSum += item.Proportion
+
+	for i := 0; i < len(f.items); i++ {
+		if f.items[i].FixedSize == 0 && f.items[i].Proportion == 0 {
+			_, _, w, h := f.items[i].Item.GetRect()
+			if f.direction == FlexRow {
+				f.items[i].FixedSize = h
+			} else {
+				f.items[i].FixedSize = w
+			}
+		}
+
+		switch {
+		case f.items[i].FixedSize > 0:
+			distSize -= f.items[i].FixedSize
+		default:
+			proportionSum += f.items[i].Proportion
 		}
 	}
 
@@ -133,7 +150,7 @@ func (f *Flex) Draw(screen tcell.Screen) {
 	}
 	for _, item := range f.items {
 		size := item.FixedSize
-		if size <= 0 {
+		if size == 0 {
 			size = distSize * item.Proportion / proportionSum
 			distSize -= size
 			proportionSum -= item.Proportion
@@ -145,7 +162,9 @@ func (f *Flex) Draw(screen tcell.Screen) {
 				item.Item.SetRect(x, pos, width, size)
 			}
 		}
-		pos += size
+		if size > 0 {
+			pos += size
+		}
 
 		if item.Item != nil {
 			if item.Item.GetFocusable().HasFocus() {
@@ -169,6 +188,7 @@ func (f *Flex) Focus(delegate func(p Primitive)) {
 
 // HasFocus returns whether or not this primitive has focus.
 func (f *Flex) HasFocus() bool {
+	//fmt.Println(f.items)
 	for _, item := range f.items {
 		if item.Item != nil && item.Item.GetFocusable().HasFocus() {
 			return true

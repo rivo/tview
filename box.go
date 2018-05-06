@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"math/rand"
+
 	"github.com/gdamore/tcell"
 )
 
@@ -13,14 +15,20 @@ import (
 //
 // See https://github.com/rivo/tview/wiki/Box for an example.
 type Box struct {
+	id int
 	// The position of the rect.
 	x, y, width, height int
+
+	maxWidth, maxHeight, minWidth, minHeight int
 
 	// The inner rect reserved for the box's content.
 	innerX, innerY, innerWidth, innerHeight int
 
 	// Border padding.
 	paddingTop, paddingBottom, paddingLeft, paddingRight int
+
+	// Border padding to be measured by percent.
+	paddingPercentTop, paddingPercentBottom, paddingPercentLeft, paddingPercentRight int
 
 	// The box's background color.
 	backgroundColor tcell.Color
@@ -64,6 +72,7 @@ type Box struct {
 // NewBox returns a Box without a border.
 func NewBox() *Box {
 	b := &Box{
+		id:              rand.Int(),
 		width:           15,
 		height:          10,
 		innerX:          -1, // Mark as uninitialized.
@@ -77,16 +86,71 @@ func NewBox() *Box {
 	return b
 }
 
+// GetID returns unique id of box
+func (b *Box) GetID() int {
+	return b.id
+}
+
+// SetSize sets size of the box
+func (b *Box) SetSize(width, height int) *Box {
+	b.width = width
+	b.height = height
+	return b
+}
+
+// SetMinSize sets min size of the box
+func (b *Box) SetMinSize(width, height int) *Box {
+	b.minWidth = width
+	b.minHeight = height
+	return b
+}
+
+// SetMaxSize sets max size of the box
+func (b *Box) SetMaxSize(width, height int) *Box {
+	b.maxWidth = width
+	b.maxHeight = height
+	return b
+}
+
+// SetPercentPadding sets border in percents. This feature implements resizable paddingPercent of the box relative to the size of the screen
+func (b *Box) SetPercentPadding(top, bottom, left, right int) *Box {
+	b.paddingPercentTop, b.paddingPercentBottom, b.paddingPercentLeft, b.paddingPercentRight = top, bottom, left, right
+	return b
+}
+
 // SetBorderPadding sets the size of the borders around the box content.
 func (b *Box) SetBorderPadding(top, bottom, left, right int) *Box {
 	b.paddingTop, b.paddingBottom, b.paddingLeft, b.paddingRight = top, bottom, left, right
 	return b
 }
 
+// GetBorderPadding returns padding of the box
+func (b *Box) GetBorderPadding() (top, bottom, left, right int) {
+	outerX, outerY, outerWidth, outerHeight := b.GetRect()
+	innerX, innerY, innerWidth, innerHeight := b.GetInnerRect()
+	return innerY - outerY, (outerY + outerHeight) - (innerY + innerHeight), innerX - outerX, (outerX + outerWidth) - (innerX + innerWidth)
+}
+
 // GetRect returns the current position of the rectangle, x, y, width, and
 // height.
 func (b *Box) GetRect() (int, int, int, int) {
-	return b.x, b.y, b.width, b.height
+	width := b.width
+	switch {
+	case b.maxWidth > 0 && width > b.maxWidth:
+		width = b.maxWidth
+	case b.minWidth > 0 && width < b.minWidth:
+		width = b.minWidth
+	}
+
+	height := b.height
+	switch {
+	case b.maxHeight > 0 && height > b.maxHeight:
+		height = b.maxHeight
+	case b.minHeight > 0 && height < b.minHeight:
+		height = b.minHeight
+	}
+
+	return b.x, b.y, width, height
 }
 
 // GetInnerRect returns the position of the inner rectangle (x, y, width,
@@ -102,10 +166,19 @@ func (b *Box) GetInnerRect() (int, int, int, int) {
 		width -= 2
 		height -= 2
 	}
-	return x + b.paddingLeft,
-		y + b.paddingTop,
-		width - b.paddingLeft - b.paddingRight,
-		height - b.paddingTop - b.paddingBottom
+	x, y, width, height = x+b.paddingLeft,
+		y+b.paddingTop,
+		width-b.paddingLeft-b.paddingRight,
+		height-b.paddingTop-b.paddingBottom
+
+	// Percent padding
+	left := int(float64(width) / 100 * float64(b.paddingPercentLeft))
+	top := int(float64(height) / 100 * float64(b.paddingPercentTop))
+	right := int(float64(width) / 100 * float64(b.paddingPercentRight))
+	bottom := int(float64(height) / 100 * float64(b.paddingPercentBottom))
+
+	return x + left, y + top, width - left - right, height - top - bottom
+
 }
 
 // SetRect sets a new position of the primitive.
@@ -187,6 +260,11 @@ func (b *Box) SetBorder(show bool) *Box {
 	return b
 }
 
+// GetBorder returns the flag indicating whether or not the box was set
+func (b *Box) GetBorder() bool {
+	return b.border
+}
+
 // SetBorderColor sets the box's border color.
 func (b *Box) SetBorderColor(color tcell.Color) *Box {
 	b.borderColor = color
@@ -214,8 +292,9 @@ func (b *Box) SetTitleAlign(align int) *Box {
 
 // Draw draws this primitive onto the screen.
 func (b *Box) Draw(screen tcell.Screen) {
+	_, _, width, height := b.GetRect()
 	// Don't draw anything if there is no space.
-	if b.width <= 0 || b.height <= 0 {
+	if width <= 0 || height <= 0 {
 		return
 	}
 
@@ -223,6 +302,7 @@ func (b *Box) Draw(screen tcell.Screen) {
 
 	// Fill background.
 	background := def.Background(b.backgroundColor)
+
 	if b.backgroundColor != tcell.ColorDefault {
 		for y := b.y; y < b.y+b.height; y++ {
 			for x := b.x; x < b.x+b.width; x++ {
@@ -232,51 +312,52 @@ func (b *Box) Draw(screen tcell.Screen) {
 	}
 
 	// Draw border.
-	if b.border && b.width >= 2 && b.height >= 2 {
+	if b.border && width >= 2 && height >= 2 {
 		border := background.Foreground(b.borderColor)
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
 		if b.focus.HasFocus() {
-			vertical = GraphicsDbVertBar
-			horizontal = GraphicsDbHorBar
-			topLeft = GraphicsDbTopLeftCorner
-			topRight = GraphicsDbTopRightCorner
-			bottomLeft = GraphicsDbBottomLeftCorner
-			bottomRight = GraphicsDbBottomRightCorner
+			horizontal = Styles.GraphicsDbVertBar
+			vertical = Styles.GraphicsDbHorBar
+			topLeft = Styles.GraphicsDbTopLeftCorner
+			topRight = Styles.GraphicsDbTopRightCorner
+			bottomLeft = Styles.GraphicsDbBottomLeftCorner
+			bottomRight = Styles.GraphicsDbBottomRightCorner
 		} else {
-			vertical = GraphicsHoriBar
-			horizontal = GraphicsVertBar
-			topLeft = GraphicsTopLeftCorner
-			topRight = GraphicsTopRightCorner
-			bottomLeft = GraphicsBottomLeftCorner
-			bottomRight = GraphicsBottomRightCorner
+			horizontal = Styles.GraphicsVertBar
+			vertical = Styles.GraphicsHoriBar
+			topLeft = Styles.GraphicsTopLeftCorner
+			topRight = Styles.GraphicsTopRightCorner
+			bottomLeft = Styles.GraphicsBottomLeftCorner
+			bottomRight = Styles.GraphicsBottomRightCorner
 		}
-		for x := b.x + 1; x < b.x+b.width-1; x++ {
+		for x := b.x + 1; x < b.x+width-1; x++ {
 			screen.SetContent(x, b.y, vertical, nil, border)
-			screen.SetContent(x, b.y+b.height-1, vertical, nil, border)
+			screen.SetContent(x, b.y+height-1, vertical, nil, border)
 		}
-		for y := b.y + 1; y < b.y+b.height-1; y++ {
+		for y := b.y + 1; y < b.y+height-1; y++ {
 			screen.SetContent(b.x, y, horizontal, nil, border)
-			screen.SetContent(b.x+b.width-1, y, horizontal, nil, border)
+			screen.SetContent(b.x+width-1, y, horizontal, nil, border)
 		}
 		screen.SetContent(b.x, b.y, topLeft, nil, border)
-		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, border)
-		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, border)
-		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, border)
+		screen.SetContent(b.x+width-1, b.y, topRight, nil, border)
+		screen.SetContent(b.x, b.y+height-1, bottomLeft, nil, border)
+		screen.SetContent(b.x+width-1, b.y+height-1, bottomRight, nil, border)
 
 		// Draw title.
-		if b.title != "" && b.width >= 4 {
-			_, printed := Print(screen, b.title, b.x+1, b.y, b.width-2, b.titleAlign, b.titleColor)
-			if StringWidth(b.title)-printed > 0 && printed > 0 {
-				_, _, style, _ := screen.GetContent(b.x+b.width-2, b.y)
+		if b.title != "" && width >= 4 {
+			title := "  " + b.title + "  "
+			_, printed := Print(screen, title, b.x+1, b.y, width-2, b.titleAlign, b.titleColor)
+			if StringWidth(title)-printed > 0 && printed > 0 {
+				_, _, style, _ := screen.GetContent(b.x+width-2, b.y)
 				fg, _, _ := style.Decompose()
-				Print(screen, string(GraphicsEllipsis), b.x+b.width-2, b.y, 1, AlignLeft, fg)
+				Print(screen, string(Styles.GraphicsEllipsis), b.x+width-2, b.y, 1, AlignLeft, fg)
 			}
 		}
 	}
 
 	// Call custom draw function.
 	if b.draw != nil {
-		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.draw(screen, b.x, b.y, b.width, b.height)
+		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.draw(screen, b.x, b.y, width, height)
 	} else {
 		// Remember the inner rect.
 		b.innerX = -1

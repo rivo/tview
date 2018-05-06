@@ -19,88 +19,66 @@ const (
 	AlignRight
 )
 
-// Semigraphical runes.
-const (
-	GraphicsHoriBar             = '\u2500'
-	GraphicsVertBar             = '\u2502'
-	GraphicsTopLeftCorner       = '\u250c'
-	GraphicsTopRightCorner      = '\u2510'
-	GraphicsBottomLeftCorner    = '\u2514'
-	GraphicsBottomRightCorner   = '\u2518'
-	GraphicsLeftT               = '\u251c'
-	GraphicsRightT              = '\u2524'
-	GraphicsTopT                = '\u252c'
-	GraphicsBottomT             = '\u2534'
-	GraphicsCross               = '\u253c'
-	GraphicsDbVertBar           = '\u2550'
-	GraphicsDbHorBar            = '\u2551'
-	GraphicsDbTopLeftCorner     = '\u2554'
-	GraphicsDbTopRightCorner    = '\u2557'
-	GraphicsDbBottomRightCorner = '\u255d'
-	GraphicsDbBottomLeftCorner  = '\u255a'
-	GraphicsEllipsis            = '\u2026'
-)
-
 // joints maps combinations of two graphical runes to the rune that results
 // when joining the two in the same screen cell. The keys of this map are
 // two-rune strings where the value of the first rune is lower than the value
 // of the second rune. Identical runes are not contained.
 var joints = map[string]rune{
-	"\u2500\u2502": GraphicsCross,
-	"\u2500\u250c": GraphicsTopT,
-	"\u2500\u2510": GraphicsTopT,
-	"\u2500\u2514": GraphicsBottomT,
-	"\u2500\u2518": GraphicsBottomT,
-	"\u2500\u251c": GraphicsCross,
-	"\u2500\u2524": GraphicsCross,
-	"\u2500\u252c": GraphicsTopT,
-	"\u2500\u2534": GraphicsBottomT,
-	"\u2500\u253c": GraphicsCross,
-	"\u2502\u250c": GraphicsLeftT,
-	"\u2502\u2510": GraphicsRightT,
-	"\u2502\u2514": GraphicsLeftT,
-	"\u2502\u2518": GraphicsRightT,
-	"\u2502\u251c": GraphicsLeftT,
-	"\u2502\u2524": GraphicsRightT,
-	"\u2502\u252c": GraphicsCross,
-	"\u2502\u2534": GraphicsCross,
-	"\u2502\u253c": GraphicsCross,
-	"\u250c\u2510": GraphicsTopT,
-	"\u250c\u2514": GraphicsLeftT,
-	"\u250c\u2518": GraphicsCross,
-	"\u250c\u251c": GraphicsLeftT,
-	"\u250c\u2524": GraphicsCross,
-	"\u250c\u252c": GraphicsTopT,
-	"\u250c\u2534": GraphicsCross,
-	"\u250c\u253c": GraphicsCross,
-	"\u2510\u2514": GraphicsCross,
-	"\u2510\u2518": GraphicsRightT,
-	"\u2510\u251c": GraphicsCross,
-	"\u2510\u2524": GraphicsRightT,
-	"\u2510\u252c": GraphicsTopT,
-	"\u2510\u2534": GraphicsCross,
-	"\u2510\u253c": GraphicsCross,
-	"\u2514\u2518": GraphicsBottomT,
-	"\u2514\u251c": GraphicsLeftT,
-	"\u2514\u2524": GraphicsCross,
-	"\u2514\u252c": GraphicsCross,
-	"\u2514\u2534": GraphicsBottomT,
-	"\u2514\u253c": GraphicsCross,
-	"\u2518\u251c": GraphicsCross,
-	"\u2518\u2524": GraphicsRightT,
-	"\u2518\u252c": GraphicsCross,
-	"\u2518\u2534": GraphicsBottomT,
-	"\u2518\u253c": GraphicsCross,
-	"\u251c\u2524": GraphicsCross,
-	"\u251c\u252c": GraphicsCross,
-	"\u251c\u2534": GraphicsCross,
-	"\u251c\u253c": GraphicsCross,
-	"\u2524\u252c": GraphicsCross,
-	"\u2524\u2534": GraphicsCross,
-	"\u2524\u253c": GraphicsCross,
-	"\u252c\u2534": GraphicsCross,
-	"\u252c\u253c": GraphicsCross,
-	"\u2534\u253c": GraphicsCross,
+	"\u2500\u2502": Styles.GraphicsCross,
+	"\u2500\u250c": Styles.GraphicsTopT,
+	"\u2500\u2510": Styles.GraphicsTopT,
+	"\u2500\u2514": Styles.GraphicsBottomT,
+	"\u2500\u2518": Styles.GraphicsBottomT,
+	"\u2500\u251c": Styles.GraphicsCross,
+	"\u2500\u2524": Styles.GraphicsCross,
+	"\u2500\u252c": Styles.GraphicsTopT,
+	"\u2500\u2534": Styles.GraphicsBottomT,
+	"\u2500\u253c": Styles.GraphicsCross,
+	"\u2502\u250c": Styles.GraphicsLeftT,
+	"\u2502\u2510": Styles.GraphicsRightT,
+	"\u2502\u2514": Styles.GraphicsLeftT,
+	"\u2502\u2518": Styles.GraphicsRightT,
+	"\u2502\u251c": Styles.GraphicsLeftT,
+	"\u2502\u2524": Styles.GraphicsRightT,
+	"\u2502\u252c": Styles.GraphicsCross,
+	"\u2502\u2534": Styles.GraphicsCross,
+	"\u2502\u253c": Styles.GraphicsCross,
+	"\u250c\u2510": Styles.GraphicsTopT,
+	"\u250c\u2514": Styles.GraphicsLeftT,
+	"\u250c\u2518": Styles.GraphicsCross,
+	"\u250c\u251c": Styles.GraphicsLeftT,
+	"\u250c\u2524": Styles.GraphicsCross,
+	"\u250c\u252c": Styles.GraphicsTopT,
+	"\u250c\u2534": Styles.GraphicsCross,
+	"\u250c\u253c": Styles.GraphicsCross,
+	"\u2510\u2514": Styles.GraphicsCross,
+	"\u2510\u2518": Styles.GraphicsRightT,
+	"\u2510\u251c": Styles.GraphicsCross,
+	"\u2510\u2524": Styles.GraphicsRightT,
+	"\u2510\u252c": Styles.GraphicsTopT,
+	"\u2510\u2534": Styles.GraphicsCross,
+	"\u2510\u253c": Styles.GraphicsCross,
+	"\u2514\u2518": Styles.GraphicsBottomT,
+	"\u2514\u251c": Styles.GraphicsLeftT,
+	"\u2514\u2524": Styles.GraphicsCross,
+	"\u2514\u252c": Styles.GraphicsCross,
+	"\u2514\u2534": Styles.GraphicsBottomT,
+	"\u2514\u253c": Styles.GraphicsCross,
+	"\u2518\u251c": Styles.GraphicsCross,
+	"\u2518\u2524": Styles.GraphicsRightT,
+	"\u2518\u252c": Styles.GraphicsCross,
+	"\u2518\u2534": Styles.GraphicsBottomT,
+	"\u2518\u253c": Styles.GraphicsCross,
+	"\u251c\u2524": Styles.GraphicsCross,
+	"\u251c\u252c": Styles.GraphicsCross,
+	"\u251c\u2534": Styles.GraphicsCross,
+	"\u251c\u253c": Styles.GraphicsCross,
+	"\u2524\u252c": Styles.GraphicsCross,
+	"\u2524\u2534": Styles.GraphicsCross,
+	"\u2524\u253c": Styles.GraphicsCross,
+	"\u252c\u2534": Styles.GraphicsCross,
+	"\u252c\u253c": Styles.GraphicsCross,
+	"\u2534\u253c": Styles.GraphicsCross,
 }
 
 // Common regular expressions.

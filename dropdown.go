@@ -1,16 +1,26 @@
 package tview
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gdamore/tcell"
 	runewidth "github.com/mattn/go-runewidth"
 )
 
-// dropDownOption is one option that can be selected in a drop-down primitive.
-type dropDownOption struct {
+// DropDownOption is one option that can be selected in a drop-down primitive.
+type DropDownOption struct {
+	Name     string
 	Text     string // The text to be displayed in the drop-down.
 	Selected func() // The (optional) callback for when this option was selected.
+}
+
+// NewDropDownOption returns a new option for dropdown
+func NewDropDownOption(name, text string) *DropDownOption {
+	return &DropDownOption{
+		Name: name,
+		Text: text,
+	}
 }
 
 // DropDown implements a selection widget whose options become visible in a
@@ -20,8 +30,12 @@ type dropDownOption struct {
 type DropDown struct {
 	*Box
 
+	align int
+
+	labelFiller string
+
 	// The options from which the user can choose.
-	options []*dropDownOption
+	options []*DropDownOption
 
 	// The index of the currently selected option. Negative if no option is
 	// currently selected.
@@ -81,14 +95,30 @@ func NewDropDown() *DropDown {
 		Box:                  NewBox(),
 		currentOption:        -1,
 		list:                 list,
-		labelColor:           Styles.SecondaryTextColor,
-		fieldBackgroundColor: Styles.ContrastBackgroundColor,
-		fieldTextColor:       Styles.PrimaryTextColor,
+		labelColor:           Styles.LabelTextColor,
+		fieldBackgroundColor: Styles.FieldBackgroundColor,
+		fieldTextColor:       Styles.FieldTextColor,
 		prefixTextColor:      Styles.ContrastSecondaryTextColor,
+		align:                AlignLeft,
+		labelFiller:          " ",
 	}
 
+	d.height = 1
 	d.focus = d
 
+	return d
+}
+
+// SetCurrentOptionByName sets the index of the currently selected option. This may
+// be a negative value to indicate that no option is currently selected.
+func (d *DropDown) SetCurrentOptionByName(name string) *DropDown {
+	for i := 0; i < len(d.options); i++ {
+		if d.options[i].Name == name {
+			d.currentOption = i
+			d.list.SetCurrentItem(i)
+			break
+		}
+	}
 	return d
 }
 
@@ -108,6 +138,11 @@ func (d *DropDown) GetCurrentOption() (int, string) {
 		text = d.options[d.currentOption].Text
 	}
 	return d.currentOption, text
+}
+
+// GetCurrentOptionName returns the name of the currently selected option.
+func (d *DropDown) GetCurrentOptionName() string {
+	return d.options[d.currentOption].Name
 }
 
 // SetLabel sets the text to be displayed before the input area.
@@ -134,6 +169,11 @@ func (d *DropDown) SetLabelColor(color tcell.Color) *DropDown {
 	return d
 }
 
+// GetLabelWidth returns label width.
+func (d *DropDown) GetLabelWidth() int {
+	return StringWidth(strings.Replace(d.label, "%s", "", -1))
+}
+
 // SetFieldBackgroundColor sets the background color of the options area.
 func (d *DropDown) SetFieldBackgroundColor(color tcell.Color) *DropDown {
 	d.fieldBackgroundColor = color
@@ -155,8 +195,13 @@ func (d *DropDown) SetPrefixTextColor(color tcell.Color) *DropDown {
 }
 
 // SetFormAttributes sets attributes shared by all form items.
-func (d *DropDown) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
-	d.labelWidth = labelWidth
+func (d *DropDown) SetFormAttributes(labelWidth, fieldWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	if d.fieldWidth == 0 {
+		d.fieldWidth = fieldWidth
+	}
+	if d.labelWidth == 0 {
+		d.labelWidth = labelWidth
+	}
 	d.labelColor = labelColor
 	d.backgroundColor = bgColor
 	d.fieldTextColor = fieldTextColor
@@ -186,11 +231,23 @@ func (d *DropDown) GetFieldWidth() int {
 	return fieldWidth
 }
 
+// SetFieldAlign sets the input alignment within the radiobutton box. This must be
+// either AlignLeft, AlignCenter, or AlignRight.
+func (d *DropDown) SetFieldAlign(align int) FormItem {
+	d.align = align
+	return d
+}
+
+// GetFieldAlign returns the input alignment within the radiobutton box.
+func (d *DropDown) GetFieldAlign() (align int) {
+	return d.align
+}
+
 // AddOption adds a new selectable option to this drop-down. The "selected"
 // callback is called when this option was selected. It may be nil.
-func (d *DropDown) AddOption(text string, selected func()) *DropDown {
-	d.options = append(d.options, &dropDownOption{Text: text, Selected: selected})
-	d.list.AddItem(text, "", 0, selected)
+func (d *DropDown) AddOption(option *DropDownOption) *DropDown {
+	d.options = append(d.options, option)
+	d.list.AddItem(option.Text, "", 0, option.Selected)
 	return d
 }
 
@@ -198,17 +255,18 @@ func (d *DropDown) AddOption(text string, selected func()) *DropDown {
 // one callback function which is called when one of the options is selected.
 // It will be called with the option's text and its index into the options
 // slice. The "selected" parameter may be nil.
-func (d *DropDown) SetOptions(texts []string, selected func(text string, index int)) *DropDown {
+func (d *DropDown) SetOptions(options []*DropDownOption, selected func(option *DropDownOption, index int)) *DropDown {
 	d.list.Clear()
 	d.options = nil
-	for index, text := range texts {
-		func(t string, i int) {
-			d.AddOption(text, func() {
+	for index, option := range options {
+		func(option *DropDownOption, index int) {
+			option.Selected = func() {
 				if selected != nil {
-					selected(t, i)
+					selected(option, index)
 				}
-			})
-		}(text, index)
+			}
+			d.AddOption(option)
+		}(option, index)
 	}
 	return d
 }
@@ -231,6 +289,11 @@ func (d *DropDown) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return d
 }
 
+// GetFinishedFunc returns SetDoneFunc().
+func (d *DropDown) GetFinishedFunc() func(key tcell.Key) {
+	return d.finished
+}
+
 // Draw draws this primitive onto the screen.
 func (d *DropDown) Draw(screen tcell.Screen) {
 	d.Box.Draw(screen)
@@ -243,17 +306,29 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	if d.labelWidth > 0 {
-		labelWidth := d.labelWidth
-		if labelWidth > rightLimit-x {
-			labelWidth = rightLimit - x
+	if d.label != "" {
+		if d.labelWidth > 0 {
+			labelWidth := d.labelWidth
+			if labelWidth > rightLimit-x {
+				labelWidth = rightLimit - x
+			}
+
+			label := d.label
+			if labelWidth != 0 && labelWidth > d.GetLabelWidth() {
+				if !strings.Contains(label, "%s") {
+					label += "%s"
+				}
+				label = fmt.Sprintf(label, strings.Repeat(d.labelFiller, labelWidth-d.GetLabelWidth()))
+			}
+
+			Print(screen, label, x, y, labelWidth, AlignLeft, d.labelColor)
+			x += labelWidth
+		} else {
+			_, drawnWidth := Print(screen, d.label, x, y, rightLimit-x, AlignLeft, d.labelColor)
+			x += drawnWidth
 		}
-		Print(screen, d.label, x, y, labelWidth, AlignLeft, d.labelColor)
-		x += labelWidth
-	} else {
-		_, drawnWidth := Print(screen, d.label, x, y, rightLimit-x, AlignLeft, d.labelColor)
-		x += drawnWidth
 	}
+	x++
 
 	// What's the longest option text?
 	maxWidth := 0
@@ -272,9 +347,9 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	if rightLimit-x < fieldWidth {
 		fieldWidth = rightLimit - x
 	}
-	fieldStyle := tcell.StyleDefault.Background(d.fieldBackgroundColor)
+	fieldStyle := tcell.StyleDefault.Background(d.fieldTextColor)
 	if d.GetFocusable().HasFocus() && !d.open {
-		fieldStyle = fieldStyle.Background(d.fieldTextColor)
+		fieldStyle = fieldStyle.Background(d.fieldBackgroundColor)
 	}
 	for index := 0; index < fieldWidth; index++ {
 		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
@@ -291,10 +366,10 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		}
 	} else {
 		if d.currentOption >= 0 && d.currentOption < len(d.options) {
-			color := d.fieldTextColor
+			color := d.fieldBackgroundColor
 			// Just show the current selection.
 			if d.GetFocusable().HasFocus() && !d.open {
-				color = d.fieldBackgroundColor
+				color = d.fieldTextColor
 			}
 			Print(screen, d.options[d.currentOption].Text, x, y, fieldWidth, AlignLeft, color)
 		}
@@ -405,4 +480,9 @@ func (d *DropDown) HasFocus() bool {
 		return d.list.HasFocus()
 	}
 	return d.hasFocus
+}
+
+// HasOpen returns whether or not this primitive has open.
+func (d *DropDown) HasOpen() bool {
+	return d.open
 }

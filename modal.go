@@ -21,6 +21,8 @@ type Modal struct {
 	// The message text (original, not word-wrapped).
 	text string
 
+	minWidth int
+
 	// The text color.
 	textColor tcell.Color
 
@@ -34,15 +36,17 @@ func NewModal() *Modal {
 	m := &Modal{
 		Box:       NewBox(),
 		textColor: Styles.PrimaryTextColor,
+		minWidth:  50,
 	}
 	m.form = NewForm().
 		SetButtonsAlign(AlignCenter).
-		SetButtonBackgroundColor(Styles.PrimitiveBackgroundColor).
-		SetButtonTextColor(Styles.PrimaryTextColor)
-	m.form.SetBackgroundColor(Styles.ContrastBackgroundColor).SetBorderPadding(0, 0, 0, 0)
+		SetButtonBackgroundColor(Styles.ButtonBackgroundColor).
+		SetButtonTextColor(Styles.ButtonTextColor)
+	m.form.SetButtonPadding(0)
+	m.form.SetBackgroundColor(Styles.ModalBackgroundColor).SetBorderPadding(0, 0, 0, 0)
 	m.frame = NewFrame(m.form).SetBorders(0, 0, 1, 0, 0, 0)
 	m.frame.SetBorder(true).
-		SetBackgroundColor(Styles.ContrastBackgroundColor).
+		SetBackgroundColor(Styles.ModalBackgroundColor).
 		SetBorderPadding(1, 1, 1, 1)
 	m.focus = m
 	return m
@@ -68,6 +72,12 @@ func (m *Modal) SetDoneFunc(handler func(buttonIndex int, buttonLabel string)) *
 // window.
 func (m *Modal) SetText(text string) *Modal {
 	m.text = text
+	return m
+}
+
+// SetTip is hard code, which will need to fix
+func (m *Modal) SetTip() *Modal {
+	m.form.AddFormItem(NewInputField())
 	return m
 }
 
@@ -106,9 +116,14 @@ func (m *Modal) Draw(screen tcell.Screen) {
 	buttonsWidth -= 2
 	screenWidth, screenHeight := screen.Size()
 	width := screenWidth / 3
+	if width < m.minWidth {
+		width = m.minWidth
+	}
+
 	if width < buttonsWidth {
 		width = buttonsWidth
 	}
+
 	// width is now without the box border.
 
 	// Reset the text and find out how wide it is.
@@ -119,7 +134,11 @@ func (m *Modal) Draw(screen tcell.Screen) {
 	}
 
 	// Set the modal's position and size.
-	height := len(lines) + 6
+	height := len(lines) + 4
+	if len(m.form.buttons) > 0 {
+		height += 2
+	}
+
 	width += 4
 	x := (screenWidth - width) / 2
 	y := (screenHeight - height) / 2

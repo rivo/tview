@@ -1,6 +1,9 @@
 package tview
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/gdamore/tcell"
 )
 
@@ -11,8 +14,20 @@ import (
 type Checkbox struct {
 	*Box
 
+	align int
+
+	labelFiller string
+
+	lockColors bool
+
 	// Whether or not this box is checked.
 	checked bool
+
+	// The text to be displayed before the input area.
+	subLabel string
+
+	// The item sub label color.
+	subLabelColor tcell.Color
 
 	// The text to be displayed before the input area.
 	label string
@@ -46,12 +61,16 @@ type Checkbox struct {
 
 // NewCheckbox returns a new input field.
 func NewCheckbox() *Checkbox {
-	return &Checkbox{
+	checkbox := &Checkbox{
 		Box:                  NewBox(),
-		labelColor:           Styles.SecondaryTextColor,
-		fieldBackgroundColor: Styles.ContrastBackgroundColor,
-		fieldTextColor:       Styles.PrimaryTextColor,
+		labelColor:           Styles.LabelTextColor,
+		fieldBackgroundColor: Styles.ButtonBackgroundColor,
+		fieldTextColor:       Styles.ButtonTextColor,
+		align:                AlignLeft,
+		labelFiller:          " ",
 	}
+	checkbox.height = 1
+	return checkbox
 }
 
 // SetChecked sets the state of the checkbox.
@@ -67,6 +86,9 @@ func (c *Checkbox) IsChecked() bool {
 
 // SetLabel sets the text to be displayed before the input area.
 func (c *Checkbox) SetLabel(label string) *Checkbox {
+	if !strings.Contains(label, "%s") {
+		label += "%s"
+	}
 	c.label = label
 	return c
 }
@@ -74,6 +96,11 @@ func (c *Checkbox) SetLabel(label string) *Checkbox {
 // GetLabel returns the text to be displayed before the input area.
 func (c *Checkbox) GetLabel() string {
 	return c.label
+}
+
+// GetLabelWidth returns label width.
+func (c *Checkbox) GetLabelWidth() int {
+	return StringWidth(strings.Replace(c.subLabel+c.label, "%s", "", -1))
 }
 
 // SetLabelWidth sets the screen width of the label. A value of 0 will cause the
@@ -89,6 +116,24 @@ func (c *Checkbox) SetLabelColor(color tcell.Color) *Checkbox {
 	return c
 }
 
+// SetFieldAlign sets the input alignment within the checkbox box. This must be
+// either AlignLeft, AlignCenter, or AlignRight.
+func (c *Checkbox) SetFieldAlign(align int) FormItem {
+	c.align = align
+	return c
+}
+
+// GetFieldAlign returns the input alignment within the checkbox box.
+func (c *Checkbox) GetFieldAlign() (align int) {
+	return c.align
+}
+
+// SetLabelFiller sets a sign which will be fill the label when this one need to stretch
+func (c *Checkbox) SetLabelFiller(Filler string) FormItem {
+	c.labelFiller = Filler
+	return c
+}
+
 // SetFieldBackgroundColor sets the background color of the input area.
 func (c *Checkbox) SetFieldBackgroundColor(color tcell.Color) *Checkbox {
 	c.fieldBackgroundColor = color
@@ -101,19 +146,41 @@ func (c *Checkbox) SetFieldTextColor(color tcell.Color) *Checkbox {
 	return c
 }
 
+// SetSubLabel sets the text to be displayed before the input area.
+func (c *Checkbox) SetSubLabel(label string) *Checkbox {
+	c.subLabel = label
+	return c
+}
+
+// SetSubLabelColor sets the color of the subLabel.
+func (c *Checkbox) SetSubLabelColor(color tcell.Color) *Checkbox {
+	c.subLabelColor = color
+	return c
+}
+
+// SetLockColors locks the change of colors by form
+func (c *Checkbox) SetLockColors(lock bool) *Checkbox {
+	c.lockColors = lock
+	return c
+}
+
 // SetFormAttributes sets attributes shared by all form items.
-func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
-	c.labelWidth = labelWidth
-	c.labelColor = labelColor
-	c.backgroundColor = bgColor
-	c.fieldTextColor = fieldTextColor
-	c.fieldBackgroundColor = fieldBgColor
+func (c *Checkbox) SetFormAttributes(labelWidth, fieldWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	if c.labelWidth == 0 {
+		c.labelWidth = labelWidth
+	}
+	if !c.lockColors {
+		c.labelColor = labelColor
+		c.backgroundColor = bgColor
+		c.fieldTextColor = fieldBgColor
+		c.fieldBackgroundColor = fieldTextColor
+	}
 	return c
 }
 
 // GetFieldWidth returns this primitive's field width.
 func (c *Checkbox) GetFieldWidth() int {
-	return 1
+	return StringWidth(Styles.GraphicsCheckboxUnchecked)
 }
 
 // SetChangedFunc sets a handler which is called when the checked state of this
@@ -142,6 +209,11 @@ func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return c
 }
 
+// GetFinishedFunc returns SetDoneFunc().
+func (c *Checkbox) GetFinishedFunc() func(key tcell.Key) {
+	return c.finished
+}
+
 // Draw draws this primitive onto the screen.
 func (c *Checkbox) Draw(screen tcell.Screen) {
 	c.Box.Draw(screen)
@@ -154,16 +226,37 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	if c.labelWidth > 0 {
+	var labels = []struct {
+		text  string
+		color tcell.Color
+	}{{
+		text:  c.subLabel,
+		color: c.subLabelColor,
+	}, {
+		text:  c.label,
+		color: c.labelColor,
+	}}
+
+	if len(labels) > 0 {
 		labelWidth := c.labelWidth
 		if labelWidth > rightLimit-x {
 			labelWidth = rightLimit - x
 		}
-		Print(screen, c.label, x, y, labelWidth, AlignLeft, c.labelColor)
-		x += labelWidth
-	} else {
-		_, drawnWidth := Print(screen, c.label, x, y, rightLimit-x, AlignLeft, c.labelColor)
-		x += drawnWidth
+
+		addCount := labelWidth - c.GetLabelWidth()
+
+		for _, label := range labels {
+			if addCount > 0 && strings.Contains(label.text, "%s") {
+				label.text = fmt.Sprintf(label.text, strings.Repeat(c.labelFiller, addCount))
+				addCount = 0
+			} else {
+				label.text = strings.Replace(label.text, "%s", "", -1)
+			}
+
+			labelWidth = StringWidth(label.text)
+			Print(screen, label.text, x, y, labelWidth, AlignLeft, label.color)
+			x += labelWidth
+		}
 	}
 
 	// Draw checkbox.
@@ -171,11 +264,15 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	if c.focus.HasFocus() {
 		fieldStyle = fieldStyle.Background(c.fieldTextColor).Foreground(c.fieldBackgroundColor)
 	}
-	checkedRune := 'X'
+	line := Styles.GraphicsCheckboxChecked
 	if !c.checked {
-		checkedRune = ' '
+		line = Styles.GraphicsCheckboxUnchecked
 	}
-	screen.SetContent(x, y, checkedRune, nil, fieldStyle)
+	width = c.GetFieldWidth()
+
+	for i := 0; i < width; i++ {
+		screen.SetContent(x+i, y, rune(line[i]), nil, fieldStyle)
+	}
 }
 
 // InputHandler returns the handler for this primitive.
