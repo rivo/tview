@@ -296,12 +296,14 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		case tcell.KeyPgUp:
 			l.currentItem -= 5
 		case tcell.KeyEnter:
-			item := l.items[l.currentItem]
-			if item.Selected != nil {
-				item.Selected()
-			}
-			if l.selected != nil {
-				l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+			if l.currentItem >= 0 && l.currentItem < len(l.items) {
+				item := l.items[l.currentItem]
+				if item.Selected != nil {
+					item.Selected()
+				}
+				if l.selected != nil {
+					l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+				}
 			}
 		case tcell.KeyEscape:
 			if l.done != nil {
