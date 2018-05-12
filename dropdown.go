@@ -190,7 +190,7 @@ func (d *DropDown) GetFieldWidth() int {
 // callback is called when this option was selected. It may be nil.
 func (d *DropDown) AddOption(text string, selected func()) *DropDown {
 	d.options = append(d.options, &dropDownOption{Text: text, Selected: selected})
-	d.list.AddItem(text, "", 0, selected)
+	d.list.AddItem(text, "", 0, nil)
 	return d
 }
 
