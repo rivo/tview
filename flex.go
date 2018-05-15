@@ -103,6 +103,8 @@ func (f *Flex) RemoveItem(p Primitive) *Flex {
 
 // Draw draws this primitive onto the screen.
 func (f *Flex) Draw(screen tcell.Screen) {
+	f.Box.Draw(screen)
+
 	// Calculate size and position of the items.
 
 	// Do we use the entire screen?
