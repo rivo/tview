@@ -361,9 +361,13 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			width += w
 			start = index
 		}
-		for runewidth.RuneWidth(runes[start]) == 0 && start < len(runes) {
-			start++
+
+		if len(runes) > 0 {
+			for runewidth.RuneWidth(runes[start]) == 0 && start < len(runes) {
+				start++
+			}
 		}
+
 		return printWithStyle(screen, substring(start, len(runes)), x+maxWidth-width, y, width, AlignLeft, style)
 	} else if align == AlignCenter {
 		width := runewidth.StringWidth(strippedText)
