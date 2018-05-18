@@ -297,7 +297,7 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 // printWithStyle works like Print() but it takes a style instead of just a
 // foreground color.
 func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int, style tcell.Style) (int, int) {
-	if maxWidth < 0 {
+	if maxWidth <= 0 || len(text) == 0 {
 		return 0, 0
 	}
 
@@ -315,6 +315,9 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			colorPos, escapePos, runePos, startPos       int
 			foregroundColor, backgroundColor, attributes string
 		)
+		if from >= len(runes) {
+			return ""
+		}
 		for pos := range text {
 			// Handle color tags.
 			if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
@@ -361,7 +364,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			width += w
 			start = index
 		}
-		for runewidth.RuneWidth(runes[start]) == 0 && start < len(runes) {
+		for start < len(runes) && runewidth.RuneWidth(runes[start]) == 0 {
 			start++
 		}
 		return printWithStyle(screen, substring(start, len(runes)), x+maxWidth-width, y, width, AlignLeft, style)
@@ -383,7 +386,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 					leftWidth := runewidth.RuneWidth(runes[leftIndex])
 					choppedLeft += leftWidth
 					leftIndex++
-					for runewidth.RuneWidth(runes[leftIndex]) == 0 && leftIndex < len(runes) && leftIndex < rightIndex {
+					for leftIndex < len(runes) && leftIndex < rightIndex && runewidth.RuneWidth(runes[leftIndex]) == 0 {
 						leftIndex++
 					}
 				} else {

@@ -222,8 +222,8 @@ func (l *List) Draw(screen tcell.Screen) {
 	// We want to keep the current selection in view. What is our offset?
 	var offset int
 	if l.showSecondaryText {
-		if l.currentItem >= height/2 {
-			offset = l.currentItem + 1 - (height / 2)
+		if 2*l.currentItem >= height {
+			offset = (2*l.currentItem + 2 - height) / 2
 		}
 	} else {
 		if l.currentItem >= height {
