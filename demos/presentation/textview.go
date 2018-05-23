@@ -103,7 +103,7 @@ func TextView2(nextSlide func()) (title string, content tview.Primitive) {
 	codeView := tview.NewTextView().
 		SetWrap(false)
 	fmt.Fprint(codeView, textView2)
-	codeView.SetBorder(true).SetTitle("TextView content")
+	codeView.SetBorder(true).SetTitle("Buffer content")
 
 	textView := tview.NewTextView()
 	textView.SetDynamicColors(true).
@@ -141,7 +141,7 @@ func TextView2(nextSlide func()) (title string, content tview.Primitive) {
 			}
 		})
 	fmt.Fprint(textView, textView2)
-	textView.SetBorder(true).SetTitle("TextView code")
+	textView.SetBorder(true).SetTitle("TextView output")
 	return "Text 2", tview.NewFlex().
 		AddItem(textView, 0, 1, true).
 		AddItem(codeView, 0, 1, false)
