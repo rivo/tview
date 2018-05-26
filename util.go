@@ -21,24 +21,24 @@ const (
 
 // Semigraphical runes.
 const (
-	GraphicsHoriBar             = '\u2500'
-	GraphicsVertBar             = '\u2502'
-	GraphicsTopLeftCorner       = '\u250c'
-	GraphicsTopRightCorner      = '\u2510'
-	GraphicsBottomLeftCorner    = '\u2514'
-	GraphicsBottomRightCorner   = '\u2518'
-	GraphicsLeftT               = '\u251c'
-	GraphicsRightT              = '\u2524'
-	GraphicsTopT                = '\u252c'
-	GraphicsBottomT             = '\u2534'
-	GraphicsCross               = '\u253c'
-	GraphicsDbVertBar           = '\u2550'
-	GraphicsDbHorBar            = '\u2551'
-	GraphicsDbTopLeftCorner     = '\u2554'
-	GraphicsDbTopRightCorner    = '\u2557'
-	GraphicsDbBottomRightCorner = '\u255d'
-	GraphicsDbBottomLeftCorner  = '\u255a'
-	GraphicsEllipsis            = '\u2026'
+	GraphicsHoriBar             = '\u2500' // ─
+	GraphicsVertBar             = '\u2502' // │
+	GraphicsTopLeftCorner       = '\u250c' // ┌
+	GraphicsTopRightCorner      = '\u2510' // ┐
+	GraphicsBottomLeftCorner    = '\u2514' // └
+	GraphicsBottomRightCorner   = '\u2518' // ┘
+	GraphicsLeftT               = '\u251c' // ├
+	GraphicsRightT              = '\u2524' // ┤
+	GraphicsTopT                = '\u252c' // ┬
+	GraphicsBottomT             = '\u2534' // ┴
+	GraphicsCross               = '\u253c' // ┼
+	GraphicsDbHorBar            = '\u2550' // ═
+	GraphicsDbVertBar           = '\u2551' // ║
+	GraphicsDbTopLeftCorner     = '\u2554' // ╔
+	GraphicsDbTopRightCorner    = '\u2557' // ╗
+	GraphicsDbBottomRightCorner = '\u255d' // ╝
+	GraphicsDbBottomLeftCorner  = '\u255a' // ╚
+	GraphicsEllipsis            = '\u2026' // …
 )
 
 // joints maps combinations of two graphical runes to the rune that results
