@@ -243,20 +243,20 @@ func (b *Box) Draw(screen tcell.Screen) {
 			bottomLeft = GraphicsDbBottomLeftCorner
 			bottomRight = GraphicsDbBottomRightCorner
 		} else {
-			vertical = GraphicsHoriBar
-			horizontal = GraphicsVertBar
+			vertical = GraphicsVertBar
+			horizontal = GraphicsHoriBar
 			topLeft = GraphicsTopLeftCorner
 			topRight = GraphicsTopRightCorner
 			bottomLeft = GraphicsBottomLeftCorner
 			bottomRight = GraphicsBottomRightCorner
 		}
 		for x := b.x + 1; x < b.x+b.width-1; x++ {
-			screen.SetContent(x, b.y, vertical, nil, border)
-			screen.SetContent(x, b.y+b.height-1, vertical, nil, border)
+			screen.SetContent(x, b.y, horizontal, nil, border)
+			screen.SetContent(x, b.y+b.height-1, horizontal, nil, border)
 		}
 		for y := b.y + 1; y < b.y+b.height-1; y++ {
-			screen.SetContent(b.x, y, horizontal, nil, border)
-			screen.SetContent(b.x+b.width-1, y, horizontal, nil, border)
+			screen.SetContent(b.x, y, vertical, nil, border)
+			screen.SetContent(b.x+b.width-1, y, vertical, nil, border)
 		}
 		screen.SetContent(b.x, b.y, topLeft, nil, border)
 		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, border)

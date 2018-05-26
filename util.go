@@ -32,8 +32,8 @@ const (
 	GraphicsTopT                = '\u252c' // ┬
 	GraphicsBottomT             = '\u2534' // ┴
 	GraphicsCross               = '\u253c' // ┼
-	GraphicsDbVertBar           = '\u2550' // ═
-	GraphicsDbHorBar            = '\u2551' // ║
+	GraphicsDbHorBar            = '\u2550' // ═
+	GraphicsDbVertBar           = '\u2551' // ║
 	GraphicsDbTopLeftCorner     = '\u2554' // ╔
 	GraphicsDbTopRightCorner    = '\u2557' // ╗
 	GraphicsDbBottomRightCorner = '\u255d' // ╝
