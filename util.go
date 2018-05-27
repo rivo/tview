@@ -20,7 +20,7 @@ const (
 )
 
 // Deprecated semigraphical runes.
-// You should use the runes provided by semigraphical.go instead.
+// You should use the runes provided by semigraphical.go or Borders directly.
 const (
 	GraphicsHoriBar             = BoxDrawingsLightHorizontal
 	GraphicsVertBar             = BoxDrawingsLightVertical

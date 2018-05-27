@@ -141,6 +141,9 @@ const (
 	BoxDrawingsHeavyUpAndLightDown                rune = '\u257f' // ╿
 )
 
+// SemigraphicJoints is a map for joining semigraphic (or otherwise) runes.
+// So far only light lines are supported but if you want to change the border
+// styling you need to provide the joints, too.
 var SemigraphicJoints = map[string]rune{
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightVertical}):                     BoxDrawingsLightVerticalAndHorizontal,
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightDownAndRight}):                 BoxDrawingsLightDownAndHorizontal,
