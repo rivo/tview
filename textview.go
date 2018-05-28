@@ -270,6 +270,16 @@ func (t *TextView) SetDoneFunc(handler func(key tcell.Key)) *TextView {
 	return t
 }
 
+// ScrollTo scrolls to the specified row and column (both starting with 0).
+func (t *TextView) ScrollTo(row, column int) *TextView {
+	if !t.scrollable {
+		return t
+	}
+	t.lineOffset = row
+	t.columnOffset = column
+	return t
+}
+
 // ScrollToBeginning scrolls to the top left corner of the text if the text view
 // is scrollable.
 func (t *TextView) ScrollToBeginning() *TextView {
