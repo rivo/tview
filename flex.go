@@ -101,6 +101,19 @@ func (f *Flex) RemoveItem(p Primitive) *Flex {
 	return f
 }
 
+// ResizeItem sets a new size for the item(s) with the given primitive. If there
+// are multiple Flex items with the same primitive, they will all receive the
+// same size. For details regarding the size parameters, see AddItem().
+func (f *Flex) ResizeItem(p Primitive, fixedSize, proportion int) *Flex {
+	for _, item := range f.items {
+		if item.Item == p {
+			item.FixedSize = fixedSize
+			item.Proportion = proportion
+		}
+	}
+	return f
+}
+
 // Draw draws this primitive onto the screen.
 func (f *Flex) Draw(screen tcell.Screen) {
 	f.Box.Draw(screen)
