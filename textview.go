@@ -660,7 +660,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	t.pageSize = height
 
 	// If the width has changed, we need to reindex.
-	if width != t.lastWidth {
+	if width != t.lastWidth && t.wrap {
 		t.index = nil
 	}
 	t.lastWidth = width
