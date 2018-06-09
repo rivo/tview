@@ -144,61 +144,128 @@ const (
 // SemigraphicJoints is a map for joining semigraphic (or otherwise) runes.
 // So far only light lines are supported but if you want to change the border
 // styling you need to provide the joints, too.
+// The matching will be sorted ascending by rune value, so you don't need to
+// provide all rune combinations,
+// e.g. (─) + (│) = (┼) will also match (│) + (─) = (┼)
 var SemigraphicJoints = map[string]rune{
+	// (─) + (│) = (┼)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightVertical}):                     BoxDrawingsLightVerticalAndHorizontal,
+	// (─) + (┌) = (┬)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightDownAndRight}):                 BoxDrawingsLightDownAndHorizontal,
+	// (─) + (┐) = (┬)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightDownAndLeft}):                  BoxDrawingsLightDownAndHorizontal,
+	// (─) + (└) = (┴)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightUpAndRight}):                   BoxDrawingsLightUpAndHorizontal,
+	// (─) + (┘) = (┴)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightUpAndLeft}):                    BoxDrawingsLightUpAndHorizontal,
+	// (─) + (├) = (┼)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightVerticalAndRight}):             BoxDrawingsLightVerticalAndHorizontal,
+	// (─) + (┤) = (┼)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightVerticalAndLeft}):              BoxDrawingsLightVerticalAndHorizontal,
+	// (─) + (┬) = (┬)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightDownAndHorizontal}):            BoxDrawingsLightDownAndHorizontal,
+	// (─) + (┴) = (┴)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightUpAndHorizontal}):              BoxDrawingsLightUpAndHorizontal,
+	// (─) + (┼) = (┼)
 	string([]rune{BoxDrawingsLightHorizontal, BoxDrawingsLightVerticalAndHorizontal}):        BoxDrawingsLightVerticalAndHorizontal,
+
+	// (│) + (┌) = (├)
 	string([]rune{BoxDrawingsLightVertical, BoxDrawingsLightDownAndRight}):                   BoxDrawingsLightVerticalAndRight,
+	// (│) + (┐) = (┤)
 	string([]rune{BoxDrawingsLightVertical, BoxDrawingsLightDownAndLeft}):                    BoxDrawingsLightVerticalAndLeft,
+	// (│) + (└) = (├)
 	string([]rune{BoxDrawingsLightVertical, BoxDrawingsLightUpAndRight}):                     BoxDrawingsLightVerticalAndRight,
+	// (│) + (┘) = (┤)
 	string([]rune{BoxDrawingsLightVertical, BoxDrawingsLightUpAndLeft}):                      BoxDrawingsLightVerticalAndLeft,
+	// (│) + (├) = (├)
 	string([]rune{BoxDrawingsLightVertical, BoxDrawingsLightVerticalAndRight}):               BoxDrawingsLightVerticalAndRight,
+	// (│) + (┤) = (┤)
 	string([]rune{BoxDrawingsLightVertical, BoxDrawingsLightVerticalAndLeft}):                BoxDrawingsLightVerticalAndLeft,
+	// (│) + (┬) = (┼)
 	string([]rune{BoxDrawingsLightVertical, BoxDrawingsLightDownAndHorizontal}):              BoxDrawingsLightVerticalAndHorizontal,
+	// (│) + (┴) = (┼)
 	string([]rune{BoxDrawingsLightVertical, BoxDrawingsLightUpAndHorizontal}):                BoxDrawingsLightVerticalAndHorizontal,
+	// (│) + (┼) = (┼)
 	string([]rune{BoxDrawingsLightVertical, BoxDrawingsLightVerticalAndHorizontal}):          BoxDrawingsLightVerticalAndHorizontal,
+
+	// (┌) + (┐) = (┬)
 	string([]rune{BoxDrawingsLightDownAndRight, BoxDrawingsLightDownAndLeft}):                BoxDrawingsLightDownAndHorizontal,
+	// (┌) + (└) = (├)
 	string([]rune{BoxDrawingsLightDownAndRight, BoxDrawingsLightUpAndRight}):                 BoxDrawingsLightVerticalAndRight,
+	// (┌) + (┘) = (┼)
 	string([]rune{BoxDrawingsLightDownAndRight, BoxDrawingsLightUpAndLeft}):                  BoxDrawingsLightVerticalAndHorizontal,
+	// (┌) + (├) = (├)
 	string([]rune{BoxDrawingsLightDownAndRight, BoxDrawingsLightVerticalAndRight}):           BoxDrawingsLightVerticalAndRight,
+	// (┌) + (┤) = (┼)
 	string([]rune{BoxDrawingsLightDownAndRight, BoxDrawingsLightVerticalAndLeft}):            BoxDrawingsLightVerticalAndHorizontal,
+	// (┌) + (┬) = (┬)
 	string([]rune{BoxDrawingsLightDownAndRight, BoxDrawingsLightDownAndHorizontal}):          BoxDrawingsLightDownAndHorizontal,
+	// (┌) + (┴) = (┼)
 	string([]rune{BoxDrawingsLightDownAndRight, BoxDrawingsLightUpAndHorizontal}):            BoxDrawingsLightVerticalAndHorizontal,
+	// (┌) + (┴) = (┼)
 	string([]rune{BoxDrawingsLightDownAndRight, BoxDrawingsLightVerticalAndHorizontal}):      BoxDrawingsLightVerticalAndHorizontal,
+
+	// (┐) + (└) = (┼)
 	string([]rune{BoxDrawingsLightDownAndLeft, BoxDrawingsLightUpAndRight}):                  BoxDrawingsLightVerticalAndHorizontal,
+	// (┐) + (┘) = (┤)
 	string([]rune{BoxDrawingsLightDownAndLeft, BoxDrawingsLightUpAndLeft}):                   BoxDrawingsLightVerticalAndLeft,
+	// (┐) + (├) = (┼)
 	string([]rune{BoxDrawingsLightDownAndLeft, BoxDrawingsLightVerticalAndRight}):            BoxDrawingsLightVerticalAndHorizontal,
+	// (┐) + (┤) = (┤)
 	string([]rune{BoxDrawingsLightDownAndLeft, BoxDrawingsLightVerticalAndLeft}):             BoxDrawingsLightVerticalAndLeft,
+	// (┐) + (┬) = (┬)
 	string([]rune{BoxDrawingsLightDownAndLeft, BoxDrawingsLightDownAndHorizontal}):           BoxDrawingsLightDownAndHorizontal,
+	// (┐) + (┴) = (┼)
 	string([]rune{BoxDrawingsLightDownAndLeft, BoxDrawingsLightUpAndHorizontal}):             BoxDrawingsLightVerticalAndHorizontal,
+	// (┐) + (┼) = (┼)
 	string([]rune{BoxDrawingsLightDownAndLeft, BoxDrawingsLightVerticalAndHorizontal}):       BoxDrawingsLightVerticalAndHorizontal,
+
+	// (└) + (┘) = (┴)
 	string([]rune{BoxDrawingsLightUpAndRight, BoxDrawingsLightUpAndLeft}):                    BoxDrawingsLightUpAndHorizontal,
+	// (└) + (├) = (├)
 	string([]rune{BoxDrawingsLightUpAndRight, BoxDrawingsLightVerticalAndRight}):             BoxDrawingsLightVerticalAndRight,
+	// (└) + (┤) = (┼)
 	string([]rune{BoxDrawingsLightUpAndRight, BoxDrawingsLightVerticalAndLeft}):              BoxDrawingsLightVerticalAndHorizontal,
+	// (└) + (┬) = (┼)
 	string([]rune{BoxDrawingsLightUpAndRight, BoxDrawingsLightDownAndHorizontal}):            BoxDrawingsLightVerticalAndHorizontal,
+	// (└) + (┴) = (┴)
 	string([]rune{BoxDrawingsLightUpAndRight, BoxDrawingsLightUpAndHorizontal}):              BoxDrawingsLightUpAndHorizontal,
+	// (└) + (┼) = (┼)
 	string([]rune{BoxDrawingsLightUpAndRight, BoxDrawingsLightVerticalAndHorizontal}):        BoxDrawingsLightVerticalAndHorizontal,
+
+	// (┘) + (├) = (┼)
 	string([]rune{BoxDrawingsLightUpAndLeft, BoxDrawingsLightVerticalAndRight}):              BoxDrawingsLightVerticalAndHorizontal,
+	// (┘) + (┤) = (┤)
 	string([]rune{BoxDrawingsLightUpAndLeft, BoxDrawingsLightVerticalAndLeft}):               BoxDrawingsLightVerticalAndLeft,
+	// (┘) + (┬) = (┼)
 	string([]rune{BoxDrawingsLightUpAndLeft, BoxDrawingsLightDownAndHorizontal}):             BoxDrawingsLightVerticalAndHorizontal,
+	// (┘) + (┴) = (┴)
 	string([]rune{BoxDrawingsLightUpAndLeft, BoxDrawingsLightUpAndHorizontal}):               BoxDrawingsLightUpAndHorizontal,
+	// (┘) + (┼) = (┼)
 	string([]rune{BoxDrawingsLightUpAndLeft, BoxDrawingsLightVerticalAndHorizontal}):         BoxDrawingsLightVerticalAndHorizontal,
+
+	// (├) + (┤) = (┼)
 	string([]rune{BoxDrawingsLightVerticalAndRight, BoxDrawingsLightVerticalAndLeft}):        BoxDrawingsLightVerticalAndHorizontal,
+	// (├) + (┬) = (┼)
 	string([]rune{BoxDrawingsLightVerticalAndRight, BoxDrawingsLightDownAndHorizontal}):      BoxDrawingsLightVerticalAndHorizontal,
+	// (├) + (┴) = (┼)
 	string([]rune{BoxDrawingsLightVerticalAndRight, BoxDrawingsLightUpAndHorizontal}):        BoxDrawingsLightVerticalAndHorizontal,
+	// (├) + (┼) = (┼)
 	string([]rune{BoxDrawingsLightVerticalAndRight, BoxDrawingsLightVerticalAndHorizontal}):  BoxDrawingsLightVerticalAndHorizontal,
+
+	// (┤) + (┬) = (┼)
 	string([]rune{BoxDrawingsLightVerticalAndLeft, BoxDrawingsLightDownAndHorizontal}):       BoxDrawingsLightVerticalAndHorizontal,
+	// (┤) + (┴) = (┼)
 	string([]rune{BoxDrawingsLightVerticalAndLeft, BoxDrawingsLightUpAndHorizontal}):         BoxDrawingsLightVerticalAndHorizontal,
+	// (┤) + (┼) = (┼)
 	string([]rune{BoxDrawingsLightVerticalAndLeft, BoxDrawingsLightVerticalAndHorizontal}):   BoxDrawingsLightVerticalAndHorizontal,
+
+	// (┬) + (┴) = (┼)
 	string([]rune{BoxDrawingsLightDownAndHorizontal, BoxDrawingsLightUpAndHorizontal}):       BoxDrawingsLightVerticalAndHorizontal,
+	// (┬) + (┼) = (┼)
 	string([]rune{BoxDrawingsLightDownAndHorizontal, BoxDrawingsLightVerticalAndHorizontal}): BoxDrawingsLightVerticalAndHorizontal,
+
+	// (┴) + (┼) = (┼)
 	string([]rune{BoxDrawingsLightUpAndHorizontal, BoxDrawingsLightVerticalAndHorizontal}):   BoxDrawingsLightVerticalAndHorizontal,
 }
 
