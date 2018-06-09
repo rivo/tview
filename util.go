@@ -19,29 +19,6 @@ const (
 	AlignRight
 )
 
-// Deprecated semigraphical runes.
-// You should use the runes provided by semigraphical.go or Borders directly.
-const (
-	GraphicsHoriBar             = BoxDrawingsLightHorizontal
-	GraphicsVertBar             = BoxDrawingsLightVertical
-	GraphicsTopLeftCorner       = BoxDrawingsLightDownAndRight
-	GraphicsTopRightCorner      = BoxDrawingsLightDownAndLeft
-	GraphicsBottomLeftCorner    = BoxDrawingsLightUpAndRight
-	GraphicsBottomRightCorner   = BoxDrawingsLightUpAndLeft
-	GraphicsLeftT               = BoxDrawingsLightVerticalAndRight
-	GraphicsRightT              = BoxDrawingsLightVerticalAndLeft
-	GraphicsTopT                = BoxDrawingsLightDownAndHorizontal
-	GraphicsBottomT             = BoxDrawingsLightUpAndHorizontal
-	GraphicsCross               = BoxDrawingsLightVerticalAndHorizontal
-	GraphicsDbHorBar            = BoxDrawingsDoubleHorizontal
-	GraphicsDbVertBar           = BoxDrawingsDoubleVertical
-	GraphicsDbTopLeftCorner     = BoxDrawingsDoubleDownAndRight
-	GraphicsDbTopRightCorner    = BoxDrawingsDoubleDownAndLeft
-	GraphicsDbBottomRightCorner = BoxDrawingsDoubleUpAndLeft
-	GraphicsDbBottomLeftCorner  = BoxDrawingsDoubleUpAndRight
-	GraphicsEllipsis            = SemigraphicsHorizontalEllipsis
-)
-
 // Common regular expressions.
 var (
 	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbdru]+|\-)?)?)?\]`)
