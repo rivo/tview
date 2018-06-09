@@ -419,7 +419,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 		_, background, _ := finalStyle.Decompose()
 		finalStyle = overlayStyle(background, style, foregroundColor, backgroundColor, attributes)
 		var comb []rune
-		if len(runeSequence) > 1 {
+		if len(runeSequence) > 1 && !unicode.IsControl(runeSequence[1]) {
 			// Allocate space for the combining characters only when necessary.
 			comb = make([]rune, len(runeSequence)-1)
 			copy(comb, runeSequence[1:])
@@ -475,7 +475,6 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 		}
 		runeSequence = append(runeSequence, ch)
 		runeSeqWidth += chWidth
-
 	}
 	if drawnWidth+runeSeqWidth <= maxWidth {
 		flush()

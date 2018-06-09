@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"sync"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/gdamore/tcell"
@@ -815,7 +816,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 			// Draw the character.
 			var comb []rune
-			if len(runeSequence) > 1 {
+			if len(runeSequence) > 1 && !unicode.IsControl(runeSequence[1]) {
 				// Allocate space for the combining characters only when necessary.
 				comb = make([]rune, len(runeSequence)-1)
 				copy(comb, runeSequence[1:])
