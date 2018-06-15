@@ -87,7 +87,7 @@ const tableBasic = `[green]func[white] [yellow]main[white]() {
 const tableSeparator = `[green]func[white] [yellow]main[white]() {
     table := tview.[yellow]NewTable[white]().
         [yellow]SetFixed[white]([red]1[white], [red]1[white]).
-        [yellow]SetSeparator[white](tview.GraphicsVertBar)
+        [yellow]SetSeparator[white](Borders.Vertical)
     [yellow]for[white] row := [red]0[white]; row < [red]40[white]; row++ {
         [yellow]for[white] column := [red]0[white]; column < [red]7[white]; column++ {
             color := tcell.ColorWhite
@@ -295,7 +295,7 @@ func Table(nextSlide func()) (title string, content tview.Primitive) {
 	separator := func() {
 		table.SetBorders(false).
 			SetSelectable(false, false).
-			SetSeparator(tview.GraphicsVertBar)
+			SetSeparator(tview.Borders.Vertical)
 		code.Clear()
 		fmt.Fprint(code, tableSeparator)
 	}
