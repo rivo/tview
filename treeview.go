@@ -220,13 +220,15 @@ func (n *TreeNode) SetIndent(indent int) *TreeNode {
 //
 // The root node corresponds to level 0, its children correspond to level 1,
 // their children to level 2, and so on. Per default, the first level that is
-// displayed is 0, i.e. the root node. You can call SetTopLevel() to skip
+// displayed is 0, i.e. the root node. You can call SetTopLevel() to hide
 // levels.
 //
 // If graphics are turned on (see SetGraphics()), lines indicate the tree's
 // hierarchy. Alternative (or additionally), you can set different prefixes
 // using SetPrefixes() for different levels, for example to display hierarchical
 // bullet point lists.
+//
+// See https://github.com/rivo/tview/wiki/TreeView for an example.
 type TreeView struct {
 	*Box
 
