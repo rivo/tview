@@ -41,7 +41,7 @@ type Application struct {
 	// was drawn.
 	afterDraw func(screen tcell.Screen)
 
-	// Used for events loop lock during Suspend()
+	// Halts the event loop during suspended mode
 	suspendMutex sync.Mutex
 }
 
@@ -183,13 +183,14 @@ func (a *Application) Suspend(f func()) bool {
 	a.Lock()
 
 	if a.screen == nil {
-		// Application is already suspended.
+		// Screen has not yet been initialized
 		a.Unlock()
 		return false
 	}
 
 	// Enter suspended mode.
 	a.suspendMutex.Lock()
+	defer a.suspendMutex.Unlock()
 	a.Unlock()
 	a.Stop()
 
@@ -209,12 +210,10 @@ func (a *Application) Suspend(f func()) bool {
 	var err error
 	a.screen, err = tcell.NewScreen()
 	if err != nil {
-		a.suspendMutex.Unlock()
 		a.Unlock()
 		panic(err)
 	}
 	if err = a.screen.Init(); err != nil {
-		a.suspendMutex.Unlock()
 		a.Unlock()
 		panic(err)
 	}
@@ -222,7 +221,6 @@ func (a *Application) Suspend(f func()) bool {
 	a.Draw()
 
 	// Continue application loop.
-	a.suspendMutex.Unlock()
 	return true
 }
 
