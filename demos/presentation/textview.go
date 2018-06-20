@@ -68,7 +68,7 @@ const textView2 = `[green]package[white] main
         [yellow]SetDoneFunc[white]([yellow]func[white](key tcell.Key) {
             highlights := ["2"]textView[""].[yellow]GetHighlights[white]()
             hasHighlights := [yellow]len[white](highlights) > [red]0
-[white]            [yellow]switch[white] key {
+            [yellow]switch[white] key {
             [yellow]case[white] tcell.KeyEnter:
                 [yellow]if[white] hasHighlights {
                     ["3"]textView[""].[yellow]Highlight[white]()
@@ -80,14 +80,14 @@ const textView2 = `[green]package[white] main
                 [yellow]if[white] hasHighlights {
                     current, _ := strconv.[yellow]Atoi[white](highlights[[red]0[white]])
                     next := (current + [red]1[white]) % [red]9
-[white]                    ["5"]textView[""].[yellow]Highlight[white](strconv.[yellow]Itoa[white](next)).
+                    ["5"]textView[""].[yellow]Highlight[white](strconv.[yellow]Itoa[white](next)).
                         [yellow]ScrollToHighlight[white]()
                 }
             [yellow]case[white] tcell.KeyBacktab:
                 [yellow]if[white] hasHighlights {
                     current, _ := strconv.[yellow]Atoi[white](highlights[[red]0[white]])
                     next := (current - [red]1[white] + [red]9[white]) % [red]9
-[white]                    ["6"]textView[""].[yellow]Highlight[white](strconv.[yellow]Itoa[white](next)).
+                    ["6"]textView[""].[yellow]Highlight[white](strconv.[yellow]Itoa[white](next)).
                         [yellow]ScrollToHighlight[white]()
                 }
             }
