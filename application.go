@@ -41,8 +41,8 @@ type Application struct {
 	// was drawn.
 	afterDraw func(screen tcell.Screen)
 
-	// If this value is true, the application has entered suspended mode.
-	suspended bool
+	// Halts the event loop during suspended mode
+	suspendMutex sync.Mutex
 }
 
 // NewApplication creates and returns a new application.
@@ -103,28 +103,20 @@ func (a *Application) Run() error {
 
 	// Start event loop.
 	for {
+		// Do not poll events during suspend mode
+		a.suspendMutex.Lock()
 		a.Lock()
 		screen := a.screen
-		if a.suspended {
-			a.suspended = false // Clear previous suspended flag.
-		}
 		a.Unlock()
 		if screen == nil {
+			a.suspendMutex.Unlock()
 			break
 		}
 
 		// Wait for next event.
 		event := a.screen.PollEvent()
+		a.suspendMutex.Unlock()
 		if event == nil {
-			a.Lock()
-			if a.suspended {
-				// This screen was renewed due to suspended mode.
-				a.suspended = false
-				a.Unlock()
-				continue // Resume.
-			}
-			a.Unlock()
-
 			// The screen was finalized. Exit the loop.
 			break
 		}
@@ -190,14 +182,15 @@ func (a *Application) Stop() {
 func (a *Application) Suspend(f func()) bool {
 	a.Lock()
 
-	if a.suspended || a.screen == nil {
-		// Application is already suspended.
+	if a.screen == nil {
+		// Screen has not yet been initialized
 		a.Unlock()
 		return false
 	}
 
 	// Enter suspended mode.
-	a.suspended = true
+	a.suspendMutex.Lock()
+	defer a.suspendMutex.Unlock()
 	a.Unlock()
 	a.Stop()
 
