@@ -41,7 +41,7 @@ type Application struct {
 	// was drawn.
 	afterDraw func(screen tcell.Screen)
 
-	// Halts the event loop during suspended mode
+	// Halts the event loop during suspended mode.
 	suspendMutex sync.Mutex
 }
 
@@ -105,9 +105,9 @@ func (a *Application) Run() error {
 	for {
 		// Do not poll events during suspend mode
 		a.suspendMutex.Lock()
-		a.Lock()
+		a.RLock()
 		screen := a.screen
-		a.Unlock()
+		a.RUnlock()
 		if screen == nil {
 			a.suspendMutex.Unlock()
 			break
@@ -150,9 +150,9 @@ func (a *Application) Run() error {
 				}
 			}
 		case *tcell.EventResize:
-			a.Lock()
+			a.RLock()
 			screen := a.screen
-			a.Unlock()
+			a.RUnlock()
 			screen.Clear()
 			a.Draw()
 		}
@@ -163,8 +163,8 @@ func (a *Application) Run() error {
 
 // Stop stops the application, causing Run() to return.
 func (a *Application) Stop() {
-	a.RLock()
-	defer a.RUnlock()
+	a.Lock()
+	defer a.Unlock()
 	if a.screen == nil {
 		return
 	}
@@ -180,18 +180,18 @@ func (a *Application) Stop() {
 // was called. If false is returned, the application was already suspended,
 // terminal UI mode was not exited, and "f" was not called.
 func (a *Application) Suspend(f func()) bool {
-	a.Lock()
+	a.RLock()
 
 	if a.screen == nil {
-		// Screen has not yet been initialized
-		a.Unlock()
+		// Screen has not yet been initialized.
+		a.RUnlock()
 		return false
 	}
 
 	// Enter suspended mode.
 	a.suspendMutex.Lock()
 	defer a.suspendMutex.Unlock()
-	a.Unlock()
+	a.RUnlock()
 	a.Stop()
 
 	// Deal with panics during suspended mode. Exit the program.
