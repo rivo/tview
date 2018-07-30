@@ -53,7 +53,7 @@ type InputField struct {
 	// disables masking.
 	maskCharacter rune
 
-	// An optional function which may reject the last character that was entered.
+	// An optional function which may reject the last change that was input.
 	accept func(text string, ch rune) bool
 
 	// An optional function which is called when the input has changed.
@@ -171,8 +171,10 @@ func (i *InputField) SetMaskCharacter(mask rune) *InputField {
 	return i
 }
 
-// SetAcceptanceFunc sets a handler which may reject the last character that was
-// entered (by returning false).
+// SetAcceptanceFunc sets a handler which may reject the last change that was
+// input (by returning false). A change may be an individual character, one of
+// the supported shell-style key combinations (Ctrl+U and Ctrl+W), or one of the
+// backspace/delete control characters.
 //
 // This package defines a number of variables Prefixed with InputField which may
 // be used for common input (e.g. numbers, maximum text length).
@@ -316,16 +318,34 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			}
 			i.text = newText
 		case tcell.KeyCtrlU: // Delete all.
-			i.text = ""
+			newText := ""
+			if i.accept != nil {
+				if !i.accept(newText, event.Rune()) {
+					break
+				}
+			}
+			i.text = newText
 		case tcell.KeyCtrlW: // Delete last word.
 			lastWord := regexp.MustCompile(`\s*\S+\s*$`)
-			i.text = lastWord.ReplaceAllString(i.text, "")
+			newText := lastWord.ReplaceAllString(i.text, "")
+			if i.accept != nil {
+				if !i.accept(newText, event.Rune()) {
+					break
+				}
+			}
+			i.text = newText
 		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete last character.
 			if len(i.text) == 0 {
 				break
 			}
 			runes := []rune(i.text)
-			i.text = string(runes[:len(runes)-1])
+			newText := string(runes[:len(runes)-1])
+			if i.accept != nil {
+				if !i.accept(newText, event.Rune()) {
+					break
+				}
+			}
+			i.text = newText
 		case tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if i.done != nil {
 				i.done(key)
