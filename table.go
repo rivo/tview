@@ -2,6 +2,7 @@ package tview
 
 import (
 	"sort"
+	"sync"
 
 	"github.com/gdamore/tcell"
 	colorful "github.com/lucasb-eyer/go-colorful"
@@ -248,6 +249,9 @@ type Table struct {
 	// An optional function which gets called when the user presses Escape, Tab,
 	// or Backtab. Also when the user presses Enter if nothing is selectable.
 	done func(key tcell.Key)
+
+	// Protects the table cells during concurrent changes
+	lock sync.RWMutex
 }
 
 // NewTable returns a new table.
@@ -262,6 +266,9 @@ func NewTable() *Table {
 
 // Clear removes all table data.
 func (t *Table) Clear() *Table {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
 	t.cells = nil
 	t.lastColumn = -1
 	return t
@@ -334,6 +341,9 @@ func (t *Table) GetSelectable() (rows, columns bool) {
 // If entire rows are selected, the column index is undefined.
 // Likewise for entire columns.
 func (t *Table) GetSelection() (row, column int) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
 	return t.selectedRow, t.selectedColumn
 }
 
@@ -341,6 +351,9 @@ func (t *Table) GetSelection() (row, column int) {
 // specified via SetSelectable(), this may be an entire row or column, or even
 // ignored completely.
 func (t *Table) Select(row, column int) *Table {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
 	t.selectedRow, t.selectedColumn = row, column
 	return t
 }
@@ -398,6 +411,9 @@ func (t *Table) SetDoneFunc(handler func(key tcell.Key)) *Table {
 //
 // To avoid unnecessary garbage collection, fill columns from left to right.
 func (t *Table) SetCell(row, column int, cell *TableCell) *Table {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
 	if row >= len(t.cells) {
 		t.cells = append(t.cells, make([][]*TableCell, row-len(t.cells)+1)...)
 	}
@@ -425,6 +441,9 @@ func (t *Table) SetCellSimple(row, column int, text string) *Table {
 // TableCell object is always returns but it will be uninitialized if the cell
 // was not previously set.
 func (t *Table) GetCell(row, column int) *TableCell {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
 	if row >= len(t.cells) || column >= len(t.cells[row]) {
 		return &TableCell{}
 	}
@@ -433,11 +452,17 @@ func (t *Table) GetCell(row, column int) *TableCell {
 
 // GetRowCount returns the number of rows in the table.
 func (t *Table) GetRowCount() int {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
 	return len(t.cells)
 }
 
 // GetColumnCount returns the (maximum) number of columns in the table.
 func (t *Table) GetColumnCount() int {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
 	if len(t.cells) == 0 {
 		return 0
 	}
@@ -459,6 +484,9 @@ func (t *Table) ScrollToBeginning() *Table {
 // automatically scroll with the new data. Note that this position may be
 // corrected if there is a selection.
 func (t *Table) ScrollToEnd() *Table {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
 	t.trackEnd = true
 	t.columnOffset = 0
 	t.rowOffset = len(t.cells)
@@ -467,6 +495,9 @@ func (t *Table) ScrollToEnd() *Table {
 
 // Draw draws this primitive onto the screen.
 func (t *Table) Draw(screen tcell.Screen) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
 	t.Box.Draw(screen)
 
 	// What's our available screen space?
@@ -864,6 +895,9 @@ ColumnLoop:
 
 // InputHandler returns the handler for this primitive.
 func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		key := event.Key()
 
