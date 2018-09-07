@@ -51,6 +51,10 @@ type DropDown struct {
 	// The color for prefixes.
 	prefixTextColor tcell.Color
 
+	// The screen width of the label area. A value of 0 means use the width of
+	// the label text.
+	labelWidth int
+
 	// The screen width of the input area. A value of 0 means extend as much as
 	// possible.
 	fieldWidth int
@@ -59,6 +63,10 @@ type DropDown struct {
 	// are done selecting options. The key which was pressed is provided (tab,
 	// shift-tab, or escape).
 	done func(tcell.Key)
+
+	// A callback function set by the Form class and called when the user leaves
+	// this form item.
+	finished func(tcell.Key)
 }
 
 // NewDropDown returns a new drop-down.
@@ -113,6 +121,13 @@ func (d *DropDown) GetLabel() string {
 	return d.label
 }
 
+// SetLabelWidth sets the screen width of the label. A value of 0 will cause the
+// primitive to use the width of the label string.
+func (d *DropDown) SetLabelWidth(width int) *DropDown {
+	d.labelWidth = width
+	return d
+}
+
 // SetLabelColor sets the color of the label.
 func (d *DropDown) SetLabelColor(color tcell.Color) *DropDown {
 	d.labelColor = color
@@ -140,8 +155,8 @@ func (d *DropDown) SetPrefixTextColor(color tcell.Color) *DropDown {
 }
 
 // SetFormAttributes sets attributes shared by all form items.
-func (d *DropDown) SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
-	d.label = label
+func (d *DropDown) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	d.labelWidth = labelWidth
 	d.labelColor = labelColor
 	d.backgroundColor = bgColor
 	d.fieldTextColor = fieldTextColor
@@ -175,7 +190,7 @@ func (d *DropDown) GetFieldWidth() int {
 // callback is called when this option was selected. It may be nil.
 func (d *DropDown) AddOption(text string, selected func()) *DropDown {
 	d.options = append(d.options, &dropDownOption{Text: text, Selected: selected})
-	d.list.AddItem(text, "", 0, selected)
+	d.list.AddItem(text, "", 0, nil)
 	return d
 }
 
@@ -210,9 +225,10 @@ func (d *DropDown) SetDoneFunc(handler func(key tcell.Key)) *DropDown {
 	return d
 }
 
-// SetFinishedFunc calls SetDoneFunc().
+// SetFinishedFunc sets a callback invoked when the user leaves this form item.
 func (d *DropDown) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	return d.SetDoneFunc(handler)
+	d.finished = handler
+	return d
 }
 
 // Draw draws this primitive onto the screen.
@@ -227,8 +243,17 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	_, drawnWidth := Print(screen, d.label, x, y, rightLimit-x, AlignLeft, d.labelColor)
-	x += drawnWidth
+	if d.labelWidth > 0 {
+		labelWidth := d.labelWidth
+		if labelWidth > rightLimit-x {
+			labelWidth = rightLimit - x
+		}
+		Print(screen, d.label, x, y, labelWidth, AlignLeft, d.labelColor)
+		x += labelWidth
+	} else {
+		_, drawnWidth := Print(screen, d.label, x, y, rightLimit-x, AlignLeft, d.labelColor)
+		x += drawnWidth
+	}
 
 	// What's the longest option text?
 	maxWidth := 0
@@ -329,6 +354,7 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 			// Hand control over to the list.
 			d.open = true
+			optionBefore := d.currentOption
 			d.list.SetSelectedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
 				// An option was selected. Close the list again.
 				d.open = false
@@ -349,6 +375,10 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 						d.prefix = string(r[:len(r)-1])
 					}
 					evalPrefix()
+				} else if event.Key() == tcell.KeyEscape {
+					d.open = false
+					d.currentOption = optionBefore
+					setFocus(d)
 				} else {
 					d.prefix = ""
 				}
@@ -358,6 +388,9 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyEscape, tcell.KeyTab, tcell.KeyBacktab:
 			if d.done != nil {
 				d.done(key)
+			}
+			if d.finished != nil {
+				d.finished(key)
 			}
 		}
 	})

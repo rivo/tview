@@ -28,22 +28,29 @@ type Flex struct {
 	*Box
 
 	// The items to be positioned.
-	items []flexItem
+	items []*flexItem
 
 	// FlexRow or FlexColumn.
 	direction int
 
-	// If set to true, will use the entire screen as its available space instead
-	// its box dimensions.
+	// If set to true, Flex will use the entire screen as its available space
+	// instead its box dimensions.
 	fullScreen bool
 }
 
 // NewFlex returns a new flexbox layout container with no primitives and its
 // direction set to FlexColumn. To add primitives to this layout, see AddItem().
 // To change the direction, see SetDirection().
+//
+// Note that Box, the superclass of Flex, will have its background color set to
+// transparent so that any nil flex items will leave their background unchanged.
+// To clear a Flex's background before any items are drawn, set it to the
+// desired color:
+//
+//   flex.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 func NewFlex() *Flex {
 	f := &Flex{
-		Box:       NewBox(),
+		Box:       NewBox().SetBackgroundColor(tcell.ColorDefault),
 		direction: FlexColumn,
 	}
 	f.focus = f
@@ -69,8 +76,8 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 // that its size is flexible and may be changed. The "proportion" argument
 // defines the relative size of the item compared to other flexible-size items.
 // For example, items with a proportion of 2 will be twice as large as items
-// with a proportion of 1. Must be at least 1 if fixedSize > 0 (ignored
-// otherwise)
+// with a proportion of 1. The proportion must be at least 1 if fixedSize == 0
+// (ignored otherwise).
 //
 // If "focus" is set to true, the item will receive focus when the Flex
 // primitive receives focus. If multiple items have the "focus" flag set to
@@ -79,7 +86,7 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 // You can provide a nil value for the primitive. This will still consume screen
 // space but nothing will be drawn.
 func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *Flex {
-	f.items = append(f.items, flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus})
+	f.items = append(f.items, &flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus})
 	return f
 }
 
@@ -89,6 +96,19 @@ func (f *Flex) RemoveItem(p Primitive) *Flex {
 	for index := len(f.items) - 1; index >= 0; index-- {
 		if f.items[index].Item == p {
 			f.items = append(f.items[:index], f.items[index+1:]...)
+		}
+	}
+	return f
+}
+
+// ResizeItem sets a new size for the item(s) with the given primitive. If there
+// are multiple Flex items with the same primitive, they will all receive the
+// same size. For details regarding the size parameters, see AddItem().
+func (f *Flex) ResizeItem(p Primitive, fixedSize, proportion int) *Flex {
+	for _, item := range f.items {
+		if item.Item == p {
+			item.FixedSize = fixedSize
+			item.Proportion = proportion
 		}
 	}
 	return f

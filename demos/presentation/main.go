@@ -40,6 +40,7 @@ func main() {
 		TextView1,
 		TextView2,
 		Table,
+		TreeView,
 		Flex,
 		Grid,
 		Colors,
@@ -58,12 +59,14 @@ func main() {
 	pages := tview.NewPages()
 	previousSlide := func() {
 		currentSlide = (currentSlide - 1 + len(slides)) % len(slides)
-		info.Highlight(strconv.Itoa(currentSlide))
+		info.Highlight(strconv.Itoa(currentSlide)).
+			ScrollToHighlight()
 		pages.SwitchToPage(strconv.Itoa(currentSlide))
 	}
 	nextSlide := func() {
 		currentSlide = (currentSlide + 1) % len(slides)
-		info.Highlight(strconv.Itoa(currentSlide))
+		info.Highlight(strconv.Itoa(currentSlide)).
+			ScrollToHighlight()
 		pages.SwitchToPage(strconv.Itoa(currentSlide))
 	}
 	for index, slide := range slides {

@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"strconv"
@@ -18,97 +19,14 @@ const (
 	AlignRight
 )
 
-// Semigraphical runes.
-const (
-	GraphicsHoriBar             = '\u2500'
-	GraphicsVertBar             = '\u2502'
-	GraphicsTopLeftCorner       = '\u250c'
-	GraphicsTopRightCorner      = '\u2510'
-	GraphicsBottomLeftCorner    = '\u2514'
-	GraphicsBottomRightCorner   = '\u2518'
-	GraphicsLeftT               = '\u251c'
-	GraphicsRightT              = '\u2524'
-	GraphicsTopT                = '\u252c'
-	GraphicsBottomT             = '\u2534'
-	GraphicsCross               = '\u253c'
-	GraphicsDbVertBar           = '\u2550'
-	GraphicsDbHorBar            = '\u2551'
-	GraphicsDbTopLeftCorner     = '\u2554'
-	GraphicsDbTopRightCorner    = '\u2557'
-	GraphicsDbBottomRightCorner = '\u255d'
-	GraphicsDbBottomLeftCorner  = '\u255a'
-	GraphicsEllipsis            = '\u2026'
-)
-
-// joints maps combinations of two graphical runes to the rune that results
-// when joining the two in the same screen cell. The keys of this map are
-// two-rune strings where the value of the first rune is lower than the value
-// of the second rune. Identical runes are not contained.
-var joints = map[string]rune{
-	"\u2500\u2502": GraphicsCross,
-	"\u2500\u250c": GraphicsTopT,
-	"\u2500\u2510": GraphicsTopT,
-	"\u2500\u2514": GraphicsBottomT,
-	"\u2500\u2518": GraphicsBottomT,
-	"\u2500\u251c": GraphicsCross,
-	"\u2500\u2524": GraphicsCross,
-	"\u2500\u252c": GraphicsTopT,
-	"\u2500\u2534": GraphicsBottomT,
-	"\u2500\u253c": GraphicsCross,
-	"\u2502\u250c": GraphicsLeftT,
-	"\u2502\u2510": GraphicsRightT,
-	"\u2502\u2514": GraphicsLeftT,
-	"\u2502\u2518": GraphicsRightT,
-	"\u2502\u251c": GraphicsLeftT,
-	"\u2502\u2524": GraphicsRightT,
-	"\u2502\u252c": GraphicsCross,
-	"\u2502\u2534": GraphicsCross,
-	"\u2502\u253c": GraphicsCross,
-	"\u250c\u2510": GraphicsTopT,
-	"\u250c\u2514": GraphicsLeftT,
-	"\u250c\u2518": GraphicsCross,
-	"\u250c\u251c": GraphicsLeftT,
-	"\u250c\u2524": GraphicsCross,
-	"\u250c\u252c": GraphicsTopT,
-	"\u250c\u2534": GraphicsCross,
-	"\u250c\u253c": GraphicsCross,
-	"\u2510\u2514": GraphicsCross,
-	"\u2510\u2518": GraphicsRightT,
-	"\u2510\u251c": GraphicsCross,
-	"\u2510\u2524": GraphicsRightT,
-	"\u2510\u252c": GraphicsTopT,
-	"\u2510\u2534": GraphicsCross,
-	"\u2510\u253c": GraphicsCross,
-	"\u2514\u2518": GraphicsBottomT,
-	"\u2514\u251c": GraphicsLeftT,
-	"\u2514\u2524": GraphicsCross,
-	"\u2514\u252c": GraphicsCross,
-	"\u2514\u2534": GraphicsBottomT,
-	"\u2514\u253c": GraphicsCross,
-	"\u2518\u251c": GraphicsCross,
-	"\u2518\u2524": GraphicsRightT,
-	"\u2518\u252c": GraphicsCross,
-	"\u2518\u2534": GraphicsBottomT,
-	"\u2518\u253c": GraphicsCross,
-	"\u251c\u2524": GraphicsCross,
-	"\u251c\u252c": GraphicsCross,
-	"\u251c\u2534": GraphicsCross,
-	"\u251c\u253c": GraphicsCross,
-	"\u2524\u252c": GraphicsCross,
-	"\u2524\u2534": GraphicsCross,
-	"\u2524\u253c": GraphicsCross,
-	"\u252c\u2534": GraphicsCross,
-	"\u252c\u253c": GraphicsCross,
-	"\u2534\u253c": GraphicsCross,
-}
-
 // Common regular expressions.
 var (
-	colorPattern    = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([a-zA-Z]+|#[0-9a-zA-Z]{6})?(:([lbdru]+))?)?\]`)
-	regionPattern   = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
-	escapePattern   = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
-	boundaryPattern = regexp.MustCompile("([[:punct:]]\\s*|\\s+)")
-	spacePattern    = regexp.MustCompile(`\s+`)
+	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbdru]+|\-)?)?)?\]`)
+	regionPattern    = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
+	escapePattern    = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
+	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
+	boundaryPattern  = regexp.MustCompile("([[:punct:]]\\s*|\\s+)")
+	spacePattern     = regexp.MustCompile(`\s+`)
 )
 
 // Positions of substrings in regular expressions.
@@ -157,35 +75,71 @@ func init() {
 	}
 }
 
-// styleFromTag takes the given style and modifies it based on the substrings
-// extracted by the regular expression for color tags. The new style is returned
-// as well as the flag indicating if any style attributes were explicitly
-// specified (whose original value is also returned).
-func styleFromTag(style tcell.Style, overwriteAttr bool, tagSubstrings []string) (tcell.Style, bool) {
-	// Colors.
+// styleFromTag takes the given style, defined by a foreground color (fgColor),
+// a background color (bgColor), and style attributes, and modifies it based on
+// the substrings (tagSubstrings) extracted by the regular expression for color
+// tags. The new colors and attributes are returned where empty strings mean
+// "don't modify" and a dash ("-") means "reset to default".
+func styleFromTag(fgColor, bgColor, attributes string, tagSubstrings []string) (newFgColor, newBgColor, newAttributes string) {
 	if tagSubstrings[colorForegroundPos] != "" {
 		color := tagSubstrings[colorForegroundPos]
-		if color == "" {
-			style = style.Foreground(tcell.ColorDefault)
-		} else {
-			style = style.Foreground(tcell.GetColor(color))
-		}
-	}
-	if tagSubstrings[colorBackgroundPos-1] != "" {
-		color := tagSubstrings[colorBackgroundPos]
-		if color == "" {
-			style = style.Background(tcell.ColorDefault)
-		} else {
-			style = style.Background(tcell.GetColor(color))
+		if color == "-" {
+			fgColor = "-"
+		} else if color != "" {
+			fgColor = color
 		}
 	}
 
-	// Flags.
-	specified := tagSubstrings[colorFlagPos-1] != ""
-	if specified {
-		overwriteAttr = true
+	if tagSubstrings[colorBackgroundPos-1] != "" {
+		color := tagSubstrings[colorBackgroundPos]
+		if color == "-" {
+			bgColor = "-"
+		} else if color != "" {
+			bgColor = color
+		}
+	}
+
+	if tagSubstrings[colorFlagPos-1] != "" {
+		flags := tagSubstrings[colorFlagPos]
+		if flags == "-" {
+			attributes = "-"
+		} else if flags != "" {
+			attributes = flags
+		}
+	}
+
+	return fgColor, bgColor, attributes
+}
+
+// overlayStyle mixes a background color with a foreground color (fgColor),
+// a (possibly new) background color (bgColor), and style attributes, and
+// returns the resulting style. For a definition of the colors and attributes,
+// see styleFromTag(). Reset instructions cause the corresponding part of the
+// default style to be used.
+func overlayStyle(background tcell.Color, defaultStyle tcell.Style, fgColor, bgColor, attributes string) tcell.Style {
+	defFg, defBg, defAttr := defaultStyle.Decompose()
+	style := defaultStyle.Background(background)
+
+	style = style.Foreground(defFg)
+	if fgColor != "" {
+		style = style.Foreground(tcell.GetColor(fgColor))
+	}
+
+	if bgColor == "-" || bgColor == "" && defBg != tcell.ColorDefault {
+		style = style.Background(defBg)
+	} else if bgColor != "" {
+		style = style.Background(tcell.GetColor(bgColor))
+	}
+
+	if attributes == "-" {
+		style = style.Bold(defAttr&tcell.AttrBold > 0)
+		style = style.Blink(defAttr&tcell.AttrBlink > 0)
+		style = style.Reverse(defAttr&tcell.AttrReverse > 0)
+		style = style.Underline(defAttr&tcell.AttrUnderline > 0)
+		style = style.Dim(defAttr&tcell.AttrDim > 0)
+	} else if attributes != "" {
 		style = style.Normal()
-		for _, flag := range tagSubstrings[colorFlagPos] {
+		for _, flag := range attributes {
 			switch flag {
 			case 'l':
 				style = style.Blink(true)
@@ -200,26 +154,7 @@ func styleFromTag(style tcell.Style, overwriteAttr bool, tagSubstrings []string)
 			}
 		}
 	}
-	return style, overwriteAttr
-}
 
-// overlayStyle mixes a bottom and a top style and returns the result. Top
-// colors (other than tcell.ColorDefault) overwrite bottom colors. Top
-// style attributes overwrite bottom style attributes only if overwriteAttr is
-// true.
-func overlayStyle(bottom, top tcell.Style, overwriteAttr bool) tcell.Style {
-	style := bottom
-	fg, bg, attr := top.Decompose()
-	if bg != tcell.ColorDefault {
-		style = style.Background(bg)
-	}
-	if fg != tcell.ColorDefault {
-		style = style.Foreground(fg)
-	}
-	if overwriteAttr {
-		style = style.Normal()
-		style |= tcell.Style(attr)
-	}
 	return style
 }
 
@@ -271,14 +206,13 @@ func decomposeString(text string) (colorIndices [][]int, colors [][]string, esca
 // Returns the number of actual runes printed (not including color tags) and the
 // actual width used for the printed runes.
 func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tcell.Color) (int, int) {
-	return printWithStyle(screen, text, x, y, maxWidth, align, tcell.StyleDefault.Foreground(color), false)
+	return printWithStyle(screen, text, x, y, maxWidth, align, tcell.StyleDefault.Foreground(color))
 }
 
 // printWithStyle works like Print() but it takes a style instead of just a
-// foreground color. The overwriteAttr indicates whether or not a style's
-// additional attributes (see tcell.AttrMask) should be overwritten.
-func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int, style tcell.Style, overwriteAttr bool) (int, int) {
-	if maxWidth < 0 {
+// foreground color.
+func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int, style tcell.Style) (int, int) {
+	if maxWidth <= 0 || len(text) == 0 {
 		return 0, 0
 	}
 
@@ -288,17 +222,23 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 	// We deal with runes, not with bytes.
 	runes := []rune(strippedText)
 
-	// This helper function takes positions for a substring of "runes" and a start
-	// style and returns the substring with the original tags and the new start
-	// style.
-	substring := func(from, to int, style tcell.Style, overwriteAttr bool) (string, tcell.Style, bool) {
-		var colorPos, escapePos, runePos, startPos int
+	// This helper function takes positions for a substring of "runes" and returns
+	// a new string corresponding to this substring, making sure printing that
+	// substring will observe color tags.
+	substring := func(from, to int) string {
+		var (
+			colorPos, escapePos, runePos, startPos       int
+			foregroundColor, backgroundColor, attributes string
+		)
+		if from >= len(runes) {
+			return ""
+		}
 		for pos := range text {
 			// Handle color tags.
 			if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
 				if pos == colorIndices[colorPos][1]-1 {
 					if runePos <= from {
-						style, overwriteAttr = styleFromTag(style, overwriteAttr, colors[colorPos])
+						foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
 					}
 					colorPos++
 				}
@@ -318,13 +258,13 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			if runePos == from {
 				startPos = pos
 			} else if runePos >= to {
-				return text[startPos:pos], style, overwriteAttr
+				return fmt.Sprintf(`[%s:%s:%s]%s`, foregroundColor, backgroundColor, attributes, text[startPos:pos])
 			}
 
 			runePos++
 		}
 
-		return text[startPos:], style, overwriteAttr
+		return fmt.Sprintf(`[%s:%s:%s]%s`, foregroundColor, backgroundColor, attributes, text[startPos:])
 	}
 
 	// We want to reduce everything to AlignLeft.
@@ -339,46 +279,83 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			width += w
 			start = index
 		}
-		text, style, overwriteAttr = substring(start, len(runes), style, overwriteAttr)
-		return printWithStyle(screen, text, x+maxWidth-width, y, width, AlignLeft, style, overwriteAttr)
+		for start < len(runes) && runewidth.RuneWidth(runes[start]) == 0 {
+			start++
+		}
+		return printWithStyle(screen, substring(start, len(runes)), x+maxWidth-width, y, width, AlignLeft, style)
 	} else if align == AlignCenter {
 		width := runewidth.StringWidth(strippedText)
 		if width == maxWidth {
 			// Use the exact space.
-			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style, overwriteAttr)
+			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style)
 		} else if width < maxWidth {
 			// We have more space than we need.
 			half := (maxWidth - width) / 2
-			return printWithStyle(screen, text, x+half, y, maxWidth-half, AlignLeft, style, overwriteAttr)
+			return printWithStyle(screen, text, x+half, y, maxWidth-half, AlignLeft, style)
 		} else {
 			// Chop off runes until we have a perfect fit.
 			var choppedLeft, choppedRight, leftIndex, rightIndex int
 			rightIndex = len(runes) - 1
 			for rightIndex > leftIndex && width-choppedLeft-choppedRight > maxWidth {
-				leftWidth := runewidth.RuneWidth(runes[leftIndex])
-				rightWidth := runewidth.RuneWidth(runes[rightIndex])
 				if choppedLeft < choppedRight {
+					leftWidth := runewidth.RuneWidth(runes[leftIndex])
 					choppedLeft += leftWidth
 					leftIndex++
+					for leftIndex < len(runes) && leftIndex < rightIndex && runewidth.RuneWidth(runes[leftIndex]) == 0 {
+						leftIndex++
+					}
 				} else {
+					rightWidth := runewidth.RuneWidth(runes[rightIndex])
 					choppedRight += rightWidth
 					rightIndex--
 				}
 			}
-			text, style, overwriteAttr = substring(leftIndex, rightIndex, style, overwriteAttr)
-			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style, overwriteAttr)
+			return printWithStyle(screen, substring(leftIndex, rightIndex), x, y, maxWidth, AlignLeft, style)
 		}
 	}
 
 	// Draw text.
 	drawn := 0
 	drawnWidth := 0
-	var colorPos, escapePos int
+	var (
+		colorPos, escapePos                          int
+		foregroundColor, backgroundColor, attributes string
+	)
+	runeSequence := make([]rune, 0, 10)
+	runeSeqWidth := 0
+	flush := func() {
+		if len(runeSequence) == 0 {
+			return // Nothing to flush.
+		}
+
+		// Print the rune sequence.
+		finalX := x + drawnWidth
+		_, _, finalStyle, _ := screen.GetContent(finalX, y)
+		_, background, _ := finalStyle.Decompose()
+		finalStyle = overlayStyle(background, style, foregroundColor, backgroundColor, attributes)
+		var comb []rune
+		if len(runeSequence) > 1 && !unicode.IsControl(runeSequence[1]) {
+			// Allocate space for the combining characters only when necessary.
+			comb = make([]rune, len(runeSequence)-1)
+			copy(comb, runeSequence[1:])
+		}
+		for offset := 0; offset < runeSeqWidth; offset++ {
+			// To avoid undesired effects, we place the same character in all cells.
+			screen.SetContent(finalX+offset, y, runeSequence[0], comb, finalStyle)
+		}
+
+		// Advance and reset.
+		drawn += len(runeSequence)
+		drawnWidth += runeSeqWidth
+		runeSequence = runeSequence[:0]
+		runeSeqWidth = 0
+	}
 	for pos, ch := range text {
 		// Handle color tags.
 		if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
+			flush()
 			if pos == colorIndices[colorPos][1]-1 {
-				style, overwriteAttr = styleFromTag(style, overwriteAttr, colors[colorPos])
+				foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
 				colorPos++
 			}
 			continue
@@ -386,6 +363,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 
 		// Handle escape tags.
 		if escapePos < len(escapeIndices) && pos >= escapeIndices[escapePos][0] && pos < escapeIndices[escapePos][1] {
+			flush()
 			if pos == escapeIndices[escapePos][1]-1 {
 				escapePos++
 			} else if pos == escapeIndices[escapePos][1]-2 {
@@ -396,20 +374,25 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 		// Check if we have enough space for this rune.
 		chWidth := runewidth.RuneWidth(ch)
 		if drawnWidth+chWidth > maxWidth {
-			break
-		}
-		finalX := x + drawnWidth
-
-		// Print the rune.
-		_, _, finalStyle, _ := screen.GetContent(finalX, y)
-		finalStyle = overlayStyle(finalStyle, style, overwriteAttr)
-		for offset := 0; offset < chWidth; offset++ {
-			// To avoid undesired effects, we place the same character in all cells.
-			screen.SetContent(finalX+offset, y, ch, nil, finalStyle)
+			break // No. We're done then.
 		}
 
-		drawn++
-		drawnWidth += chWidth
+		// Put this rune in the queue.
+		if chWidth == 0 {
+			// If this is not a modifier, we treat it as a space character.
+			if len(runeSequence) == 0 {
+				ch = ' '
+				chWidth = 1
+			}
+		} else {
+			// We have a character. Flush all previous runes.
+			flush()
+		}
+		runeSequence = append(runeSequence, ch)
+		runeSeqWidth += chWidth
+	}
+	if drawnWidth+runeSeqWidth <= maxWidth {
+		flush()
 	}
 
 	return drawn, drawnWidth
@@ -539,28 +522,12 @@ func WordWrap(text string, width int) (lines []string) {
 	return
 }
 
-// PrintJoinedBorder prints a border graphics rune into the screen at the given
-// position with the given color, joining it with any existing border graphics
-// rune. Background colors are preserved. At this point, only regular single
-// line borders are supported.
-func PrintJoinedBorder(screen tcell.Screen, x, y int, ch rune, color tcell.Color) {
-	previous, _, style, _ := screen.GetContent(x, y)
-	style = style.Foreground(color)
-
-	// What's the resulting rune?
-	var result rune
-	if ch == previous {
-		result = ch
-	} else {
-		if ch < previous {
-			previous, ch = ch, previous
-		}
-		result = joints[string(previous)+string(ch)]
-	}
-	if result == 0 {
-		result = ch
-	}
-
-	// We only print something if we have something.
-	screen.SetContent(x, y, result, nil, style)
+// Escape escapes the given text such that color and/or region tags are not
+// recognized and substituted by the print functions of this package. For
+// example, to include a tag-like string in a box title or in a TextView:
+//
+//   box.SetTitle(tview.Escape("[squarebrackets]"))
+//   fmt.Fprint(textView, tview.Escape(`["quoted"]`))
+func Escape(text string) string {
+	return nonEscapePattern.ReplaceAllString(text, "$1[]")
 }

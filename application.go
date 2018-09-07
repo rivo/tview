@@ -19,6 +19,9 @@ type Application struct {
 	// The application's screen.
 	screen tcell.Screen
 
+	// Indicates whether the application's screen is currently active.
+	running bool
+
 	// The primitive which currently has the keyboard focus.
 	focus Primitive
 
@@ -41,8 +44,8 @@ type Application struct {
 	// was drawn.
 	afterDraw func(screen tcell.Screen)
 
-	// If this value is true, the application has entered suspended mode.
-	suspended bool
+	// Halts the event loop during suspended mode.
+	suspendMutex sync.Mutex
 }
 
 // NewApplication creates and returns a new application.
@@ -70,22 +73,53 @@ func (a *Application) GetInputCapture() func(event *tcell.EventKey) *tcell.Event
 	return a.inputCapture
 }
 
+// SetScreen allows you to provide your own tcell.Screen object. For most
+// applications, this is not needed and you should be familiar with
+// tcell.Screen when using this function. Run() will call Init() and Fini() on
+// the provided screen object.
+//
+// This function is typically called before calling Run(). Calling it while an
+// application is running will switch the application to the new screen. Fini()
+// will be called on the old screen and Init() on the new screen (errors
+// returned by Init() will lead to a panic).
+//
+// Note that calling Suspend() will invoke Fini() on your screen object and it
+// will not be restored when suspended mode ends. Instead, a new default screen
+// object will be created.
+func (a *Application) SetScreen(screen tcell.Screen) *Application {
+	a.Lock()
+	defer a.Unlock()
+	if a.running {
+		a.screen.Fini()
+	}
+	a.screen = screen
+	if a.running {
+		if err := a.screen.Init(); err != nil {
+			panic(err)
+		}
+	}
+	return a
+}
+
 // Run starts the application and thus the event loop. This function returns
 // when Stop() was called.
 func (a *Application) Run() error {
 	var err error
 	a.Lock()
 
-	// Make a screen.
-	a.screen, err = tcell.NewScreen()
-	if err != nil {
-		a.Unlock()
-		return err
+	// Make a screen if there is none yet.
+	if a.screen == nil {
+		a.screen, err = tcell.NewScreen()
+		if err != nil {
+			a.Unlock()
+			return err
+		}
 	}
 	if err = a.screen.Init(); err != nil {
 		a.Unlock()
 		return err
 	}
+	a.running = true
 
 	// We catch panics to clean up because they mess up the terminal.
 	defer func() {
@@ -93,6 +127,7 @@ func (a *Application) Run() error {
 			if a.screen != nil {
 				a.screen.Fini()
 			}
+			a.running = false
 			panic(p)
 		}
 	}()
@@ -103,28 +138,20 @@ func (a *Application) Run() error {
 
 	// Start event loop.
 	for {
-		a.Lock()
+		// Do not poll events during suspend mode
+		a.suspendMutex.Lock()
+		a.RLock()
 		screen := a.screen
-		if a.suspended {
-			a.suspended = false // Clear previous suspended flag.
-		}
-		a.Unlock()
+		a.RUnlock()
 		if screen == nil {
+			a.suspendMutex.Unlock()
 			break
 		}
 
 		// Wait for next event.
 		event := a.screen.PollEvent()
+		a.suspendMutex.Unlock()
 		if event == nil {
-			a.Lock()
-			if a.suspended {
-				// This screen was renewed due to suspended mode.
-				a.suspended = false
-				a.Unlock()
-				continue // Resume.
-			}
-			a.Unlock()
-
 			// The screen was finalized. Exit the loop.
 			break
 		}
@@ -158,9 +185,9 @@ func (a *Application) Run() error {
 				}
 			}
 		case *tcell.EventResize:
-			a.Lock()
+			a.RLock()
 			screen := a.screen
-			a.Unlock()
+			a.RUnlock()
 			screen.Clear()
 			a.Draw()
 		}
@@ -171,13 +198,14 @@ func (a *Application) Run() error {
 
 // Stop stops the application, causing Run() to return.
 func (a *Application) Stop() {
-	a.RLock()
-	defer a.RUnlock()
+	a.Lock()
+	defer a.Unlock()
 	if a.screen == nil {
 		return
 	}
 	a.screen.Fini()
 	a.screen = nil
+	a.running = false
 }
 
 // Suspend temporarily suspends the application by exiting terminal UI mode and
@@ -188,17 +216,18 @@ func (a *Application) Stop() {
 // was called. If false is returned, the application was already suspended,
 // terminal UI mode was not exited, and "f" was not called.
 func (a *Application) Suspend(f func()) bool {
-	a.Lock()
+	a.RLock()
 
-	if a.suspended || a.screen == nil {
-		// Application is already suspended.
-		a.Unlock()
+	if a.screen == nil {
+		// Screen has not yet been initialized.
+		a.RUnlock()
 		return false
 	}
 
 	// Enter suspended mode.
-	a.suspended = true
-	a.Unlock()
+	a.suspendMutex.Lock()
+	defer a.suspendMutex.Unlock()
+	a.RUnlock()
 	a.Stop()
 
 	// Deal with panics during suspended mode. Exit the program.
@@ -224,6 +253,7 @@ func (a *Application) Suspend(f func()) bool {
 		a.Unlock()
 		panic(err)
 	}
+	a.running = true
 	a.Unlock()
 	a.Draw()
 
@@ -234,13 +264,14 @@ func (a *Application) Suspend(f func()) bool {
 // Draw refreshes the screen. It calls the Draw() function of the application's
 // root primitive and then syncs the screen buffer.
 func (a *Application) Draw() *Application {
-	a.RLock()
+	a.Lock()
+	defer a.Unlock()
+
 	screen := a.screen
 	root := a.root
 	fullscreen := a.rootFullscreen
 	before := a.beforeDraw
 	after := a.afterDraw
-	a.RUnlock()
 
 	// Maybe we're not ready yet or not anymore.
 	if screen == nil || root == nil {

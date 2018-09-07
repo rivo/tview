@@ -85,6 +85,19 @@ func (l *List) GetCurrentItem() int {
 	return l.currentItem
 }
 
+// RemoveItem removes the item with the given index (starting at 0) from the
+// list. Does nothing if the index is out of range.
+func (l *List) RemoveItem(index int) *List {
+	if index < 0 || index >= len(l.items) {
+		return l
+	}
+	l.items = append(l.items[:index], l.items[index+1:]...)
+	if l.currentItem >= len(l.items) {
+		l.currentItem = len(l.items) - 1
+	}
+	return l
+}
+
 // SetMainTextColor sets the color of the items' main text.
 func (l *List) SetMainTextColor(color tcell.Color) *List {
 	l.mainTextColor = color
@@ -127,7 +140,7 @@ func (l *List) ShowSecondaryText(show bool) *List {
 //
 // This function is also called when the first item is added or when
 // SetCurrentItem() is called.
-func (l *List) SetChangedFunc(handler func(int, string, string, rune)) *List {
+func (l *List) SetChangedFunc(handler func(index int, mainText string, secondaryText string, shortcut rune)) *List {
 	l.changed = handler
 	return l
 }
@@ -173,6 +186,26 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 	return l
 }
 
+// GetItemCount returns the number of items in the list.
+func (l *List) GetItemCount() int {
+	return len(l.items)
+}
+
+// GetItemText returns an item's texts (main and secondary). Panics if the index
+// is out of range.
+func (l *List) GetItemText(index int) (main, secondary string) {
+	return l.items[index].MainText, l.items[index].SecondaryText
+}
+
+// SetItemText sets an item's main and secondary text. Panics if the index is
+// out of range.
+func (l *List) SetItemText(index int, main, secondary string) *List {
+	item := l.items[index]
+	item.MainText = main
+	item.SecondaryText = secondary
+	return l
+}
+
 // Clear removes all items from the list.
 func (l *List) Clear() *List {
 	l.items = nil
@@ -202,8 +235,8 @@ func (l *List) Draw(screen tcell.Screen) {
 	// We want to keep the current selection in view. What is our offset?
 	var offset int
 	if l.showSecondaryText {
-		if l.currentItem >= height/2 {
-			offset = l.currentItem + 1 - (height / 2)
+		if 2*l.currentItem >= height {
+			offset = (2*l.currentItem + 2 - height) / 2
 		}
 	} else {
 		if l.currentItem >= height {
@@ -276,12 +309,14 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		case tcell.KeyPgUp:
 			l.currentItem -= 5
 		case tcell.KeyEnter:
-			item := l.items[l.currentItem]
-			if item.Selected != nil {
-				item.Selected()
-			}
-			if l.selected != nil {
-				l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+			if l.currentItem >= 0 && l.currentItem < len(l.items) {
+				item := l.items[l.currentItem]
+				if item.Selected != nil {
+					item.Selected()
+				}
+				if l.selected != nil {
+					l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+				}
 			}
 		case tcell.KeyEscape:
 			if l.done != nil {

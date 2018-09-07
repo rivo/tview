@@ -7,10 +7,12 @@ Widgets
 
 The package implements the following widgets:
 
-  - TextView: Scrollable windows that display multi-colored text. Text may also
+  - TextView: A scrollable window that display multi-colored text. Text may also
     be highlighted.
-  - Table: Scrollable display of tabular data. Table cells, rows, or columns may
-    also be highlighted.
+  - Table: A scrollable display of tabular data. Table cells, rows, or columns
+    may also be highlighted.
+  - TreeView: A scrollable display for hierarchical data. Tree nodes can be
+    highlighted, collapsed, expanded, and more.
   - List: A navigable text list with optional keyboard shortcuts.
   - InputField: One-line input fields to enter text.
   - DropDown: Drop-down selection fields.
@@ -83,10 +85,10 @@ tag is as follows:
 
   [<foreground>:<background>:<flags>]
 
-Each of the three fields can be left blank and trailing fields can be ommitted.
+Each of the three fields can be left blank and trailing fields can be omitted.
 (Empty square brackets "[]", however, are not considered color tags.) Colors
-that are not specified will be left unchanged. (If the flags field is indicated
-by a colon but left empty, it will reset any flags.)
+that are not specified will be left unchanged. A field with just a dash ("-")
+means "reset to default".
 
 You can specify the following flags (some flags may not be supported by your
 terminal):
@@ -104,7 +106,9 @@ Examples:
   [:red]Red background, text color unchanged
   [yellow::u]Yellow text underlined
   [::bl]Bold, blinking text
-  [::]Colors unchanged, flags reset
+  [::-]Colors unchanged, flags reset
+  [-]Reset foreground color
+  [-:-:-]Reset everything
   [:]No effect
   []Not a valid color tag, will print square brackets as they are
 
@@ -120,6 +124,8 @@ character that may be used in color or region tags will be recognized. Examples:
   [a#"[[[]    will be output as [a#"[[]
   []          will be output as [] (see color tags above)
   [[]         will be output as [[] (not an escaped tag)
+
+You can use the Escape() function to insert brackets automatically where needed.
 
 Styles
 

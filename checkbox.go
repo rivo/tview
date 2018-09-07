@@ -17,6 +17,10 @@ type Checkbox struct {
 	// The text to be displayed before the input area.
 	label string
 
+	// The screen width of the label area. A value of 0 means use the width of
+	// the label text.
+	labelWidth int
+
 	// The label color.
 	labelColor tcell.Color
 
@@ -34,6 +38,10 @@ type Checkbox struct {
 	// are done entering text. The key which was pressed is provided (tab,
 	// shift-tab, or escape).
 	done func(tcell.Key)
+
+	// A callback function set by the Form class and called when the user leaves
+	// this form item.
+	finished func(tcell.Key)
 }
 
 // NewCheckbox returns a new input field.
@@ -68,6 +76,13 @@ func (c *Checkbox) GetLabel() string {
 	return c.label
 }
 
+// SetLabelWidth sets the screen width of the label. A value of 0 will cause the
+// primitive to use the width of the label string.
+func (c *Checkbox) SetLabelWidth(width int) *Checkbox {
+	c.labelWidth = width
+	return c
+}
+
 // SetLabelColor sets the color of the label.
 func (c *Checkbox) SetLabelColor(color tcell.Color) *Checkbox {
 	c.labelColor = color
@@ -87,8 +102,8 @@ func (c *Checkbox) SetFieldTextColor(color tcell.Color) *Checkbox {
 }
 
 // SetFormAttributes sets attributes shared by all form items.
-func (c *Checkbox) SetFormAttributes(label string, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
-	c.label = label
+func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	c.labelWidth = labelWidth
 	c.labelColor = labelColor
 	c.backgroundColor = bgColor
 	c.fieldTextColor = fieldTextColor
@@ -109,9 +124,9 @@ func (c *Checkbox) SetChangedFunc(handler func(checked bool)) *Checkbox {
 	return c
 }
 
-// SetDoneFunc sets a handler which is called when the user is done entering
-// text. The callback function is provided with the key that was pressed, which
-// is one of the following:
+// SetDoneFunc sets a handler which is called when the user is done using the
+// checkbox. The callback function is provided with the key that was pressed,
+// which is one of the following:
 //
 //   - KeyEscape: Abort text input.
 //   - KeyTab: Move to the next field.
@@ -121,9 +136,10 @@ func (c *Checkbox) SetDoneFunc(handler func(key tcell.Key)) *Checkbox {
 	return c
 }
 
-// SetFinishedFunc calls SetDoneFunc().
+// SetFinishedFunc sets a callback invoked when the user leaves this form item.
 func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	return c.SetDoneFunc(handler)
+	c.finished = handler
+	return c
 }
 
 // Draw draws this primitive onto the screen.
@@ -138,8 +154,17 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
-	_, drawnWidth := Print(screen, c.label, x, y, rightLimit-x, AlignLeft, c.labelColor)
-	x += drawnWidth
+	if c.labelWidth > 0 {
+		labelWidth := c.labelWidth
+		if labelWidth > rightLimit-x {
+			labelWidth = rightLimit - x
+		}
+		Print(screen, c.label, x, y, labelWidth, AlignLeft, c.labelColor)
+		x += labelWidth
+	} else {
+		_, drawnWidth := Print(screen, c.label, x, y, rightLimit-x, AlignLeft, c.labelColor)
+		x += drawnWidth
+	}
 
 	// Draw checkbox.
 	fieldStyle := tcell.StyleDefault.Background(c.fieldBackgroundColor).Foreground(c.fieldTextColor)
@@ -169,6 +194,9 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if c.done != nil {
 				c.done(key)
+			}
+			if c.finished != nil {
+				c.finished(key)
 			}
 		}
 	})
