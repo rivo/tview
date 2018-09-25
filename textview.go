@@ -883,8 +883,12 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				comb = make([]rune, len(runeSequence)-1)
 				copy(comb, runeSequence[1:])
 			}
-			for offset := 0; offset < runeSeqWidth; offset++ {
-				screen.SetContent(x+posX+offset, y+line-t.lineOffset, runeSequence[0], comb, style)
+			for offset := runeSeqWidth - 1; offset >= 0; offset-- {
+				if offset == 0 {
+					screen.SetContent(x+posX+offset, y+line-t.lineOffset, runeSequence[0], comb, style)
+				} else {
+					screen.SetContent(x+posX+offset, y+line-t.lineOffset, ' ', nil, style)
+				}
 			}
 
 			// Advance.
@@ -926,14 +930,18 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			// Determine the width of this rune.
 			chWidth := runewidth.RuneWidth(ch)
 			if chWidth == 0 {
-				// If this is not a modifier, we treat it as a space character.
 				if len(runeSequence) == 0 {
+					// If this is not a modifier, we treat it as a space character.
 					ch = ' '
 					chWidth = 1
 				} else {
 					runeSequence = append(runeSequence, ch)
 					continue
 				}
+			} else if runeSequence[len(runeSequence)-1] == '\u200d' {
+				// Keep collecting if the previous character was a zero-width joiner.
+				runeSequence = append(runeSequence, ch)
+				continue
 			}
 
 			// Skip to the right.

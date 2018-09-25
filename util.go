@@ -321,7 +321,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 		colorPos, escapePos                          int
 		foregroundColor, backgroundColor, attributes string
 	)
-	runeSequence := make([]rune, 0, 10)
+	runeSequence := make([]rune, 0, 20)
 	runeSeqWidth := 0
 	flush := func() {
 		if len(runeSequence) == 0 {
@@ -339,9 +339,13 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			comb = make([]rune, len(runeSequence)-1)
 			copy(comb, runeSequence[1:])
 		}
-		for offset := 0; offset < runeSeqWidth; offset++ {
+		for offset := runeSeqWidth - 1; offset >= 0; offset-- {
 			// To avoid undesired effects, we place the same character in all cells.
-			screen.SetContent(finalX+offset, y, runeSequence[0], comb, finalStyle)
+			if offset == 0 {
+				screen.SetContent(finalX+offset, y, runeSequence[0], comb, finalStyle)
+			} else {
+				screen.SetContent(finalX+offset, y, ' ', nil, finalStyle)
+			}
 		}
 
 		// Advance and reset.
@@ -384,8 +388,9 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 				ch = ' '
 				chWidth = 1
 			}
-		} else {
-			// We have a character. Flush all previous runes.
+		} else if len(runeSequence) > 0 && runeSequence[len(runeSequence)-1] != '\u200d' {
+			// We have a character that doesn't follow a zero-width joiner. Flush all
+			// previous runes.
 			flush()
 		}
 		runeSequence = append(runeSequence, ch)
