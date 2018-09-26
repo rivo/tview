@@ -388,10 +388,15 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 				ch = ' '
 				chWidth = 1
 			}
-		} else if len(runeSequence) > 0 && runeSequence[len(runeSequence)-1] != '\u200d' {
-			// We have a character that doesn't follow a zero-width joiner. Flush all
-			// previous runes.
-			flush()
+		} else if len(runeSequence) > 0 {
+			if runeSequence[len(runeSequence)-1] != '\u200d' {
+				// We have a character that doesn't follow a zero-width joiner. Flush all
+				// previous runes.
+				flush()
+			} else {
+				// Characters after zero-width joiners have zero width.
+				chWidth = 0
+			}
 		}
 		runeSequence = append(runeSequence, ch)
 		runeSeqWidth += chWidth

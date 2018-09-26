@@ -938,7 +938,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 					runeSequence = append(runeSequence, ch)
 					continue
 				}
-			} else if runeSequence[len(runeSequence)-1] == '\u200d' {
+			} else if len(runeSequence) > 0 && runeSequence[len(runeSequence)-1] == '\u200d' {
 				// Keep collecting if the previous character was a zero-width joiner.
 				runeSequence = append(runeSequence, ch)
 				continue
