@@ -287,6 +287,9 @@ func (i *InputField) getCursor() (int, int) {
 		y++
 		rightLimit -= 2
 	}
+	if len(i.text) == 0 {
+		return x, y
+	}
 	buffer := 2 / (i.fieldWidth - 1)
 	rightText := clamp(i.cursor+buffer, 0, len(i.text)-1)
 	leftText := clamp(i.cursor-buffer, 0, len(i.text)-1)
