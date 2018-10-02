@@ -257,7 +257,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	text := i.text
 	if text == "" && i.placeholder != "" {
 		Print(screen, i.placeholder, x, y, fieldWidth, AlignLeft, i.placeholderTextColor)
-	} else {
+	} else if len(text) > 0 {
 		// Draw entered text.
 		if i.maskCharacter > 0 {
 			text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
@@ -273,14 +273,15 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		cursorPos := clamp(i.cursor-leftText, 0, len(i.text))
 		cursorChar := string(fieldText[cursorPos])
 
+		alignment := AlignLeft
 		if fieldWidth < runewidth.StringWidth(text) {
-			Print(screen, text, x, y, fieldWidth, AlignRight, i.fieldTextColor)
-			printWithStyle(screen, cursorChar, x+cursorPos, y, 1, AlignRight, tcell.StyleDefault.
-				Foreground(i.fieldBackgroundColor).
-				Background(i.fieldTextColor))
-		} else {
-			Print(screen, text, x, y, fieldWidth, AlignLeft, i.fieldTextColor)
-			printWithStyle(screen, cursorChar, x+cursorPos, y, 1, AlignLeft, tcell.StyleDefault.
+			alignment = AlignRight
+		}
+
+		Print(screen, fieldText, x, y, fieldWidth, alignment, i.fieldTextColor)
+
+		if i.focus.HasFocus() {
+			printWithStyle(screen, cursorChar, x+cursorPos, y, 1, alignment, tcell.StyleDefault.
 				Foreground(i.fieldBackgroundColor).
 				Background(i.fieldTextColor))
 		}
