@@ -271,7 +271,10 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		leftText := clamp(i.cursor-buffer, 0, len(i.text)-1)
 		fieldText := i.text[leftText:rightText]
 		cursorPos := clamp(i.cursor-leftText, 0, len(i.text))
-		cursorChar := string(fieldText[cursorPos])
+		cursorChar := " "
+		if cursorPos < len(i.text)-1 {
+			cursorChar = string(fieldText[cursorPos])
+		}
 
 		alignment := AlignLeft
 		if fieldWidth < runewidth.StringWidth(text) {
