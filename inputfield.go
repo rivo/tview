@@ -264,54 +264,40 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		} else {
 			text = Escape(text)
 		}
-		fieldWidth-- // We need one cell for the cursor.
+
+		// Clip to section around cursor
+		buffer := 2 / (i.fieldWidth - 1)
+		rightText := clamp(i.cursor+buffer, 0, len(i.text))
+		leftText := clamp(i.cursor-buffer, 0, len(i.text))
+		fieldText := i.text[leftText:rightText]
+		cursorPos := i.cursor - leftText
+		cursorChar := string(fieldText[cursorPos])
+
 		if fieldWidth < runewidth.StringWidth(text) {
 			Print(screen, text, x, y, fieldWidth, AlignRight, i.fieldTextColor)
+			printWithStyle(screen, cursorChar, x+cursorPos, y, 1, AlignRight, tcell.StyleDefault.
+				Foreground(i.fieldBackgroundColor).
+				Background(i.fieldTextColor))
 		} else {
 			Print(screen, text, x, y, fieldWidth, AlignLeft, i.fieldTextColor)
+			printWithStyle(screen, cursorChar, x+cursorPos, y, 1, AlignLeft, tcell.StyleDefault.
+				Foreground(i.fieldBackgroundColor).
+				Background(i.fieldTextColor))
 		}
 	}
 
 	// Set cursor.
-	if i.focus.HasFocus() {
-		i.setCursor(screen)
-	}
-}
-
-// getCursor gets the cursor's position
-func (i *InputField) getCursor() (int, int) {
-	x := i.x
-	y := i.y
-	rightLimit := x + i.width
-	if i.border {
-		x++
-		y++
-		rightLimit -= 2
-	}
-	fieldWidth := runewidth.StringWidth(i.text)
-	// if len(i.text) > 0 {
-	// 	buffer := 2 / (i.fieldWidth - 1)
-	// 	rightText := clamp(i.cursor+buffer, 0, len(i.text))
-	// 	leftText := clamp(i.cursor-buffer, 0, len(i.text))
-	// 	fieldWidth = runewidth.StringWidth(i.text[leftText:rightText])
-	// }
-	if i.fieldWidth > 0 && fieldWidth > i.fieldWidth-1 {
-		fieldWidth = i.fieldWidth - 1
-	}
-	if i.labelWidth > 0 {
-		x += i.labelWidth + fieldWidth
-	} else {
-		x += StringWidth(i.label) + fieldWidth
-	}
-	if x >= rightLimit {
-		x = rightLimit - 1
-	}
-	return x, y
+	//if i.focus.HasFocus() {
+	//	i.setCursor(screen)
+	//}
 }
 
 // setCursor sets the cursor position.
-func (i *InputField) setCursor(screen tcell.Screen) {
-	screen.ShowCursor(i.getCursor())
+func (i *InputField) setCursor(screen tcell.Screen, x int, y int) {
+
+	//i.text[leftText:rightText])
+	//cursorChar := string(i.text[i.cursor])
+	//Print(screen, cursorChar, x + (leftText)
 }
 
 // InputHandler returns the handler for this primitive.
