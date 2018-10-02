@@ -89,6 +89,7 @@ func (i *InputField) SetText(text string) *InputField {
 	if i.changed != nil {
 		i.changed(text)
 	}
+	i.cursor = len(i.text) - 1
 	return i
 }
 
@@ -328,8 +329,8 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		switch key := event.Key(); key {
 		case tcell.KeyRune: // Regular character.
 			newText := string(event.Rune())
-			if len(i.text) > 0 {
-				newText = i.text[:i.cursor] + newText + i.text[i.cursor:len(i.text)-1]
+			if i.cursor != len(i.text) {
+				newText = i.text[:i.cursor] + newText + i.text[i.cursor:len(i.text)]
 			}
 			if i.accept != nil {
 				if !i.accept(newText, event.Rune()) {
