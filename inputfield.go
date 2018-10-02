@@ -329,7 +329,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		switch key := event.Key(); key {
 		case tcell.KeyRune: // Regular character.
 			newText := string(event.Rune())
-			if i.cursor != len(i.text) {
+			if i.cursor == len(i.text) && len(i.text) != 0 {
 				newText = i.text[:i.cursor] + newText + i.text[i.cursor:len(i.text)]
 			}
 			if i.accept != nil {
