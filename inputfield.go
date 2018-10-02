@@ -289,12 +289,12 @@ func (i *InputField) getCursor() (int, int) {
 		rightLimit -= 2
 	}
 	fieldWidth := runewidth.StringWidth(i.text)
-	if len(i.text) > 0 {
-		buffer := 2 / (i.fieldWidth - 1)
-		rightText := clamp(i.cursor+buffer, 0, len(i.text)-1)
-		leftText := clamp(i.cursor-buffer, 0, len(i.text)-1)
-		fieldWidth = runewidth.StringWidth(i.text[leftText:rightText])
-	}
+	// if len(i.text) > 0 {
+	// 	buffer := 2 / (i.fieldWidth - 1)
+	// 	rightText := clamp(i.cursor+buffer, 0, len(i.text))
+	// 	leftText := clamp(i.cursor-buffer, 0, len(i.text))
+	// 	fieldWidth = runewidth.StringWidth(i.text[leftText:rightText])
+	// }
 	if i.fieldWidth > 0 && fieldWidth > i.fieldWidth-1 {
 		fieldWidth = i.fieldWidth - 1
 	}
