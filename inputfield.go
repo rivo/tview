@@ -266,11 +266,11 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		}
 
 		// Clip to section around cursor
-		buffer := 2 / (i.fieldWidth - 1)
+		buffer := 2 / (i.fieldWidth)
 		rightText := clamp(i.cursor+buffer, 0, len(i.text)-1)
 		leftText := clamp(i.cursor-buffer, 0, len(i.text)-1)
 		fieldText := i.text[leftText:rightText]
-		cursorPos := clamp(i.cursor-leftText, 0, len(i.text))
+		cursorPos := clamp(i.cursor-leftText, 0, len(i.text)-1)
 		cursorChar := " "
 		if cursorPos < len(i.text)-1 {
 			cursorChar = string(fieldText[cursorPos])
