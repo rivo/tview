@@ -541,3 +541,15 @@ func WordWrap(text string, width int) (lines []string) {
 func Escape(text string) string {
 	return nonEscapePattern.ReplaceAllString(text, "$1[]")
 }
+
+// Clamp functions as a simple integer range filter. The min and max parameters
+// mark the inclusive range that the val argument will be bound within.
+func clamp(val int, min int, max int) int {
+	if val < min {
+		return min
+	}
+	if val > max {
+		return max
+	}
+	return val
+}

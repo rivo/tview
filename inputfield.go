@@ -53,6 +53,9 @@ type InputField struct {
 	// disables masking.
 	maskCharacter rune
 
+	// The current cursor index within the string.
+	cursor int
+
 	// An optional function which may reject the last character that was entered.
 	accept func(text string, ch rune) bool
 
@@ -86,6 +89,7 @@ func (i *InputField) SetText(text string) *InputField {
 	if i.changed != nil {
 		i.changed(text)
 	}
+	i.cursor = len(i.text)
 	return i
 }
 
@@ -207,6 +211,28 @@ func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return i
 }
 
+// GetCursorPosition returns the current cursor's index of the input's text.
+func (i *InputField) GetCursorPosition() int {
+	return i.cursor
+}
+
+// SetCursorPosition sets the current cursor position within the input's text,
+// clamping the values to the size of the input's text.
+func (i *InputField) SetCursorPosition(position int) {
+	i.cursor = clamp(position, 0, len(i.text))
+}
+
+func (i *InputField) getFieldText(text string, fieldWidth int) (string, int) {
+	bufferSize := fieldWidth / 2
+	left := clamp(i.cursor-bufferSize, 0, len(text))
+	right := clamp(i.cursor+bufferSize, 0, len(text))
+	return i.text[left:right], left
+}
+
+func (i *InputField) getFieldCursorPosition(fieldText string, leftOffset int) int {
+	return clamp(i.cursor-leftOffset, 0, len(fieldText))
+}
+
 // Draw draws this primitive onto the screen.
 func (i *InputField) Draw(screen tcell.Screen) {
 	i.Box.Draw(screen)
@@ -248,50 +274,37 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	text := i.text
 	if text == "" && i.placeholder != "" {
 		Print(screen, i.placeholder, x, y, fieldWidth, AlignLeft, i.placeholderTextColor)
-	} else {
+	} else if len(text) > 0 {
 		// Draw entered text.
 		if i.maskCharacter > 0 {
 			text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
 		} else {
 			text = Escape(text)
 		}
-		fieldWidth-- // We need one cell for the cursor.
+
+		// Clip the input's visible text to that which is around the cursor's position.
+		fieldText, offset := i.getFieldText(text, i.Box.width)
+
+		// Invert the color of the cursor's cell, use a space if on the "new character" cell
+		cursorPos := i.getFieldCursorPosition(fieldText, offset)
+		cursorChar := " "
+		if len(fieldText) > 0 && cursorPos < len(fieldText) {
+			cursorChar = string(fieldText[cursorPos])
+		}
+
+		alignment := AlignLeft
 		if fieldWidth < runewidth.StringWidth(text) {
-			Print(screen, text, x, y, fieldWidth, AlignRight, i.fieldTextColor)
-		} else {
-			Print(screen, text, x, y, fieldWidth, AlignLeft, i.fieldTextColor)
+			alignment = AlignRight
+		}
+
+		Print(screen, fieldText, x, y, fieldWidth, alignment, i.fieldTextColor)
+
+		if i.focus.HasFocus() {
+			printWithStyle(screen, cursorChar, x+cursorPos, y, 1, alignment, tcell.StyleDefault.
+				Foreground(i.fieldBackgroundColor).
+				Background(i.fieldTextColor))
 		}
 	}
-
-	// Set cursor.
-	if i.focus.HasFocus() {
-		i.setCursor(screen)
-	}
-}
-
-// setCursor sets the cursor position.
-func (i *InputField) setCursor(screen tcell.Screen) {
-	x := i.x
-	y := i.y
-	rightLimit := x + i.width
-	if i.border {
-		x++
-		y++
-		rightLimit -= 2
-	}
-	fieldWidth := runewidth.StringWidth(i.text)
-	if i.fieldWidth > 0 && fieldWidth > i.fieldWidth-1 {
-		fieldWidth = i.fieldWidth - 1
-	}
-	if i.labelWidth > 0 {
-		x += i.labelWidth + fieldWidth
-	} else {
-		x += StringWidth(i.label) + fieldWidth
-	}
-	if x >= rightLimit {
-		x = rightLimit - 1
-	}
-	screen.ShowCursor(x, y)
 }
 
 // InputHandler returns the handler for this primitive.
@@ -308,24 +321,40 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyRune: // Regular character.
-			newText := i.text + string(event.Rune())
+			left := ""
+			right := ""
+			if i.cursor > 0 {
+				left = i.text[:i.cursor]
+			}
+			if i.cursor < len(i.text) {
+				right = i.text[i.cursor:len(i.text)]
+			}
+			newText := left + string(event.Rune()) + right
 			if i.accept != nil {
 				if !i.accept(newText, event.Rune()) {
 					break
 				}
 			}
 			i.text = newText
+			i.cursor++
+		case tcell.KeyLeft:
+			i.cursor = clamp(i.cursor-1, 0, len(i.text))
+		case tcell.KeyRight:
+			i.cursor = clamp(i.cursor+1, 0, len(i.text))
 		case tcell.KeyCtrlU: // Delete all.
 			i.text = ""
+			i.cursor = 0
 		case tcell.KeyCtrlW: // Delete last word.
 			lastWord := regexp.MustCompile(`\s*\S+\s*$`)
 			i.text = lastWord.ReplaceAllString(i.text, "")
+			i.cursor = len(i.text)
 		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete last character.
 			if len(i.text) == 0 {
 				break
 			}
-			runes := []rune(i.text)
-			i.text = string(runes[:len(runes)-1])
+			leftLimit := clamp(i.cursor-1, 0, len(i.text))
+			i.text = i.text[0:leftLimit] + i.text[i.cursor:len(i.text)]
+			i.cursor = clamp(i.cursor-1, 0, len(i.text))
 		case tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if i.done != nil {
 				i.done(key)
