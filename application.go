@@ -46,11 +46,20 @@ type Application struct {
 
 	// Halts the event loop during suspended mode.
 	suspendMutex sync.Mutex
+
+	// Used to send screen events from separate goroutine to main event loop
+	events chan tcell.Event
+
+	// Used to send primitive updates from separate goroutines to the main event loop
+	updates chan func()
 }
 
 // NewApplication creates and returns a new application.
 func NewApplication() *Application {
-	return &Application{}
+	return &Application{
+		events:  make(chan tcell.Event, 100),
+		updates: make(chan func(), 100),
+	}
 }
 
 // SetInputCapture sets a function which captures all key events before they are
@@ -136,61 +145,78 @@ func (a *Application) Run() error {
 	a.Unlock()
 	a.Draw()
 
-	// Start event loop.
-	for {
-		// Do not poll events during suspend mode
-		a.suspendMutex.Lock()
-		a.RLock()
-		screen := a.screen
-		a.RUnlock()
-		if screen == nil {
-			a.suspendMutex.Unlock()
-			break
-		}
-
-		// Wait for next event.
-		event := a.screen.PollEvent()
-		a.suspendMutex.Unlock()
-		if event == nil {
-			// The screen was finalized. Exit the loop.
-			break
-		}
-
-		switch event := event.(type) {
-		case *tcell.EventKey:
-			a.RLock()
-			p := a.focus
-			a.RUnlock()
-
-			// Intercept keys.
-			if a.inputCapture != nil {
-				event = a.inputCapture(event)
-				if event == nil {
-					break // Don't forward event.
-				}
-			}
-
-			// Ctrl-C closes the application.
-			if event.Key() == tcell.KeyCtrlC {
-				a.Stop()
-			}
-
-			// Pass other key events to the currently focused primitive.
-			if p != nil {
-				if handler := p.InputHandler(); handler != nil {
-					handler(event, func(p Primitive) {
-						a.SetFocus(p)
-					})
-					a.Draw()
-				}
-			}
-		case *tcell.EventResize:
+	// Separate loop to wait for screen events
+	go func() {
+		for {
+			// Do not poll events during suspend mode
+			a.suspendMutex.Lock()
 			a.RLock()
 			screen := a.screen
 			a.RUnlock()
-			screen.Clear()
+			if screen == nil {
+				a.suspendMutex.Unlock()
+				// send signal to stop main event loop
+				a.QueueEvent(nil)
+				break
+			}
+
+			// Wait for next event.
+			a.QueueEvent(screen.PollEvent())
+			a.suspendMutex.Unlock()
+		}
+	}()
+
+	// Start event loop.
+loop:
+	for {
+		select {
+		case event := <-a.events:
+			if event == nil {
+				// The screen was finalized. Exit the loop.
+				break loop
+			}
+
+			switch event := event.(type) {
+			case *tcell.EventKey:
+				a.RLock()
+				p := a.focus
+				a.RUnlock()
+
+				// Intercept keys.
+				if a.inputCapture != nil {
+					event = a.inputCapture(event)
+					if event == nil {
+						break loop // Don't forward event.
+					}
+				}
+
+				// Ctrl-C closes the application.
+				if event.Key() == tcell.KeyCtrlC {
+					a.Stop()
+				}
+
+				// Pass other key events to the currently focused primitive.
+				if p != nil {
+					if handler := p.InputHandler(); handler != nil {
+						handler(event, func(p Primitive) {
+							a.SetFocus(p)
+						})
+						a.Draw()
+					}
+				}
+			case *tcell.EventResize:
+				a.RLock()
+				screen := a.screen
+				a.RUnlock()
+				screen.Clear()
+				a.Draw()
+			}
+
+		case updater := <-a.updates:
+			updater()
 			a.Draw()
 		}
+
 	}
 
 	return nil
@@ -403,4 +429,16 @@ func (a *Application) GetFocus() Primitive {
 	a.RLock()
 	defer a.RUnlock()
 	return a.focus
+}
+
+// QueueUpdate is used to synchronize changes to primitives by carrying an update function from separate goroutine to the Application event loop via channel
+func (a *Application) QueueUpdate(f func()) *Application {
+	a.updates <- f
+	return a
+}
+
+// QueueEvent takes an Event instance and sends it to the Application event loop via channel
+func (a *Application) QueueEvent(e tcell.Event) *Application {
+	a.events <- e
+	return a
 }
