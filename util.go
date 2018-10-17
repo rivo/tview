@@ -4,7 +4,6 @@ import (
 	"math"
 	"regexp"
 	"strconv"
-	"strings"
 	"unicode"
 
 	"github.com/gdamore/tcell"
@@ -24,7 +23,7 @@ var (
 	regionPattern    = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
 	escapePattern    = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
 	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
-	boundaryPattern  = regexp.MustCompile("([[:punct:]]\\s*|\\s+)")
+	boundaryPattern  = regexp.MustCompile(`(([[:punct:]]|\n)[ \t\f\r]*|(\s+))`)
 	spacePattern     = regexp.MustCompile(`\s+`)
 )
 
@@ -395,102 +394,83 @@ func WordWrap(text string, width int) (lines []string) {
 	colorTagIndices, _, escapeIndices, strippedText, _ := decomposeString(text)
 
 	// Find candidate breakpoints.
-	breakPoints := boundaryPattern.FindAllStringIndex(strippedText, -1)
+	breakpoints := boundaryPattern.FindAllStringSubmatchIndex(strippedText, -1)
+	// Results in one entry for each candidate. Each entry is an array a of
+	// indices into strippedText where a[6] < 0 for newline/punctuation matches
+	// and a[4] < 0 for whitespace matches.
 
-	// This helper function adds a new line to the result slice. The provided
-	// positions are in stripped index space.
-	addLine := func(from, to int) {
-		// Shift indices back to original index space.
-		var colorTagIndex, escapeIndex int
-		for colorTagIndex < len(colorTagIndices) && to >= colorTagIndices[colorTagIndex][0] ||
-			escapeIndex < len(escapeIndices) && to >= escapeIndices[escapeIndex][0] {
-			past := 0
-			if colorTagIndex < len(colorTagIndices) {
-				tagWidth := colorTagIndices[colorTagIndex][1] - colorTagIndices[colorTagIndex][0]
-				if colorTagIndices[colorTagIndex][0] < from {
-					from += tagWidth
-					to += tagWidth
-					colorTagIndex++
-				} else if colorTagIndices[colorTagIndex][0] < to {
-					to += tagWidth
-					colorTagIndex++
-				} else {
-					past++
-				}
-			} else {
-				past++
-			}
-			if escapeIndex < len(escapeIndices) {
-				tagWidth := escapeIndices[escapeIndex][1] - escapeIndices[escapeIndex][0]
-				if escapeIndices[escapeIndex][0] < from {
-					from += tagWidth
-					to += tagWidth
-					escapeIndex++
-				} else if escapeIndices[escapeIndex][0] < to {
-					to += tagWidth
-					escapeIndex++
-				} else {
-					past++
-				}
-			} else {
-				past++
-			}
-			if past == 2 {
-				break // All other indices are beyond the requested string.
+	// Process stripped text one character at a time.
+	var (
+		colorPos, escapePos, breakpointPos, tagOffset      int
+		lastBreakpoint, lastContinuation, currentLineStart int
+		lineWidth, continuationWidth                       int
+		newlineBreakpoint                                  bool
+	)
+	unescape := func(substr string, startIndex int) string {
+		// A helper function to unescape escaped tags.
+		for index := escapePos; index >= 0; index-- {
+			if index < len(escapeIndices) && startIndex > escapeIndices[index][0] && startIndex < escapeIndices[index][1]-1 {
+				pos := escapeIndices[index][1] - 2 - startIndex
+				return substr[:pos] + substr[pos+1:]
 			}
 		}
-		lines = append(lines, text[from:to])
+		return substr
 	}
-
-	// Determine final breakpoints.
-	var start, lastEnd, newStart, breakPoint int
-	for {
-		// What's our candidate string?
-		var candidate string
-		if breakPoint < len(breakPoints) {
-			candidate = text[start:breakPoints[breakPoint][1]]
-		} else {
-			candidate = text[start:]
+	iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+		// Handle colour tags.
+		if colorPos < len(colorTagIndices) && textPos+tagOffset >= colorTagIndices[colorPos][0] && textPos+tagOffset < colorTagIndices[colorPos][1] {
+			tagOffset += colorTagIndices[colorPos][1] - colorTagIndices[colorPos][0]
+			colorPos++
 		}
-		candidate = strings.TrimRightFunc(candidate, unicode.IsSpace)
 
-		if runewidth.StringWidth(candidate) >= width {
-			// We're past the available width.
-			if lastEnd > start {
-				// Use the previous candidate.
-				addLine(start, lastEnd)
-				start = newStart
-			} else {
-				// We have no previous candidate. Make a hard break.
-				var lineWidth int
-				for index, ch := range text {
-					if index < start {
-						continue
-					}
-					chWidth := runewidth.RuneWidth(ch)
-					if lineWidth > 0 && lineWidth+chWidth >= width {
-						addLine(start, index)
-						start = index
-						break
-					}
-					lineWidth += chWidth
-				}
-			}
-		} else {
-			// We haven't hit the right border yet.
-			if breakPoint >= len(breakPoints) {
-				// It's the last line. We're done.
-				if len(candidate) > 0 {
-					addLine(start, len(strippedText))
-				}
-				break
-			} else {
-				// We have a new candidate.
-				lastEnd = start + len(candidate)
-				newStart = breakPoints[breakPoint][1]
-				breakPoint++
-			}
+		// Handle escape tags.
+		if escapePos < len(escapeIndices) && textPos+tagOffset == escapeIndices[escapePos][1]-2 {
+			tagOffset++
+			escapePos++
 		}
+
+		// Check if a break is warranted.
+		afterContinuation := lastContinuation > 0 && textPos+tagOffset >= lastContinuation
+		noBreakpoint := lastContinuation == 0
+		beyondWidth := lineWidth > 0 && lineWidth > width
+		if beyondWidth && noBreakpoint {
+			// We need a hard break without a breakpoint.
+			lines = append(lines, unescape(text[currentLineStart:textPos+tagOffset], currentLineStart))
+			currentLineStart = textPos + tagOffset
+			lineWidth = continuationWidth
+		} else if afterContinuation && (beyondWidth || newlineBreakpoint) {
+			// Break at last breakpoint or at newline.
+			lines = append(lines, unescape(text[currentLineStart:lastBreakpoint], currentLineStart))
+			currentLineStart = lastContinuation
+			lineWidth = continuationWidth
+			lastBreakpoint, lastContinuation, newlineBreakpoint = 0, 0, false
+		}
+
+		// Is this a breakpoint?
+		if breakpointPos < len(breakpoints) && textPos == breakpoints[breakpointPos][0] {
+			// Yes, it is. Set up breakpoint infos depending on its type.
+			lastBreakpoint = breakpoints[breakpointPos][0] + tagOffset
+			lastContinuation = breakpoints[breakpointPos][1] + tagOffset
+			newlineBreakpoint = main == '\n'
+			if breakpoints[breakpointPos][6] < 0 && !newlineBreakpoint {
+				lastBreakpoint++ // Don't skip punctuation.
+			}
+			breakpointPos++
+		}
+
+		// Once we hit the continuation point, we start buffering widths.
+		if textPos+tagOffset < lastContinuation {
+			continuationWidth = 0
+		}
+
+		lineWidth += screenWidth
+		continuationWidth += screenWidth
+		return false
+	})
+
+	// Flush the rest.
+	if currentLineStart < len(text) {
+		lines = append(lines, unescape(text[currentLineStart:], currentLineStart))
 	}
 
 	return
@@ -533,10 +513,11 @@ func iterateString(text string, callback func(main rune, comb []rune, textPos, t
 	}
 
 	for index, r := range text {
-		runeWidth := runewidth.RuneWidth(r)
-		if runeWidth > 0 {
-			// We have a non-zero width rune. It could be the beginning of a new
-			// character.
+		if unicode.In(r, unicode.Lm, unicode.M) || r == '\u200d' {
+			lastZeroWidthJoiner = r == '\u200d'
+		} else {
+			// We have a rune that's not a modifier. It could be the beginning of a
+			// new character.
 			if !lastZeroWidthJoiner {
 				if len(runes) > 0 {
 					// It is. Invoke callback.
@@ -548,16 +529,9 @@ func iterateString(text string, callback func(main rune, comb []rune, textPos, t
 					startIndex = index
 					startPos = pos
 				}
-				pos += runeWidth
+				pos += runewidth.RuneWidth(r)
 			} else {
 				lastZeroWidthJoiner = false
-			}
-		} else { // runeWidth == 0.
-			lastZeroWidthJoiner = r == '\u200d'
-			if len(runes) == 0 {
-				// Orphan modifiers will be treated as spaces.
-				r = ' '
-				pos++
 			}
 		}
 		runes = append(runes, r)
@@ -582,8 +556,9 @@ func iterateString(text string, callback func(main rune, comb []rune, textPos, t
 func iterateStringReverse(text string, callback func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool) bool {
 	type runePos struct {
 		r     rune
-		pos   int // The byte position of the rune in the original string.
-		width int // The screen width of the rune.
+		pos   int  // The byte position of the rune in the original string.
+		width int  // The screen width of the rune.
+		mod   bool // Modifier or zero-width-joiner.
 	}
 
 	// We use the following:
@@ -596,6 +571,7 @@ func iterateStringReverse(text string, callback func(main rune, comb []rune, tex
 		runesReverse[index].r = ch
 		runesReverse[index].pos = pos
 		runesReverse[index].width = runewidth.RuneWidth(ch)
+		runesReverse[index].mod = unicode.In(ch, unicode.Lm, unicode.M) || ch == '\u200d'
 		index--
 	}
 	runesReverse = runesReverse[index+1:]
@@ -610,14 +586,8 @@ func iterateStringReverse(text string, callback func(main rune, comb []rune, tex
 		bufferPos--
 		buffer[bufferPos] = r.r
 
-		// Leading modifiers are spaces for us.
-		if r.pos == 0 && r.width == 0 {
-			r.r = ' '
-			r.width = 1
-		}
-
 		// Do we need to flush the buffer?
-		if r.pos == 0 || r.width > 0 && runesReverse[index+1].r != '\u200d' {
+		if r.pos == 0 || !r.mod && runesReverse[index+1].r != '\u200d' {
 			// Yes, invoke callback.
 			var comb []rune
 			if len(text)-bufferPos > 1 {

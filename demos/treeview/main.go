@@ -1,3 +1,4 @@
+// Demo code for the TreeView primitive.
 package main
 
 import (
