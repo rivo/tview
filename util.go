@@ -1,7 +1,6 @@
 package tview
 
 import (
-	"fmt"
 	"math"
 	"regexp"
 	"strconv"
@@ -203,8 +202,8 @@ func decomposeString(text string) (colorIndices [][]int, colors [][]string, esca
 // You can change the colors and text styles mid-text by inserting a color tag.
 // See the package description for details.
 //
-// Returns the number of actual runes printed (not including color tags) and the
-// actual width used for the printed runes.
+// Returns the number of actual bytes of the text printed (including color tags)
+// and the actual width used for the printed runes.
 func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tcell.Color) (int, int) {
 	return printWithStyle(screen, text, x, y, maxWidth, align, tcell.StyleDefault.Foreground(color))
 }
@@ -217,115 +216,136 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 	}
 
 	// Decompose the text.
-	colorIndices, colors, escapeIndices, strippedText, _ := decomposeString(text)
+	colorIndices, colors, escapeIndices, strippedText, strippedWidth := decomposeString(text)
 
-	// We deal with runes, not with bytes.
-	runes := []rune(strippedText)
-
-	// This helper function takes positions for a substring of "runes" and returns
-	// a new string corresponding to this substring, making sure printing that
-	// substring will observe color tags.
-	substring := func(from, to int) string {
+	// We want to reduce all alignments to AlignLeft.
+	if align == AlignRight {
+		if strippedWidth <= maxWidth {
+			// There's enough space for the entire text.
+			return printWithStyle(screen, text, x+maxWidth-strippedWidth, y, maxWidth, AlignLeft, style)
+		}
+		// Trim characters off the beginning.
 		var (
-			colorPos, escapePos, runePos, startPos       int
+			bytes, width, colorPos, escapePos, tagOffset int
 			foregroundColor, backgroundColor, attributes string
 		)
-		if from >= len(runes) {
-			return ""
-		}
-		for pos := range text {
-			// Handle color tags.
-			if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
-				if pos == colorIndices[colorPos][1]-1 {
-					if runePos <= from {
-						foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
-					}
-					colorPos++
+		_, originalBackground, _ := style.Decompose()
+		iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+			// Update color/escape tag offset and style.
+			if colorPos < len(colorIndices) && textPos+tagOffset >= colorIndices[colorPos][0] && textPos+tagOffset < colorIndices[colorPos][1] {
+				foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
+				style = overlayStyle(originalBackground, style, foregroundColor, backgroundColor, attributes)
+				tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
+				colorPos++
+			}
+			if escapePos < len(escapeIndices) && textPos+tagOffset >= escapeIndices[escapePos][0] && textPos+tagOffset < escapeIndices[escapePos][1] {
+				tagOffset++
+				escapePos++
+			}
+			if strippedWidth-screenPos < maxWidth {
+				// We chopped off enough.
+				if escapePos > 0 && textPos+tagOffset-1 >= escapeIndices[escapePos-1][0] && textPos+tagOffset-1 < escapeIndices[escapePos-1][1] {
+					// Unescape open escape sequences.
+					escapeCharPos := escapeIndices[escapePos-1][1] - 2
+					text = text[:escapeCharPos] + text[escapeCharPos+1:]
 				}
-				continue
+				// Print and return.
+				bytes, width = printWithStyle(screen, text[textPos+tagOffset:], x, y, maxWidth, AlignLeft, style)
+				return true
 			}
-
-			// Handle escape tags.
-			if escapePos < len(escapeIndices) && pos >= escapeIndices[escapePos][0] && pos < escapeIndices[escapePos][1] {
-				if pos == escapeIndices[escapePos][1]-1 {
-					escapePos++
-				} else if pos == escapeIndices[escapePos][1]-2 {
-					continue
-				}
-			}
-
-			// Check boundaries.
-			if runePos == from {
-				startPos = pos
-			} else if runePos >= to {
-				return fmt.Sprintf(`[%s:%s:%s]%s`, foregroundColor, backgroundColor, attributes, text[startPos:pos])
-			}
-
-			runePos++
-		}
-
-		return fmt.Sprintf(`[%s:%s:%s]%s`, foregroundColor, backgroundColor, attributes, text[startPos:])
-	}
-
-	// We want to reduce everything to AlignLeft.
-	if align == AlignRight {
-		width := 0
-		start := len(runes)
-		for index := start - 1; index >= 0; index-- {
-			w := runewidth.RuneWidth(runes[index])
-			if width+w > maxWidth {
-				break
-			}
-			width += w
-			start = index
-		}
-		for start < len(runes) && runewidth.RuneWidth(runes[start]) == 0 {
-			start++
-		}
-		return printWithStyle(screen, substring(start, len(runes)), x+maxWidth-width, y, width, AlignLeft, style)
+			return false
+		})
+		return bytes, width
 	} else if align == AlignCenter {
-		width := runewidth.StringWidth(strippedText)
-		if width == maxWidth {
+		if strippedWidth == maxWidth {
 			// Use the exact space.
 			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style)
-		} else if width < maxWidth {
+		} else if strippedWidth < maxWidth {
 			// We have more space than we need.
-			half := (maxWidth - width) / 2
+			half := (maxWidth - strippedWidth) / 2
 			return printWithStyle(screen, text, x+half, y, maxWidth-half, AlignLeft, style)
 		} else {
 			// Chop off runes until we have a perfect fit.
 			var choppedLeft, choppedRight, leftIndex, rightIndex int
-			rightIndex = len(runes) - 1
-			for rightIndex > leftIndex && width-choppedLeft-choppedRight > maxWidth {
+			rightIndex = len(strippedText)
+			for rightIndex-1 > leftIndex && strippedWidth-choppedLeft-choppedRight > maxWidth {
 				if choppedLeft < choppedRight {
-					leftWidth := runewidth.RuneWidth(runes[leftIndex])
-					choppedLeft += leftWidth
-					leftIndex++
-					for leftIndex < len(runes) && leftIndex < rightIndex && runewidth.RuneWidth(runes[leftIndex]) == 0 {
-						leftIndex++
-					}
+					// Iterate on the left by one character.
+					iterateString(strippedText[leftIndex:], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+						choppedLeft += screenWidth
+						leftIndex += textWidth
+						return true
+					})
 				} else {
-					rightWidth := runewidth.RuneWidth(runes[rightIndex])
-					choppedRight += rightWidth
-					rightIndex--
+					// Iterate on the right by one character.
+					iterateStringReverse(strippedText[leftIndex:rightIndex], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+						choppedRight += screenWidth
+						rightIndex -= textWidth
+						return true
+					})
 				}
 			}
-			return printWithStyle(screen, substring(leftIndex, rightIndex), x, y, maxWidth, AlignLeft, style)
+
+			// Add tag offsets and determine start style.
+			var (
+				colorPos, escapePos, tagOffset               int
+				foregroundColor, backgroundColor, attributes string
+			)
+			_, originalBackground, _ := style.Decompose()
+			for index := range strippedText {
+				// We only need the offset of the left index.
+				if index > leftIndex {
+					// We're done.
+					if escapePos > 0 && leftIndex+tagOffset-1 >= escapeIndices[escapePos-1][0] && leftIndex+tagOffset-1 < escapeIndices[escapePos-1][1] {
+						// Unescape open escape sequences.
+						escapeCharPos := escapeIndices[escapePos-1][1] - 2
+						text = text[:escapeCharPos] + text[escapeCharPos+1:]
+					}
+					break
+				}
+
+				// Update color/escape tag offset.
+				if colorPos < len(colorIndices) && index+tagOffset >= colorIndices[colorPos][0] && index+tagOffset < colorIndices[colorPos][1] {
+					if index <= leftIndex {
+						foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
+						style = overlayStyle(originalBackground, style, foregroundColor, backgroundColor, attributes)
+					}
+					tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
+					colorPos++
+				}
+				if escapePos < len(escapeIndices) && index+tagOffset >= escapeIndices[escapePos][0] && index+tagOffset < escapeIndices[escapePos][1] {
+					tagOffset++
+					escapePos++
+				}
+			}
+			return printWithStyle(screen, text[leftIndex+tagOffset:], x, y, maxWidth, AlignLeft, style)
 		}
 	}
 
 	// Draw text.
-	drawn := 0
-	drawnWidth := 0
 	var (
-		colorPos, escapePos                          int
-		foregroundColor, backgroundColor, attributes string
+		drawn, drawnWidth, colorPos, escapePos, tagOffset int
+		foregroundColor, backgroundColor, attributes      string
 	)
-	runeSequence := make([]rune, 0, 20)
-	runeSeqWidth := 0
-	flush := func() {
-		if len(runeSequence) == 0 {
-			return // Nothing to flush.
+	iterateString(strippedText, func(main rune, comb []rune, textPos, length, screenPos, screenWidth int) bool {
+		// Only continue if there is still space.
+		if drawnWidth+screenWidth > maxWidth {
+			return true
+		}
+
+		// Handle color tags.
+		if colorPos < len(colorIndices) && textPos+tagOffset >= colorIndices[colorPos][0] && textPos+tagOffset < colorIndices[colorPos][1] {
+			foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
+			tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
+			colorPos++
+		}
+
+		// Handle scape tags.
+		if escapePos < len(escapeIndices) && textPos+tagOffset >= escapeIndices[escapePos][0] && textPos+tagOffset < escapeIndices[escapePos][1] {
+			if textPos+tagOffset == escapeIndices[escapePos][1]-2 {
+				tagOffset++
+				escapePos++
+			}
 		}
 
 		// Print the rune sequence.
@@ -333,79 +353,23 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 		_, _, finalStyle, _ := screen.GetContent(finalX, y)
 		_, background, _ := finalStyle.Decompose()
 		finalStyle = overlayStyle(background, style, foregroundColor, backgroundColor, attributes)
-		var comb []rune
-		if len(runeSequence) > 1 && !unicode.IsControl(runeSequence[1]) {
-			// Allocate space for the combining characters only when necessary.
-			comb = make([]rune, len(runeSequence)-1)
-			copy(comb, runeSequence[1:])
-		}
-		for offset := runeSeqWidth - 1; offset >= 0; offset-- {
-			// To avoid undesired effects, we place the same character in all cells.
+		for offset := screenWidth - 1; offset >= 0; offset-- {
+			// To avoid undesired effects, we populate all cells.
 			if offset == 0 {
-				screen.SetContent(finalX+offset, y, runeSequence[0], comb, finalStyle)
+				screen.SetContent(finalX+offset, y, main, comb, finalStyle)
 			} else {
 				screen.SetContent(finalX+offset, y, ' ', nil, finalStyle)
 			}
 		}
 
-		// Advance and reset.
-		drawn += len(runeSequence)
-		drawnWidth += runeSeqWidth
-		runeSequence = runeSequence[:0]
-		runeSeqWidth = 0
-	}
-	for pos, ch := range text {
-		// Handle color tags.
-		if colorPos < len(colorIndices) && pos >= colorIndices[colorPos][0] && pos < colorIndices[colorPos][1] {
-			flush()
-			if pos == colorIndices[colorPos][1]-1 {
-				foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
-				colorPos++
-			}
-			continue
-		}
+		// Advance.
+		drawn += length
+		drawnWidth += screenWidth
 
-		// Handle escape tags.
-		if escapePos < len(escapeIndices) && pos >= escapeIndices[escapePos][0] && pos < escapeIndices[escapePos][1] {
-			flush()
-			if pos == escapeIndices[escapePos][1]-1 {
-				escapePos++
-			} else if pos == escapeIndices[escapePos][1]-2 {
-				continue
-			}
-		}
+		return false
+	})
 
-		// Check if we have enough space for this rune.
-		chWidth := runewidth.RuneWidth(ch)
-		if drawnWidth+chWidth > maxWidth {
-			break // No. We're done then.
-		}
-
-		// Put this rune in the queue.
-		if chWidth == 0 {
-			// If this is not a modifier, we treat it as a space character.
-			if len(runeSequence) == 0 {
-				ch = ' '
-				chWidth = 1
-			}
-		} else if len(runeSequence) > 0 {
-			if runeSequence[len(runeSequence)-1] != '\u200d' {
-				// We have a character that doesn't follow a zero-width joiner. Flush all
-				// previous runes.
-				flush()
-			} else {
-				// Characters after zero-width joiners have zero width.
-				chWidth = 0
-			}
-		}
-		runeSequence = append(runeSequence, ch)
-		runeSeqWidth += chWidth
-	}
-	if drawnWidth+runeSeqWidth <= maxWidth {
-		flush()
-	}
-
-	return drawn, drawnWidth
+	return drawn + tagOffset + len(escapeIndices), drawnWidth
 }
 
 // PrintSimple prints white text to the screen at the given position.
@@ -540,4 +504,132 @@ func WordWrap(text string, width int) (lines []string) {
 //   fmt.Fprint(textView, tview.Escape(`["quoted"]`))
 func Escape(text string) string {
 	return nonEscapePattern.ReplaceAllString(text, "$1[]")
+}
+
+// iterateString iterates through the given string one printed character at a
+// time. For each such character, the callback function is called with the
+// Unicode code points of the character (the first rune and any combining runes
+// which may be nil if there aren't any), the starting position (in bytes)
+// within the original string, its length in bytes, the screen position of the
+// character, and the screen width of it. The iteration stops if the callback
+// returns true. This function returns true if the iteration was stopped before
+// the last character.
+func iterateString(text string, callback func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool) bool {
+	var (
+		runes               []rune
+		lastZeroWidthJoiner bool
+		startIndex          int
+		startPos            int
+		pos                 int
+	)
+
+	// Helper function which invokes the callback.
+	flush := func(index int) bool {
+		var comb []rune
+		if len(runes) > 1 {
+			comb = runes[1:]
+		}
+		return callback(runes[0], comb, startIndex, index-startIndex, startPos, pos-startPos)
+	}
+
+	for index, r := range text {
+		runeWidth := runewidth.RuneWidth(r)
+		if runeWidth > 0 {
+			// We have a non-zero width rune. It could be the beginning of a new
+			// character.
+			if !lastZeroWidthJoiner {
+				if len(runes) > 0 {
+					// It is. Invoke callback.
+					if flush(index) {
+						return true // We're done.
+					}
+					// Reset rune store.
+					runes = runes[:0]
+					startIndex = index
+					startPos = pos
+				}
+				pos += runeWidth
+			} else {
+				lastZeroWidthJoiner = false
+			}
+		} else { // runeWidth == 0.
+			lastZeroWidthJoiner = r == '\u200d'
+			if len(runes) == 0 {
+				// Orphan modifiers will be treated as spaces.
+				r = ' '
+				pos++
+			}
+		}
+		runes = append(runes, r)
+	}
+
+	// Flush any remaining runes.
+	if len(runes) > 0 {
+		flush(len(text))
+	}
+
+	return false
+}
+
+// iterateStringReverse iterates through the given string in reverse, starting
+// from the end of the string, one printed character at a time. For each such
+// character, the callback function is called with the Unicode code points of
+// the character (the first rune and any combining runes which may be nil if
+// there aren't any), the starting position (in bytes) within the original
+// string, its length in bytes, the screen position of the character, and the
+// screen width of it. The iteration stops if the callback returns true. This
+// function returns true if the iteration was stopped before the last character.
+func iterateStringReverse(text string, callback func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool) bool {
+	type runePos struct {
+		r     rune
+		pos   int // The byte position of the rune in the original string.
+		width int // The screen width of the rune.
+	}
+
+	// We use the following:
+	// len(text) >= number of runes in text.
+
+	// Put all runes into a runePos slice in reverse.
+	runesReverse := make([]runePos, len(text))
+	index := len(text) - 1
+	for pos, ch := range text {
+		runesReverse[index].r = ch
+		runesReverse[index].pos = pos
+		runesReverse[index].width = runewidth.RuneWidth(ch)
+		index--
+	}
+	runesReverse = runesReverse[index+1:]
+
+	// Parse reverse runes.
+	var screenWidth int
+	buffer := make([]rune, len(text)) // We fill this up from the back so it's forward again.
+	bufferPos := len(text)
+	stringWidth := runewidth.StringWidth(text)
+	for index, r := range runesReverse {
+		// Put this rune into the buffer.
+		bufferPos--
+		buffer[bufferPos] = r.r
+
+		// Leading modifiers are spaces for us.
+		if r.pos == 0 && r.width == 0 {
+			r.r = ' '
+			r.width = 1
+		}
+
+		// Do we need to flush the buffer?
+		if r.pos == 0 || r.width > 0 && runesReverse[index+1].r != '\u200d' {
+			// Yes, invoke callback.
+			var comb []rune
+			if len(text)-bufferPos > 1 {
+				comb = buffer[bufferPos+1:]
+			}
+			if callback(r.r, comb, r.pos, len(text)-r.pos, stringWidth-screenWidth, r.width) {
+				return true
+			}
+			screenWidth += r.width
+			bufferPos = len(text)
+		}
+	}
+
+	return false
 }
