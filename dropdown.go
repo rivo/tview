@@ -189,9 +189,24 @@ func (d *DropDown) GetFieldWidth() int {
 // AddOption adds a new selectable option to this drop-down. The "selected"
 // callback is called when this option was selected. It may be nil.
 func (d *DropDown) AddOption(text string, selected func()) *DropDown {
-	d.options = append(d.options, &dropDownOption{Text: text, Selected: selected})
-	d.list.AddItem(text, "", 0, nil)
+	// Do not duplicate option entry if it already exists
+	if d.notContains(text) {
+		d.options = append(d.options, &dropDownOption{Text: text, Selected: selected})
+		d.list.AddItem(text, "", 0, nil)
+	}
 	return d
+}
+
+// Check if option value already exists or not (case-insensitive)
+func (d *DropDown) notContains(text string) bool {
+	present := false
+	for _, element := range d.options {
+		if strings.ToLower(element.Text) == strings.ToLower(text) {
+			present = true
+			break
+		}
+	}
+	return !present
 }
 
 // SetOptions replaces all current options with the ones provided and installs
