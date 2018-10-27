@@ -389,7 +389,7 @@ func (t *Table) SetDoneFunc(handler func(key tcell.Key)) *Table {
 }
 
 // SetCell sets the content of a cell the specified position. It is ok to
-// directly instantiate a TableCell object. If the cell has contain, at least
+// directly instantiate a TableCell object. If the cell has content, at least
 // the Text and Color fields should be set.
 //
 // Note that setting cells in previously unknown rows and columns will
@@ -422,7 +422,7 @@ func (t *Table) SetCellSimple(row, column int, text string) *Table {
 }
 
 // GetCell returns the contents of the cell at the specified position. A valid
-// TableCell object is always returns but it will be uninitialized if the cell
+// TableCell object is always returned but it will be uninitialized if the cell
 // was not previously set.
 func (t *Table) GetCell(row, column int) *TableCell {
 	if row >= len(t.cells) || column >= len(t.cells[row]) {
