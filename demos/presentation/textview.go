@@ -34,10 +34,13 @@ func TextView1(nextSlide func()) (title string, content tview.Primitive) {
 	textView := tview.NewTextView().
 		SetTextColor(tcell.ColorYellow).
 		SetScrollable(false).
-		SetChangedFunc(func() {
+		SetDoneFunc(func(key tcell.Key) {
+			nextSlide()
+		})
+	textView.SetChangedFunc(func() {
+		if textView.HasFocus() {
 			app.Draw()
-		}).SetDoneFunc(func(key tcell.Key) {
-		nextSlide()
+		}
 	})
 	go func() {
 		var n int
