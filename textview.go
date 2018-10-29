@@ -872,18 +872,21 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		// Print the line.
 		var colorPos, regionPos, escapePos, tagOffset, skipped int
 		iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
-			// Get the color.
-			if colorPos < len(colorTags) && textPos+tagOffset >= colorTagIndices[colorPos][0] && textPos+tagOffset < colorTagIndices[colorPos][1] {
-				foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colorTags[colorPos])
-				tagOffset += colorTagIndices[colorPos][1] - colorTagIndices[colorPos][0]
-				colorPos++
-			}
-
-			// Get the region.
-			if regionPos < len(regionIndices) && textPos+tagOffset >= regionIndices[regionPos][0] && textPos+tagOffset < regionIndices[regionPos][1] {
-				regionID = regions[regionPos][1]
-				tagOffset += regionIndices[regionPos][1] - regionIndices[regionPos][0]
-				regionPos++
+			// Process tags.
+			for {
+				if colorPos < len(colorTags) && textPos+tagOffset >= colorTagIndices[colorPos][0] && textPos+tagOffset < colorTagIndices[colorPos][1] {
+					// Get the color.
+					foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colorTags[colorPos])
+					tagOffset += colorTagIndices[colorPos][1] - colorTagIndices[colorPos][0]
+					colorPos++
+				} else if regionPos < len(regionIndices) && textPos+tagOffset >= regionIndices[regionPos][0] && textPos+tagOffset < regionIndices[regionPos][1] {
+					// Get the region.
+					regionID = regions[regionPos][1]
+					tagOffset += regionIndices[regionPos][1] - regionIndices[regionPos][0]
+					regionPos++
+				} else {
+					break
+				}
 			}
 
 			// Skip the second-to-last character of an escape tag.
@@ -926,7 +929,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			}
 
 			// Stop at the right border.
-			if posX+screenWidth >= width {
+			if posX+screenWidth > width {
 				return true
 			}
 
