@@ -359,20 +359,26 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			i.cursorPos = len(i.text) - len(regexp.MustCompile(`^\s*\S+\s*`).ReplaceAllString(i.text[i.cursorPos:], ""))
 		}
 
+		// Add character function. Returns whether or not the rune character is
+		// accepted.
+		add := func(r rune) bool {
+			newText := i.text[:i.cursorPos] + string(r) + i.text[i.cursorPos:]
+			if i.accept != nil {
+				return i.accept(newText, r)
+			}
+			i.text = newText
+			i.cursorPos += len(string(r))
+			return true
+		}
+
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyRune: // Regular character.
 			modifiers := event.Modifiers()
 			if modifiers == tcell.ModNone {
-				ch := string(event.Rune())
-				newText := i.text[:i.cursorPos] + ch + i.text[i.cursorPos:]
-				if i.accept != nil {
-					if !i.accept(newText, event.Rune()) {
-						break
-					}
+				if !add(event.Rune()) {
+					break
 				}
-				i.text = newText
-				i.cursorPos += len(ch)
 			} else if modifiers&tcell.ModAlt > 0 {
 				// We accept some Alt- key combinations.
 				switch event.Rune() {
@@ -384,6 +390,10 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 					moveWordLeft()
 				case 'f': // Move word right.
 					moveWordRight()
+				default: // Ignore Alt modifier for other keys.
+					if !add(event.Rune()) {
+						break
+					}
 				}
 			}
 		case tcell.KeyCtrlU: // Delete all.
