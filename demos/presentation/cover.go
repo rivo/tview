@@ -19,7 +19,7 @@ const logo = `
 
 const (
 	subtitle   = `tview - Rich Widgets for Terminal UIs`
-	navigation = `Ctrl-N: Next slide    Ctrl-P: Previous slide`
+	navigation = `Ctrl-N: Next slide    Ctrl-P: Previous slide    Ctrl-C: Exit`
 )
 
 // Cover returns the cover page.
@@ -45,7 +45,7 @@ func Cover(nextSlide func()) (title string, content tview.Primitive) {
 		SetBorders(0, 0, 0, 0, 0, 0).
 		AddText(subtitle, true, tview.AlignCenter, tcell.ColorWhite).
 		AddText("", true, tview.AlignCenter, tcell.ColorWhite).
-		AddText(navigation, true, tview.AlignCenter, tcell.ColorBlue)
+		AddText(navigation, true, tview.AlignCenter, tcell.ColorDarkMagenta)
 
 	// Create a Flex layout that centers the logo and subtitle.
 	flex := tview.NewFlex().

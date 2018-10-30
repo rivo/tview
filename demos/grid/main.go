@@ -1,3 +1,4 @@
+// Demo code for the Grid primitive.
 package main
 
 import (
