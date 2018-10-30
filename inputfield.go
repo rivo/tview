@@ -395,6 +395,10 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 						break
 					}
 				}
+			} else {
+				if !add(event.Rune()) {
+					break
+				}
 			}
 		case tcell.KeyCtrlU: // Delete all.
 			i.text = ""
