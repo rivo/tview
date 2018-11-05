@@ -145,12 +145,12 @@ will execute in the main goroutine and thus will not cause any race conditions.
 
 If you access your primitives from other goroutines, however, you will need to
 synchronize execution. The easiest way to do this is to call
-Application.QueueUpdate() (see its documentation for details):
+Application.QueueUpdate() or Application.QueueUpdateDraw() (see the function
+documentation for details):
 
   go func() {
-    app.QueueUpdate(func() {
+    app.QueueUpdateDraw(func() {
       table.SetCellSimple(0, 0, "Foo bar")
-      app.Draw()
     })
   }()
 

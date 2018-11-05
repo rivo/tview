@@ -14,6 +14,13 @@ const queueSize = 100
 // It is not strictly required to use this class as none of the other classes
 // depend on it. However, it provides useful tools to set up an application and
 // plays nicely with all widgets.
+//
+// The following command displays a primitive p on the screen until Ctrl-C is
+// pressed:
+//
+//   if err := tview.NewApplication().SetRoot(p, true).Run(); err != nil {
+//       panic(err)
+//   }
 type Application struct {
 	sync.RWMutex
 
@@ -52,9 +59,6 @@ type Application struct {
 	// Functions queued from goroutines, used to serialize updates to primitives.
 	updates chan func()
 
-	// Redraw requests.
-	redraw chan struct{}
-
 	// A channel which signals the end of the suspended mode.
 	suspendToken chan struct{}
 }
@@ -64,7 +68,6 @@ func NewApplication() *Application {
 	return &Application{
 		events:       make(chan tcell.Event, queueSize),
 		updates:      make(chan func(), queueSize),
-		redraw:       make(chan struct{}, queueSize),
 		suspendToken: make(chan struct{}, 1),
 	}
 }
@@ -242,10 +245,6 @@ EventLoop:
 		// If we have updates, now is the time to execute them.
 		case updater := <-a.updates:
 			updater()
-
-			// If a redraw is requested, do it now.
-		case <-a.redraw:
-			a.draw()
 		}
 	}
 
@@ -318,11 +317,13 @@ func (a *Application) Suspend(f func()) bool {
 	return true
 }
 
-// Draw refreshes the screen. It calls the Draw() function of the application's
-// root primitive and then syncs the screen buffer.
+// Draw refreshes the screen (during the next update cycle). It calls the Draw()
+// function of the application's root primitive and then syncs the screen
+// buffer.
 func (a *Application) Draw() *Application {
-	// We actually just queue this draw.
-	a.redraw <- struct{}{}
+	a.QueueUpdate(func() {
+		a.draw()
+	})
 	return a
 }
 
@@ -476,9 +477,20 @@ func (a *Application) GetFocus() Primitive {
 //
 // Note that Draw() is not implicitly called after the execution of f as that
 // may not be desirable. You can call Draw() from f if the screen should be
-// refreshed after each update.
+// refreshed after each update. Alternatively, use QueueUpdateDraw() to follow
+// up with an immediate refresh of the screen.
 func (a *Application) QueueUpdate(f func()) *Application {
 	a.updates <- f
+	return a
+}
+
+// QueueUpdateDraw works like QueueUpdate() except it refreshes the screen
+// immediately after executing f.
+func (a *Application) QueueUpdateDraw(f func()) *Application {
+	a.QueueUpdate(func() {
+		f()
+		a.draw()
+	})
 	return a
 }
 
