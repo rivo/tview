@@ -431,6 +431,31 @@ func (t *Table) GetCell(row, column int) *TableCell {
 	return t.cells[row][column]
 }
 
+// RemoveRow removes the row at the given position from the table. If there is
+// no such row, this has no effect.
+func (t *Table) RemoveRow(row int) *Table {
+	if row < 0 || row >= len(t.cells) {
+		return t
+	}
+
+	t.cells = append(t.cells[:row], t.cells[row+1:]...)
+
+	return t
+}
+
+// RemoveColumn removes the column at the given position from the table. If
+// there is no such column, this has no effect.
+func (t *Table) RemoveColumn(column int) *Table {
+	for row := range t.cells {
+		if column < 0 || column >= len(t.cells[row]) {
+			continue
+		}
+		t.cells[row] = append(t.cells[row][:column], t.cells[row][column+1:]...)
+	}
+
+	return t
+}
+
 // GetRowCount returns the number of rows in the table.
 func (t *Table) GetRowCount() int {
 	return len(t.cells)
