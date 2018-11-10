@@ -216,7 +216,7 @@ EventLoop:
 				if inputCapture != nil {
 					event = inputCapture(event)
 					if event == nil {
-						break EventLoop // Don't forward event.
+						continue // Don't forward event.
 					}
 				}
 
