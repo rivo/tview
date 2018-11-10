@@ -102,6 +102,7 @@ func NewInputField() *InputField {
 // SetText sets the current text of the input field.
 func (i *InputField) SetText(text string) *InputField {
 	i.text = text
+	i.cursorPos = len(text)
 	if i.changed != nil {
 		i.changed(text)
 	}
