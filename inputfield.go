@@ -364,8 +364,8 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		// accepted.
 		add := func(r rune) bool {
 			newText := i.text[:i.cursorPos] + string(r) + i.text[i.cursorPos:]
-			if i.accept != nil {
-				return i.accept(newText, r)
+			if i.accept != nil && !i.accept(newText, r) {
+				return false
 			}
 			i.text = newText
 			i.cursorPos += len(string(r))
