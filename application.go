@@ -167,7 +167,8 @@ func (a *Application) Run() error {
 				screen := a.screen
 				a.RUnlock()
 				if screen == nil {
-					// We have no screen. We might need to stop.
+					// We have no screen. Let's stop.
+					a.QueueEvent(nil)
 					break
 				}
 
@@ -238,6 +239,9 @@ EventLoop:
 				a.RLock()
 				screen := a.screen
 				a.RUnlock()
+				if screen == nil {
+					continue
+				}
 				screen.Clear()
 				a.draw()
 			}
