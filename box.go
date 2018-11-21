@@ -13,6 +13,9 @@ import (
 //
 // See https://github.com/rivo/tview/wiki/Box for an example.
 type Box struct {
+	// The contents to draw within the inner perimeter of the box
+	contents Primitive
+
 	// The position of the rect.
 	x, y, width, height int
 
@@ -220,6 +223,12 @@ func (b *Box) SetTitleAlign(align int) *Box {
 	return b
 }
 
+// SetContents sets the primitive used to draw inner perimeter of box
+func (b *Box) SetContents(contents Primitive) *Box {
+	b.contents = contents
+	return b
+}
+
 // Draw draws this primitive onto the screen.
 func (b *Box) Draw(screen tcell.Screen) {
 	// Don't draw anything if there is no space.
@@ -289,6 +298,12 @@ func (b *Box) Draw(screen tcell.Screen) {
 		// Remember the inner rect.
 		b.innerX = -1
 		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.GetInnerRect()
+
+		// If there is an inner content primitive and no custom draw function draw it
+		if b.contents != nil {
+			b.contents.SetRect(b.innerX, b.innerY, b.innerWidth, b.innerHeight)
+			b.contents.Draw(screen)
+		}
 	}
 
 	// Clamp inner rect to screen.
