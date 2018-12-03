@@ -317,6 +317,16 @@ func (a *Application) Draw() *Application {
 	return a
 }
 
+// ForceDraw refreshes the screen immediately. Use this function with caution as
+// it may lead to race conditions with updates to primitives in other
+// goroutines.
+//
+// It is safe to call this function during queued updates and direct event
+// handling.
+func (a *Application) ForceDraw() *Application {
+	return a.draw()
+}
+
 // draw actually does what Draw() promises to do.
 func (a *Application) draw() *Application {
 	a.Lock()
