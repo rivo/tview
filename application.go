@@ -319,7 +319,7 @@ func (a *Application) Draw() *Application {
 
 // ForceDraw refreshes the screen immediately. Use this function with caution as
 // it may lead to race conditions with updates to primitives in other
-// goroutines.
+// goroutines. It is always preferrable to use Draw() instead.
 //
 // It is safe to call this function during queued updates and direct event
 // handling.
