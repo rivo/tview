@@ -10,6 +10,7 @@ import (
 )
 
 const textView1 = `[green]func[white] [yellow]main[white]() {
+	app := tview.[yellow]NewApplication[white]()
     textView := tview.[yellow]NewTextView[white]().
         [yellow]SetTextColor[white](tcell.ColorYellow).
         [yellow]SetScrollable[white](false).
@@ -24,8 +25,7 @@ const textView1 = `[green]func[white] [yellow]main[white]() {
             time.[yellow]Sleep[white]([red]200[white] * time.Millisecond)
         }
     }()
-    tview.[yellow]NewApplication[white]().
-        [yellow]SetRoot[white](textView, true).
+    app.[yellow]SetRoot[white](textView, true).
         [yellow]Run[white]()
 }`
 
