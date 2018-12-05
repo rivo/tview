@@ -25,7 +25,7 @@ type Checklist struct {
 	selected       int
 	input          *InputField
 	deleteButton   *Button
-	useChecks      bool
+	UseChecks      bool
 }
 
 func NewChecklist(contents ...string) *Checklist {
@@ -37,7 +37,7 @@ func NewChecklist(contents ...string) *Checklist {
 		selected:     len(contents) - 2,
 		input:        NewInputField(),
 		deleteButton: NewButton("X"),
-		useChecks:    true,
+		UseChecks:    true,
 	}
 
 	c.deleteButton.
@@ -121,7 +121,7 @@ func (c *Checklist) Draw(screen tcell.Screen) {
 	for i, s := range c.contents[0:yy] {
 		sb.Reset()
 
-		if c.useChecks {
+		if c.UseChecks {
 			check := Uncheckmark
 			if i == len(c.contents)-1 {
 				check = '❍'
@@ -149,7 +149,7 @@ func (c *Checklist) Draw(screen tcell.Screen) {
 		text = c.contents[c.selected]
 	}
 	inputOffset := 0
-	if c.useChecks {
+	if c.UseChecks {
 		inputOffset += 2
 	}
 	c.input.SetText(text)
@@ -204,7 +204,7 @@ func (c *Checklist) Focus(delegate func(p Primitive)) {
 			}
 			c.Focus(delegate)
 		case tcell.KeyEnter:
-			if c.useChecks {
+			if c.UseChecks {
 				c.checked[c.selected] = !c.checked[c.selected]
 			}
 		}
@@ -230,4 +230,16 @@ func (c *Checklist) HasFocus() bool {
 	}
 
 	return false
+}
+
+// Contents return the non-empty strings
+func (c *Checklist) Contents() []string {
+	nonEmpty := make([]string, 0, len(c.contents))
+	for _, s := range c.contents {
+		if t := strings.TrimSpace(s); len(t) == 0 {
+			continue
+		}
+		nonEmpty = append(nonEmpty, s)
+	}
+	return nonEmpty
 }
