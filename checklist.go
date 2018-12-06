@@ -26,18 +26,28 @@ type Checklist struct {
 	input          *InputField
 	deleteButton   *Button
 	UseChecks      bool
+
+	// An optional function which is called when the input has changed.
+	changed func(items []string, checked []bool)
+
+	// An optional function which is called when the user indicated that they
+	// are done entering text. The key which was pressed is provided (tab,
+	// shift-tab, enter, or escape).
+	done func(tcell.Key)
 }
 
 func NewChecklist(contents ...string) *Checklist {
-	contents = append(contents, "")
 	c := &Checklist{
 		Box:          NewBox(),
 		contents:     contents,
-		checked:      make([]bool, len(contents)),
-		selected:     len(contents) - 2,
 		input:        NewInputField(),
 		deleteButton: NewButton("X"),
 		UseChecks:    true,
+	}
+	c.SetContents(contents, nil)
+	c.selected = 0
+	if l := len(c.contents); l > 1 {
+		c.selected = l - 2
 	}
 
 	c.deleteButton.
@@ -61,9 +71,20 @@ func NewChecklist(contents ...string) *Checklist {
 				c.contents = append(c.contents, "")
 				c.checked = append(c.checked, false)
 			}
+
+			if c.changed != nil {
+				i, b := c.Contents()
+				c.changed(i, b)
+			}
+		}).
+		SetDoneFunc(func(key tcell.Key) {
+			if key == tcell.KeyESC && c.done != nil {
+				c.done(key)
+			}
 		}).
 		SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-			switch event.Key() {
+			key := event.Key()
+			switch key {
 			case tcell.KeyUp:
 				c.selected--
 				if c.selected < 0 {
@@ -82,6 +103,10 @@ func NewChecklist(contents ...string) *Checklist {
 					append([]string{""}, c.contents[c.selected:]...)...,
 				)
 				c.checked = append(c.checked, false)
+			case tcell.KeyEsc:
+				if c.done != nil {
+					c.done(key)
+				}
 			}
 			return event
 		})
@@ -145,7 +170,7 @@ func (c *Checklist) Draw(screen tcell.Screen) {
 		)
 	}
 	text := ""
-	if c.selected < len(c.contents) {
+	if c.selected >= 0 && c.selected < len(c.contents) {
 		text = c.contents[c.selected]
 	}
 	inputOffset := 0
@@ -233,13 +258,40 @@ func (c *Checklist) HasFocus() bool {
 }
 
 // Contents return the non-empty strings
-func (c *Checklist) Contents() []string {
+func (c *Checklist) Contents() ([]string, []bool) {
 	nonEmpty := make([]string, 0, len(c.contents))
-	for _, s := range c.contents {
+	checks := make([]bool, 0, len(c.contents))
+	for i, s := range c.contents {
 		if t := strings.TrimSpace(s); len(t) == 0 {
 			continue
 		}
 		nonEmpty = append(nonEmpty, s)
+		checks = append(checks, c.checked[i])
 	}
-	return nonEmpty
+	return nonEmpty, checks
+}
+
+func (c *Checklist) SetContents(items []string, checks []bool) {
+	for len(items) != len(checks) {
+		checks = append(checks, false)
+	}
+
+	c.contents = append(items, "")
+	c.checked = checks
+	if c.changed != nil {
+		c.changed(items, checks)
+	}
+}
+
+// SetChangedFunc sets a handler which is called whenever the text of the input
+// field has changed. It receives the current items and checked state (after the change).
+func (c *Checklist) SetChangedFunc(handler func(items []string, checked []bool)) *Checklist {
+	c.changed = handler
+	return c
+}
+
+// SetDoneFunc sets a callback invoked when the user leaves this form item.
+func (c *Checklist) SetDoneFunc(handler func(key tcell.Key)) *Checklist {
+	c.done = handler
+	return c
 }
