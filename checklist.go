@@ -276,8 +276,13 @@ func (c *Checklist) SetContents(items []string, checks []bool) {
 		checks = append(checks, false)
 	}
 
+	prevItems, prevChecks := c.Contents()
+	if StringsEqual(prevItems, items) && BoolsEqual(prevChecks, checks) {
+		return
+	}
+
 	c.contents = append(items, "")
-	c.checked = checks
+	c.checked = append(checks, false)
 	if c.changed != nil {
 		c.changed(items, checks)
 	}

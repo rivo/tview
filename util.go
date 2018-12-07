@@ -606,3 +606,29 @@ func iterateStringReverse(text string, callback func(main rune, comb []rune, tex
 
 	return false
 }
+
+// StringsEqual compares two string slices for equality
+func StringsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// BoolsEqual compares two string slices for equality
+func BoolsEqual(a, b []bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
