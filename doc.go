@@ -158,6 +158,11 @@ One exception to this is the io.Writer interface implemented by TextView. You
 can safely write to a TextView from any goroutine. See the TextView
 documentation for details.
 
+You can also call Application.Draw() from any goroutine without having to wrap
+it in QueueUpdate(). And, as mentioned above, key event callbacks are executed
+in the main goroutine and thus should not use QueueUpdate() as that may lead to
+deadlocks.
+
 Type Hierarchy
 
 All widgets listed above contain the Box type. All of Box's functions are
