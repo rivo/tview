@@ -44,6 +44,9 @@ type List struct {
 	// The background color for selected items.
 	selectedBackgroundColor tcell.Color
 
+	// If true, the selection is only shown when the list has focus.
+	selectedFocusOnly bool
+
 	// An optional function which is called when the user has navigated to a list
 	// item.
 	changed func(index int, mainText, secondaryText string, shortcut rune)
@@ -85,6 +88,19 @@ func (l *List) GetCurrentItem() int {
 	return l.currentItem
 }
 
+// RemoveItem removes the item with the given index (starting at 0) from the
+// list. Does nothing if the index is out of range.
+func (l *List) RemoveItem(index int) *List {
+	if index < 0 || index >= len(l.items) {
+		return l
+	}
+	l.items = append(l.items[:index], l.items[index+1:]...)
+	if l.currentItem >= len(l.items) {
+		l.currentItem = len(l.items) - 1
+	}
+	return l
+}
+
 // SetMainTextColor sets the color of the items' main text.
 func (l *List) SetMainTextColor(color tcell.Color) *List {
 	l.mainTextColor = color
@@ -115,6 +131,14 @@ func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
 	return l
 }
 
+// SetSelectedFocusOnly sets a flag which determines when the currently selected
+// list item is highlighted. If set to true, selected items are only highlighted
+// when the list has focus. If set to false, they are always highlighted.
+func (l *List) SetSelectedFocusOnly(focusOnly bool) *List {
+	l.selectedFocusOnly = focusOnly
+	return l
+}
+
 // ShowSecondaryText determines whether or not to show secondary item texts.
 func (l *List) ShowSecondaryText(show bool) *List {
 	l.showSecondaryText = show
@@ -127,7 +151,7 @@ func (l *List) ShowSecondaryText(show bool) *List {
 //
 // This function is also called when the first item is added or when
 // SetCurrentItem() is called.
-func (l *List) SetChangedFunc(handler func(int, string, string, rune)) *List {
+func (l *List) SetChangedFunc(handler func(index int, mainText string, secondaryText string, shortcut rune)) *List {
 	l.changed = handler
 	return l
 }
@@ -250,7 +274,7 @@ func (l *List) Draw(screen tcell.Screen) {
 		Print(screen, item.MainText, x, y, width, AlignLeft, l.mainTextColor)
 
 		// Background color of selected text.
-		if index == l.currentItem {
+		if index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus()) {
 			textWidth := StringWidth(item.MainText)
 			for bx := 0; bx < textWidth && bx < width; bx++ {
 				m, c, style, _ := screen.GetContent(x+bx, y)

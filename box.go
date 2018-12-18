@@ -32,6 +32,9 @@ type Box struct {
 	// The color of the border.
 	borderColor tcell.Color
 
+	// The style attributes of the border.
+	borderAttributes tcell.AttrMask
+
 	// The title. Only visible if there is a border, too.
 	title string
 
@@ -47,10 +50,6 @@ type Box struct {
 
 	// Whether or not this box has focus.
 	hasFocus bool
-
-	// If set to true, the inner rect of this box will be within the screen at the
-	// last time the box was drawn.
-	clampToScreen bool
 
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the primitive's default input handler (nil if
@@ -71,7 +70,6 @@ func NewBox() *Box {
 		borderColor:     Styles.BorderColor,
 		titleColor:      Styles.TitleColor,
 		titleAlign:      AlignCenter,
-		clampToScreen:   true,
 	}
 	b.focus = b
 	return b
@@ -114,6 +112,7 @@ func (b *Box) SetRect(x, y, width, height int) {
 	b.y = y
 	b.width = width
 	b.height = height
+	b.innerX = -1 // Mark inner rect as uninitialized.
 }
 
 // SetDrawFunc sets a callback function which is invoked after the box primitive
@@ -163,6 +162,13 @@ func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primiti
 // be called.
 //
 // Providing a nil handler will remove a previously existing handler.
+//
+// Note that this function will not have an effect on primitives composed of
+// other primitives, such as Form, Flex, or Grid. Key events are only captured
+// by the primitives that have focus (e.g. InputField) and only one primitive
+// can have focus at a time. Composing primitives such as Form pass the focus on
+// to their contained primitives and thus never receive any key events
+// themselves. Therefore, they cannot intercept key events.
 func (b *Box) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Box {
 	b.inputCapture = capture
 	return b
@@ -190,6 +196,15 @@ func (b *Box) SetBorder(show bool) *Box {
 // SetBorderColor sets the box's border color.
 func (b *Box) SetBorderColor(color tcell.Color) *Box {
 	b.borderColor = color
+	return b
+}
+
+// SetBorderAttributes sets the border's style attributes. You can combine
+// different attributes using bitmask operations:
+//
+//   box.SetBorderAttributes(tcell.AttrUnderline | tcell.AttrBold)
+func (b *Box) SetBorderAttributes(attr tcell.AttrMask) *Box {
+	b.borderAttributes = attr
 	return b
 }
 
@@ -233,7 +248,7 @@ func (b *Box) Draw(screen tcell.Screen) {
 
 	// Draw border.
 	if b.border && b.width >= 2 && b.height >= 2 {
-		border := background.Foreground(b.borderColor)
+		border := background.Foreground(b.borderColor) | tcell.Style(b.borderAttributes)
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
 		if b.focus.HasFocus() {
 			horizontal = Borders.HorizontalFocus
@@ -265,8 +280,8 @@ func (b *Box) Draw(screen tcell.Screen) {
 
 		// Draw title.
 		if b.title != "" && b.width >= 4 {
-			_, printed := Print(screen, b.title, b.x+1, b.y, b.width-2, b.titleAlign, b.titleColor)
-			if StringWidth(b.title)-printed > 0 && printed > 0 {
+			printed, _ := Print(screen, b.title, b.x+1, b.y, b.width-2, b.titleAlign, b.titleColor)
+			if len(b.title)-printed > 0 && printed > 0 {
 				_, _, style, _ := screen.GetContent(b.x+b.width-2, b.y)
 				fg, _, _ := style.Decompose()
 				Print(screen, string(SemigraphicsHorizontalEllipsis), b.x+b.width-2, b.y, 1, AlignLeft, fg)
@@ -284,22 +299,20 @@ func (b *Box) Draw(screen tcell.Screen) {
 	}
 
 	// Clamp inner rect to screen.
-	if b.clampToScreen {
-		width, height := screen.Size()
-		if b.innerX < 0 {
-			b.innerWidth += b.innerX
-			b.innerX = 0
-		}
-		if b.innerX+b.innerWidth >= width {
-			b.innerWidth = width - b.innerX
-		}
-		if b.innerY+b.innerHeight >= height {
-			b.innerHeight = height - b.innerY
-		}
-		if b.innerY < 0 {
-			b.innerHeight += b.innerY
-			b.innerY = 0
-		}
+	width, height := screen.Size()
+	if b.innerX < 0 {
+		b.innerWidth += b.innerX
+		b.innerX = 0
+	}
+	if b.innerX+b.innerWidth >= width {
+		b.innerWidth = width - b.innerX
+	}
+	if b.innerY+b.innerHeight >= height {
+		b.innerHeight = height - b.innerY
+	}
+	if b.innerY < 0 {
+		b.innerHeight += b.innerY
+		b.innerY = 0
 	}
 }
 

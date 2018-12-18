@@ -40,6 +40,11 @@ func NewModal() *Modal {
 		SetButtonBackgroundColor(Styles.PrimitiveBackgroundColor).
 		SetButtonTextColor(Styles.PrimaryTextColor)
 	m.form.SetBackgroundColor(Styles.ContrastBackgroundColor).SetBorderPadding(0, 0, 0, 0)
+	m.form.SetCancelFunc(func() {
+		if m.done != nil {
+			m.done(-1, "")
+		}
+	})
 	m.frame = NewFrame(m.form).SetBorders(0, 0, 1, 0, 0, 0)
 	m.frame.SetBorder(true).
 		SetBackgroundColor(Styles.ContrastBackgroundColor).
@@ -80,6 +85,16 @@ func (m *Modal) AddButtons(labels []string) *Modal {
 				if m.done != nil {
 					m.done(i, l)
 				}
+			})
+			button := m.form.GetButton(m.form.GetButtonCount() - 1)
+			button.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+				switch event.Key() {
+				case tcell.KeyDown, tcell.KeyRight:
+					return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
+				case tcell.KeyUp, tcell.KeyLeft:
+					return tcell.NewEventKey(tcell.KeyBacktab, 0, tcell.ModNone)
+				}
+				return event
 			})
 		}(index, label)
 	}
