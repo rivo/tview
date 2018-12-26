@@ -218,6 +218,7 @@ EventLoop:
 				if inputCapture != nil {
 					event = inputCapture(event)
 					if event == nil {
+						a.draw()
 						continue // Don't forward event.
 					}
 				}

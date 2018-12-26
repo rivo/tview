@@ -21,6 +21,7 @@ The package implements the following widgets:
   - Form: Forms composed of input fields, drop down selections, checkboxes, and
     buttons.
   - Modal: A centered window with a text message and one or more buttons.
+  - Grid: A grid based layout manager.
   - Flex: A Flexbox based layout manager.
   - Pages: A page based layout manager.
 

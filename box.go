@@ -106,7 +106,11 @@ func (b *Box) GetInnerRect() (int, int, int, int) {
 		height - b.paddingTop - b.paddingBottom
 }
 
-// SetRect sets a new position of the primitive.
+// SetRect sets a new position of the primitive. Note that this has no effect
+// if this primitive is part of a layout (e.g. Flex, Grid) or if it was added
+// like this:
+//
+//   application.SetRoot(b, true)
 func (b *Box) SetRect(x, y, width, height int) {
 	b.x = x
 	b.y = y
