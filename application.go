@@ -218,6 +218,7 @@ EventLoop:
 				if inputCapture != nil {
 					event = inputCapture(event)
 					if event == nil {
+						a.draw()
 						continue // Don't forward event.
 					}
 				}
@@ -319,7 +320,8 @@ func (a *Application) Draw() *Application {
 
 // ForceDraw refreshes the screen immediately. Use this function with caution as
 // it may lead to race conditions with updates to primitives in other
-// goroutines. It is always preferrable to use Draw() instead.
+// goroutines. It is always preferrable to use Draw() instead. Never call this
+// function from a goroutine.
 //
 // It is safe to call this function during queued updates and direct event
 // handling.
