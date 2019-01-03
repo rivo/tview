@@ -172,10 +172,10 @@ func (l *List) SetDoneFunc(handler func()) *List {
 	return l
 }
 
-// AddItem adds a new item to the list. An item has a main text which will be
-// highlighted when selected. It also has a secondary text which is shown
-// underneath the main text (if it is set to visible) but which may remain
-// empty.
+// InsertItem adds a new item to the list at the given index. An item has a
+// main text which will be highlighted when selected. It also has a secondary
+// text which is shown underneath the main text (if it is set to visible) but
+// which may remain empty.
 //
 // The shortcut is a key binding. If the specified rune is entered, the item
 // is selected immediately. Set to 0 for no binding.
@@ -183,6 +183,48 @@ func (l *List) SetDoneFunc(handler func()) *List {
 // The "selected" callback will be invoked when the user selects the item. You
 // may provide nil if no such item is needed or if all events are handled
 // through the selected callback set with SetSelectedFunc().
+func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut rune, selected func()) *List {
+
+	// Several different ways to interpret index < 0. One convenient way would
+	// be to insert starting from the end of the list. The safest option, which
+	// is implemented here, is to just consider it as invalid input and return
+	// the original list unmodified.
+	if index < 0 {
+		return l
+	}
+
+	// If the index provided is greater than the number of elements in the list,
+	// just treat this like an ordinary append, using the exported AddItem().
+	if index >= len(l.items) {
+		return l.AddItem(mainText, secondaryText, shortcut, selected)
+	}
+
+	newItem := &listItem{
+		MainText:      mainText,
+		SecondaryText: secondaryText,
+		Shortcut:      shortcut,
+		Selected:      selected,
+	}
+
+	// Add a nil item to make room in the buffer for newItem, shift all items
+	// down (starting from the insertion index), and then update the item at the
+	// insertion index.
+	l.items = append(l.items, nil)
+	copy(l.items[index+1:], l.items[index:])
+	l.items[index] = newItem
+
+	if l.currentItem >= len(l.items) {
+		l.currentItem = len(l.items) - 1
+	}
+	if len(l.items) == 1 && l.changed != nil {
+		item := l.items[0]
+		l.changed(0, item.MainText, item.SecondaryText, item.Shortcut)
+	}
+	return l
+}
+
+// AddItem appends a new item to the end of the list. See function InsertItem
+// for details on the required parameters.
 func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected func()) *List {
 	l.items = append(l.items, &listItem{
 		MainText:      mainText,
