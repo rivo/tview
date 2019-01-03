@@ -191,8 +191,10 @@ func (i *InputField) SetMaskCharacter(mask rune) *InputField {
 	return i
 }
 
-// SetAcceptanceFunc sets a handler which may reject the last character that was
-// entered (by returning false).
+// SetAcceptanceFunc sets a handler which may reject the last change that was
+// input (by returning false). A change may be an individual character, one of
+// the supported shell-style key combinations (Ctrl+U and Ctrl+W), or one of the
+// backspace/delete control characters.
 //
 // This package defines a number of variables prefixed with InputField which may
 // be used for common input (e.g. numbers, maximum text length).

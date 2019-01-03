@@ -26,6 +26,9 @@ type List struct {
 	// The index of the currently selected item.
 	currentItem int
 
+	// The offset to ensure our currently selected item remains in view.
+	viewOffset int
+
 	// Whether or not to show the secondary item texts.
 	showSecondaryText bool
 
@@ -268,11 +271,45 @@ func (l *List) Clear() *List {
 
 // Draw draws this primitive onto the screen.
 func (l *List) Draw(screen tcell.Screen) {
+
+	// check if a given value exists within a given closed interval by returning
+	// a value less than zero, greater than zero, or equal to zero if the value
+	// is less than the range minimum, greater than the range maximum, or if the
+	// value exists in the interval (inclusive), respectively.
+	contains := func(item, lo, hi int) int {
+		switch {
+		case item < lo:
+			return -1
+		case item > hi:
+			return 1
+		}
+		return 0
+	}
+
 	l.Box.Draw(screen)
 
 	// Determine the dimensions.
 	x, y, width, height := l.GetInnerRect()
-	bottomLimit := y + height
+	yMax := y + height
+
+	itemHeight := 1
+	if l.showSecondaryText {
+		itemHeight = 2
+	}
+	itemsPerPage := height / itemHeight
+
+	// We want to keep the current selection in view. What is our offset?
+	pos := contains(l.currentItem, l.viewOffset, l.viewOffset+itemsPerPage-1)
+	switch {
+	case pos < 0:
+		l.viewOffset = l.currentItem
+	case pos > 0:
+		l.viewOffset = l.currentItem - (itemsPerPage - 1)
+	default:
+		// Adjust the viewing window if and only if our current position is not
+		// inside the range of what's currently visible. Otherwise, let the user
+		// navigate the list items freely, as in this default case.
+	}
 
 	// Do we show any shortcuts?
 	var showShortcuts bool
@@ -285,25 +322,13 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 	}
 
-	// We want to keep the current selection in view. What is our offset?
-	var offset int
-	if l.showSecondaryText {
-		if 2*l.currentItem >= height {
-			offset = (2*l.currentItem + 2 - height) / 2
-		}
-	} else {
-		if l.currentItem >= height {
-			offset = l.currentItem + 1 - height
-		}
-	}
-
 	// Draw the list items.
 	for index, item := range l.items {
-		if index < offset {
+		if index < l.viewOffset {
 			continue
 		}
 
-		if y >= bottomLimit {
+		if y >= yMax {
 			break
 		}
 
@@ -331,7 +356,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		y++
 
-		if y >= bottomLimit {
+		if y >= yMax {
 			break
 		}
 

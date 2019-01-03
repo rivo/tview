@@ -186,10 +186,20 @@ func (d *DropDown) GetFieldWidth() int {
 	return fieldWidth
 }
 
-// AddOption adds a new selectable option to this drop-down. The "selected"
-// callback is called when this option was selected. It may be nil.
-func (d *DropDown) AddOption(text string, selected func()) *DropDown {
-	d.options = append(d.options, &dropDownOption{Text: text, Selected: selected})
+// AddOption adds a new selectable option to this drop-down and installs a
+// callback function which is called when this option was selected. It will be
+// called with the option's text and its index into the options slice. The
+// "selected" parameter may be nil.
+func (d *DropDown) AddOption(text string, selected func(string, int)) *DropDown {
+	index := len(d.options)
+	d.options = append(d.options,
+		&dropDownOption{
+			Text: text,
+			Selected: func() {
+				if selected != nil {
+					selected(text, index)
+				}
+			}})
 	d.list.AddItem(text, "", 0, nil)
 	return d
 }
@@ -198,17 +208,11 @@ func (d *DropDown) AddOption(text string, selected func()) *DropDown {
 // one callback function which is called when one of the options is selected.
 // It will be called with the option's text and its index into the options
 // slice. The "selected" parameter may be nil.
-func (d *DropDown) SetOptions(texts []string, selected func(text string, index int)) *DropDown {
+func (d *DropDown) SetOptions(texts []string, selected func(string, int)) *DropDown {
 	d.list.Clear()
 	d.options = nil
-	for index, text := range texts {
-		func(t string, i int) {
-			d.AddOption(text, func() {
-				if selected != nil {
-					selected(t, i)
-				}
-			})
-		}(text, index)
+	for _, text := range texts {
+		d.AddOption(text, selected)
 	}
 	return d
 }
