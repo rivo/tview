@@ -2,6 +2,7 @@ package tview
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell"
 )
@@ -72,32 +73,82 @@ func NewList() *List {
 	}
 }
 
-// SetCurrentItem sets the currently selected item by its index. This triggers
-// a "changed" event.
+// SetCurrentItem sets the currently selected item by its index, starting at 0
+// for the first item. If a negative index is provided, items are referred to
+// from the back (-1 = last item, -2 = second-to-last item, and so on). Out of
+// range indices are clamped to the beginning/end.
+//
+// Calling this function triggers a "changed" event if the selection changes.
 func (l *List) SetCurrentItem(index int) *List {
+	if index < 0 {
+		index = len(l.items) + index
+	}
+	if index >= len(l.items) {
+		index = len(l.items) - 1
+	}
+	if index < 0 {
+		index = 0
+	}
 	l.currentItem = index
-	if l.currentItem < len(l.items) && l.changed != nil {
+
+	if index != l.currentItem && l.changed != nil {
 		item := l.items[l.currentItem]
 		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 	}
+
 	return l
 }
 
-// GetCurrentItem returns the index of the currently selected list item.
+// GetCurrentItem returns the index of the currently selected list item,
+// starting at 0 for the first item.
 func (l *List) GetCurrentItem() int {
 	return l.currentItem
 }
 
 // RemoveItem removes the item with the given index (starting at 0) from the
-// list. Does nothing if the index is out of range.
+// list. If a negative index is provided, items are referred to from the back
+// (-1 = last item, -2 = second-to-last item, and so on). Out of range indices
+// are clamped to the beginning/end, i.e. unless the list is empty, an item is
+// always removed.
+//
+// The currently selected item is shifted accordingly. If it is the one that is
+// removed, a "changed" event is fired.
 func (l *List) RemoveItem(index int) *List {
-	if index < 0 || index >= len(l.items) {
+	if len(l.items) == 0 {
 		return l
 	}
-	l.items = append(l.items[:index], l.items[index+1:]...)
-	if l.currentItem >= len(l.items) {
-		l.currentItem = len(l.items) - 1
+
+	// Adjust index.
+	if index < 0 {
+		index = len(l.items) + index
 	}
+	if index >= len(l.items) {
+		index = len(l.items) - 1
+	}
+	if index < 0 {
+		index = 0
+	}
+
+	// Remove item.
+	l.items = append(l.items[:index], l.items[index+1:]...)
+
+	// If there is nothing left, we're done.
+	if len(l.items) == 0 {
+		return l
+	}
+
+	// Shift current item.
+	previousCurrentItem := l.currentItem
+	if l.currentItem >= index {
+		l.currentItem--
+	}
+
+	// Fire "changed" event for removed items.
+	if previousCurrentItem == index && l.changed != nil {
+		item := l.items[l.currentItem]
+		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+	}
+
 	return l
 }
 
@@ -172,28 +223,70 @@ func (l *List) SetDoneFunc(handler func()) *List {
 	return l
 }
 
-// AddItem adds a new item to the list. An item has a main text which will be
-// highlighted when selected. It also has a secondary text which is shown
-// underneath the main text (if it is set to visible) but which may remain
-// empty.
+// AddItem calls InsertItem() with an index of -1.
+func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected func()) *List {
+	l.InsertItem(-1, mainText, secondaryText, shortcut, selected)
+	return l
+}
+
+// InsertItem adds a new item to the list at the specified index. An index of 0
+// will insert the item at the beginning, an index of 1 before the second item,
+// and so on. An index of GetItemCount() or higher will insert the item at the
+// end of the list. Negative indices are also allowed: An index of -1 will
+// insert the item at the end of the list, an index of -2 before the last item,
+// and so on. An index of -GetItemCount()-1 or lower will insert the item at the
+// beginning.
+//
+// An item has a main text which will be highlighted when selected. It also has
+// a secondary text which is shown underneath the main text (if it is set to
+// visible) but which may remain empty.
 //
 // The shortcut is a key binding. If the specified rune is entered, the item
 // is selected immediately. Set to 0 for no binding.
 //
 // The "selected" callback will be invoked when the user selects the item. You
-// may provide nil if no such item is needed or if all events are handled
+// may provide nil if no such callback is needed or if all events are handled
 // through the selected callback set with SetSelectedFunc().
-func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected func()) *List {
-	l.items = append(l.items, &listItem{
+//
+// The currently selected item will shift its position accordingly. If the list
+// was previously empty, a "changed" event is fired because the new item becomes
+// selected.
+func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut rune, selected func()) *List {
+	item := &listItem{
 		MainText:      mainText,
 		SecondaryText: secondaryText,
 		Shortcut:      shortcut,
 		Selected:      selected,
-	})
+	}
+
+	// Shift index to range.
+	if index < 0 {
+		index = len(l.items) + index + 1
+	}
+	if index < 0 {
+		index = 0
+	} else if index > len(l.items) {
+		index = len(l.items)
+	}
+
+	// Insert item (make space for the new item, then shift and insert).
+	l.items = append(l.items, nil)
+	if index < len(l.items)-1 { // -1 because l.items has already grown by one item.
+		copy(l.items[index+1:], l.items[index:])
+	}
+	l.items[index] = item
+
+	// Shift current item.
+	if l.currentItem >= index {
+		l.currentItem++
+	}
+
+	// Fire a "change" event for the first item in the list.
 	if len(l.items) == 1 && l.changed != nil {
 		item := l.items[0]
 		l.changed(0, item.MainText, item.SecondaryText, item.Shortcut)
 	}
+
 	return l
 }
 
@@ -215,6 +308,46 @@ func (l *List) SetItemText(index int, main, secondary string) *List {
 	item.MainText = main
 	item.SecondaryText = secondary
 	return l
+}
+
+// FindItems searches the main and secondary texts for the given strings and
+// returns a list of item indices in which those strings are found. One of the
+// two search strings may be empty, it will then be ignored. Indices are always
+// returned in ascending order.
+//
+// If mustContainBoth is set to true, mainSearch must be contained in the main
+// text AND secondarySearch must be contained in the secondary text. If it is
+// false, only one of the two search strings must be contained.
+//
+// Set ignoreCase to true for case-insensitive search.
+func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ignoreCase bool) (indices []int) {
+	if mainSearch == "" && secondarySearch == "" {
+		return
+	}
+
+	if ignoreCase {
+		mainSearch = strings.ToLower(mainSearch)
+		secondarySearch = strings.ToLower(secondarySearch)
+	}
+
+	for index, item := range l.items {
+		mainText := item.MainText
+		secondaryText := item.SecondaryText
+		if ignoreCase {
+			mainText = strings.ToLower(mainText)
+			secondaryText = strings.ToLower(secondaryText)
+		}
+
+		// strings.Contains() always returns true for a "" search.
+		mainContained := strings.Contains(mainText, mainSearch)
+		secondaryContained := strings.Contains(secondaryText, secondarySearch)
+		if mustContainBoth && mainContained && secondaryContained ||
+			!mustContainBoth && (mainText != "" && mainContained || secondaryText != "" && secondaryContained) {
+			indices = append(indices, index)
+		}
+	}
+
+	return
 }
 
 // Clear removes all items from the list.
