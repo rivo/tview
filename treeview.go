@@ -253,6 +253,10 @@ type TreeView struct {
 	// Strings drawn before the nodes, based on their level.
 	prefixes []string
 
+	// This decides whether the selection will cycle when reaching the end
+	// or the beginning of the tree.
+	cycleSelection bool
+
 	// Vertical scroll offset.
 	offsetY int
 
@@ -340,6 +344,14 @@ func (t *TreeView) SetPrefixes(prefixes []string) *TreeView {
 // If set to false, they will indent with the hierarchy.
 func (t *TreeView) SetAlign(align bool) *TreeView {
 	t.align = align
+	return t
+}
+
+// SetCycleSelection controls the selection behaviour when there is no more
+// node that is eligible for selection. For example if you are index 1 and
+// index 0 isn't selectable anymore, it will try selecting the last index.
+func (t *TreeView) SetCycleSelection(cycleSelection bool) *TreeView {
+	t.cycleSelection = cycleSelection
 	return t
 }
 
@@ -444,6 +456,13 @@ func (t *TreeView) process() {
 	MovementSwitch:
 		switch t.movement {
 		case treeUp:
+			if t.cycleSelection {s
+				//Cycle to the bottom if we are at the top.
+				if newSelectedIndex == 0 {
+					newSelectedIndex = len(t.nodes)
+				}
+			}
+			
 			for newSelectedIndex > 0 {
 				newSelectedIndex--
 				if t.nodes[newSelectedIndex].selectable {
@@ -452,6 +471,13 @@ func (t *TreeView) process() {
 			}
 			newSelectedIndex = selectedIndex
 		case treeDown:
+			if t.cycleSelection {
+			//Cycle to the top if we are at the bottom.
+				if newSelectedIndex == len(t.nodes)-1 {
+					newSelectedIndex = -1
+				}
+			}
+		
 			for newSelectedIndex < len(t.nodes)-1 {
 				newSelectedIndex++
 				if t.nodes[newSelectedIndex].selectable {
