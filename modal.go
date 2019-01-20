@@ -8,7 +8,7 @@ import (
 // for an immediate decision. It needs to have at least one button (added via
 // AddButtons()) or it will never disappear.
 //
-// See https://github.com/rivo/tview/wiki/Modal for an example.
+// See https://github.com/Bios-Marcel/tview/wiki/Modal for an example.
 type Modal struct {
 	*Box
 

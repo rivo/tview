@@ -29,7 +29,7 @@ import (
 //   - Ctrl-W: Delete the last word before the cursor.
 //   - Ctrl-U: Delete the entire line.
 //
-// See https://github.com/rivo/tview/wiki/InputField for an example.
+// See https://github.com/Bios-Marcel/tview/wiki/InputField for an example.
 type InputField struct {
 	*Box
 

@@ -1,6 +1,6 @@
 package main
 
-import "github.com/rivo/tview"
+import "github.com/Bios-Marcel/tview"
 
 // Center returns a new primitive which shows the provided primitive in its
 // center, given the provided primitive's size.

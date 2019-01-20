@@ -11,7 +11,7 @@ import (
 // Note that all classes which subclass from Box will also have access to its
 // functions.
 //
-// See https://github.com/rivo/tview/wiki/Box for an example.
+// See https://github.com/Bios-Marcel/tview/wiki/Box for an example.
 type Box struct {
 	// The position of the rect.
 	x, y, width, height int
