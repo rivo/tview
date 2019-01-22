@@ -171,12 +171,12 @@ func (g *Grid) SetBordersColor(color tcell.Color) *Grid {
 
 // AddItem adds a primitive and its position to the grid. The top-left corner
 // of the primitive will be located in the top-left corner of the grid cell at
-// the given row and column and will span "width" rows and "height" columns. For
-// example, for a primitive to occupy rows 2, 3, and 4 and columns 5 and 6:
+// the given row and column and will span "rowSpan" rows and "colSpan" columns.
+// For example, for a primitive to occupy rows 2, 3, and 4 and columns 5 and 6:
 //
-//   grid.AddItem(p, 2, 4, 3, 2, true)
+//   grid.AddItem(p, 2, 5, 3, 2, true)
 //
-// If width or height is 0, the primitive will not be drawn.
+// If rowSpan or colSpan is 0, the primitive will not be drawn.
 //
 // You can add the same primitive multiple times with different grid positions.
 // The minGridWidth and minGridHeight values will then determine which of those
@@ -195,13 +195,13 @@ func (g *Grid) SetBordersColor(color tcell.Color) *Grid {
 // If the item's focus is set to true, it will receive focus when the grid
 // receives focus. If there are multiple items with a true focus flag, the last
 // visible one that was added will receive focus.
-func (g *Grid) AddItem(p Primitive, row, column, height, width, minGridHeight, minGridWidth int, focus bool) *Grid {
+func (g *Grid) AddItem(p Primitive, row, column, rowSpan, colSpan, minGridHeight, minGridWidth int, focus bool) *Grid {
 	g.items = append(g.items, &gridItem{
 		Item:          p,
 		Row:           row,
 		Column:        column,
-		Height:        height,
-		Width:         width,
+		Height:        rowSpan,
+		Width:         colSpan,
 		MinGridHeight: minGridHeight,
 		MinGridWidth:  minGridWidth,
 		Focus:         focus,
