@@ -11,6 +11,9 @@ import (
 // directly but all colors (background and text) will be set to their default
 // which is black.
 type TableCell struct {
+	// The reference object.
+	Reference interface{}
+
 	// The text to be displayed in the table cell.
 	Text string
 
@@ -130,6 +133,19 @@ func (c *TableCell) SetStyle(style tcell.Style) *TableCell {
 func (c *TableCell) SetSelectable(selectable bool) *TableCell {
 	c.NotSelectable = !selectable
 	return c
+}
+
+// SetReference allows you to store a reference of any type in this cell. This
+// will allow you to establish a mapping between the cell and your
+// actual data.
+func (c *TableCell) SetReference(reference interface{}) *TableCell {
+	c.Reference = reference
+	return c
+}
+
+// GetReference returns this cell's reference object.
+func (c *TableCell) GetReference() interface{} {
+	return c.Reference
 }
 
 // GetLastPosition returns the position of the table cell the last time it was
