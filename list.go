@@ -48,6 +48,9 @@ type List struct {
 	// If true, the selection is only shown when the list has focus.
 	selectedFocusOnly bool
 
+	// The number of list items skipped at the top before the first item is drawn.
+	offset int
+
 	// An optional function which is called when the user has navigated to a list
 	// item.
 	changed func(index int, mainText, secondaryText string, shortcut rune)
@@ -269,17 +272,17 @@ func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut ru
 		index = len(l.items)
 	}
 
+	// Shift current item.
+	if l.currentItem < len(l.items) && l.currentItem >= index {
+		l.currentItem++
+	}
+
 	// Insert item (make space for the new item, then shift and insert).
 	l.items = append(l.items, nil)
 	if index < len(l.items)-1 { // -1 because l.items has already grown by one item.
 		copy(l.items[index+1:], l.items[index:])
 	}
 	l.items[index] = item
-
-	// Shift current item.
-	if l.currentItem >= index {
-		l.currentItem++
-	}
 
 	// Fire a "change" event for the first item in the list.
 	if len(l.items) == 1 && l.changed != nil {
@@ -376,21 +379,22 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 	}
 
-	// We want to keep the current selection in view. What is our offset?
-	var offset int
-	if l.showSecondaryText {
-		if 2*l.currentItem >= height {
-			offset = (2*l.currentItem + 2 - height) / 2
+	// Adjust offset to keep the current selection in view?
+	if l.currentItem < l.offset {
+		l.offset = l.currentItem
+	} else if l.showSecondaryText {
+		if 2*(l.currentItem-l.offset) >= height-1 {
+			l.offset = (2*l.currentItem + 3 - height) / 2
 		}
 	} else {
-		if l.currentItem >= height {
-			offset = l.currentItem + 1 - height
+		if l.currentItem-l.offset >= height {
+			l.offset = l.currentItem + 1 - height
 		}
 	}
 
 	// Draw the list items.
 	for index, item := range l.items {
-		if index < offset {
+		if index < l.offset {
 			continue
 		}
 
