@@ -439,7 +439,9 @@ func (t *Table) SetCellSimple(row, column int, text string) *Table {
 
 // GetCell returns the contents of the cell at the specified position. A valid
 // TableCell object is always returned but it will be uninitialized if the cell
-// was not previously set.
+// was not previously set. Such an uninitialized object will not automatically
+// be inserted. Therefore, repeated calls to this function may return different
+// pointers for uninitialized cells.
 func (t *Table) GetCell(row, column int) *TableCell {
 	if row >= len(t.cells) || column >= len(t.cells[row]) {
 		return &TableCell{}
@@ -469,6 +471,35 @@ func (t *Table) RemoveColumn(column int) *Table {
 		t.cells[row] = append(t.cells[row][:column], t.cells[row][column+1:]...)
 	}
 
+	return t
+}
+
+// InsertRow inserts a row before the row with the given index. Cells on the
+// given row and below will be shifted to the bottom by one row. If "row" is
+// equal or larger than the current number of rows, this function has no effect.
+func (t *Table) InsertRow(row int) *Table {
+	if row >= len(t.cells) {
+		return t
+	}
+	t.cells = append(t.cells, nil)       // Extend by one.
+	copy(t.cells[row+1:], t.cells[row:]) // Shift down.
+	t.cells[row] = nil                   // New row is uninitialized.
+	return t
+}
+
+// InsertColumn inserts a column before the column with the given index. Cells
+// in the given column and to its right will be shifted to the right by one
+// column. Rows that have fewer initialized cells than "column" will remain
+// unchanged.
+func (t *Table) InsertColumn(column int) *Table {
+	for row := range t.cells {
+		if column >= len(t.cells[row]) {
+			continue
+		}
+		t.cells[row] = append(t.cells[row], nil)             // Extend by one.
+		copy(t.cells[row][column+1:], t.cells[row][column:]) // Shift to the right.
+		t.cells[row][column] = &TableCell{}                  // New element is an uninitialized table cell.
+	}
 	return t
 }
 
