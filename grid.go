@@ -75,28 +75,28 @@ func NewGrid() *Grid {
 	return g
 }
 
-// SetRows defines how the rows of the grid are distributed. Each value defines
-// the size of one row, starting with the leftmost row. Values greater 0
-// represent absolute row widths (gaps not included). Values less or equal 0
-// represent proportional row widths or fractions of the remaining free space,
-// where 0 is treated the same as -1. That is, a row with a value of -3 will
-// have three times the width of a row with a value of -1 (or 0). The minimum
-// width set with SetMinSize() is always observed.
+// SetColumns defines how the columns of the grid are distributed. Each value
+// defines the size of one column, starting with the leftmost column. Values
+// greater 0 represent absolute column widths (gaps not included). Values less
+// or equal 0 represent proportional column widths or fractions of the remaining
+// free space, where 0 is treated the same as -1. That is, a column with a value
+// of -3 will have three times the width of a column with a value of -1 (or 0).
+// The minimum width set with SetMinSize() is always observed.
 //
-// Primitives may extend beyond the rows defined explicitly with this function.
-// A value of 0 is assumed for any undefined row. In fact, if you never call
-// this function, all rows occupied by primitives will have the same width.
-// On the other hand, unoccupied rows defined with this function will always
-// take their place.
+// Primitives may extend beyond the columns defined explicitly with this
+// function. A value of 0 is assumed for any undefined column. In fact, if you
+// never call this function, all columns occupied by primitives will have the
+// same width. On the other hand, unoccupied columns defined with this function
+// will always take their place.
 //
 // Assuming a total width of the grid of 100 cells and a minimum width of 0, the
-// following call will result in rows with widths of 30, 10, 15, 15, and 30
+// following call will result in columns with widths of 30, 10, 15, 15, and 30
 // cells:
 //
-//   grid.SetRows(30, 10, -1, -1, -2)
+//   grid.Setcolumns(30, 10, -1, -1, -2)
 //
-// If a primitive were then placed in the 6th and 7th row, the resulting widths
-// would be: 30, 10, 10, 10, 20, 10, and 10 cells.
+// If a primitive were then placed in the 6th and 7th column, the resulting
+// widths would be: 30, 10, 10, 10, 20, 10, and 10 cells.
 //
 // If you then called SetMinSize() as follows:
 //
@@ -104,19 +104,19 @@ func NewGrid() *Grid {
 //
 // The resulting widths would be: 30, 15, 15, 15, 20, 15, and 15 cells, a total
 // of 125 cells, 25 cells wider than the available grid width.
-func (g *Grid) SetRows(rows ...int) *Grid {
-	g.rows = rows
+func (g *Grid) SetColumns(columns ...int) *Grid {
+	g.columns = columns
 	return g
 }
 
-// SetColumns defines how the columns of the grid are distributed. These values
-// behave the same as the row values provided with SetRows(), see there for
-// a definition and examples.
+// SetRows defines how the rows of the grid are distributed. These values behave
+// the same as the column values provided with SetColumns(), see there for a
+// definition and examples.
 //
-// The provided values correspond to column heights, the first value defining
-// the height of the topmost column.
-func (g *Grid) SetColumns(columns ...int) *Grid {
-	g.columns = columns
+// The provided values correspond to row heights, the first value defining
+// the height of the topmost row.
+func (g *Grid) SetRows(rows ...int) *Grid {
+	g.rows = rows
 	return g
 }
 

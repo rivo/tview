@@ -379,7 +379,7 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 	}
 
-	// Adjust offset to keep the current selection in view?
+	// Adjust offset to keep the current selection in view.
 	if l.currentItem < l.offset {
 		l.offset = l.currentItem
 	} else if l.showSecondaryText {
