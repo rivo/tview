@@ -13,8 +13,14 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 )
 
-// TabSize is the number of spaces with which a tab character will be replaced.
-var TabSize = 4
+var (
+	openColorRegex  = regexp.MustCompile(`\[([a-zA-Z]*|#[0-9a-zA-Z]*)$`)
+	openRegionRegex = regexp.MustCompile(`\["[a-zA-Z0-9_,;: \-\.]*"?$`)
+	newLineRegex    = regexp.MustCompile(`\r?\n`)
+
+	// TabSize is the number of spaces with which a tab character will be replaced.
+	TabSize = 4
+)
 
 // textViewIndex contains information about each line displayed in the text
 // view.
@@ -526,8 +532,7 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 
 	// If we have a trailing open dynamic color, exclude it.
 	if t.dynamicColors {
-		openColor := regexp.MustCompile(`\[([a-zA-Z]*|#[0-9a-zA-Z]*)$`)
-		location := openColor.FindIndex(newBytes)
+		location := openColorRegex.FindIndex(newBytes)
 		if location != nil {
 			t.recentBytes = newBytes[location[0]:]
 			newBytes = newBytes[:location[0]]
@@ -536,8 +541,7 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 
 	// If we have a trailing open region, exclude it.
 	if t.regions {
-		openRegion := regexp.MustCompile(`\["[a-zA-Z0-9_,;: \-\.]*"?$`)
-		location := openRegion.FindIndex(newBytes)
+		location := openRegionRegex.FindIndex(newBytes)
 		if location != nil {
 			t.recentBytes = newBytes[location[0]:]
 			newBytes = newBytes[:location[0]]
@@ -545,9 +549,8 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 	}
 
 	// Transform the new bytes into strings.
-	newLine := regexp.MustCompile(`\r?\n`)
 	newBytes = bytes.Replace(newBytes, []byte{'\t'}, bytes.Repeat([]byte{' '}, TabSize), -1)
-	for index, line := range newLine.Split(string(newBytes), -1) {
+	for index, line := range newLineRegex.Split(string(newBytes), -1) {
 		if index == 0 {
 			if len(t.buffer) == 0 {
 				t.buffer = []string{line}
