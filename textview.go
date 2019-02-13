@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"unicode/utf8"
 
@@ -237,6 +238,34 @@ func (t *TextView) SetText(text string) *TextView {
 	t.Clear()
 	fmt.Fprint(t, text)
 	return t
+}
+
+// GetText returns the current text of this text view. If "stripTags" is set
+// to true, any region/color tags are stripped from the text.
+func (t *TextView) GetText(stripTags bool) string {
+	// Get the buffer.
+	buffer := t.buffer
+	if !stripTags {
+		buffer = append(buffer, string(t.recentBytes))
+	}
+
+	// Add newlines again.
+	text := strings.Join(buffer, "\n")
+
+	// Strip from tags if required.
+	if stripTags {
+		if t.regions {
+			text = regionPattern.ReplaceAllString(text, "")
+		}
+		if t.dynamicColors {
+			text = colorPattern.ReplaceAllString(text, "")
+		}
+		if t.regions || t.dynamicColors {
+			text = escapePattern.ReplaceAllString(text, `[$1$2]`)
+		}
+	}
+
+	return text
 }
 
 // SetDynamicColors sets the flag that allows the text color to be changed
