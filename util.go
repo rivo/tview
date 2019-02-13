@@ -3,6 +3,7 @@ package tview
 import (
 	"math"
 	"regexp"
+	"sort"
 	"strconv"
 	"unicode"
 
@@ -160,15 +161,28 @@ func overlayStyle(background tcell.Color, defaultStyle tcell.Style, fgColor, bgC
 }
 
 // decomposeString returns information about a string which may contain color
-// tags. It returns the indices of the color tags (as returned by
+// tags or region tags, depending on which ones are requested to be found. It
+// returns the indices of the color tags (as returned by
 // re.FindAllStringIndex()), the color tags themselves (as returned by
-// re.FindAllStringSubmatch()), the indices of an escaped tags, the string
-// stripped by any color tags and escaped, and the screen width of the stripped
-// string.
-func decomposeString(text string) (colorIndices [][]int, colors [][]string, escapeIndices [][]int, stripped string, width int) {
-	// Get positions of color and escape tags.
-	colorIndices = colorPattern.FindAllStringIndex(text, -1)
-	colors = colorPattern.FindAllStringSubmatch(text, -1)
+// re.FindAllStringSubmatch()), the indices of region tags and the region tags
+// themselves, the indices of an escaped tags (only if at least color tags or
+// region tags are requested), the string stripped by any tags and escaped, and
+// the screen width of the stripped string.
+func decomposeString(text string, findColors, findRegions bool) (colorIndices [][]int, colors [][]string, regionIndices [][]int, regions [][]string, escapeIndices [][]int, stripped string, width int) {
+	// Shortcut for the trivial case.
+	if !findColors && !findRegions {
+		return nil, nil, nil, nil, nil, text, runewidth.StringWidth(text)
+	}
+
+	// Get positions of any tags.
+	if findColors {
+		colorIndices = colorPattern.FindAllStringIndex(text, -1)
+		colors = colorPattern.FindAllStringSubmatch(text, -1)
+	}
+	if findRegions {
+		regionIndices = regionPattern.FindAllStringIndex(text, -1)
+		regions = regionPattern.FindAllStringSubmatch(text, -1)
+	}
 	escapeIndices = escapePattern.FindAllStringIndex(text, -1)
 
 	// Because the color pattern detects empty tags, we need to filter them out.
@@ -179,10 +193,26 @@ func decomposeString(text string) (colorIndices [][]int, colors [][]string, esca
 		}
 	}
 
-	// Remove the color tags from the original string.
+	// Make a (sorted) list of all tags.
+	var allIndices [][]int
+	if findColors && findRegions {
+		allIndices = colorIndices
+		allIndices = make([][]int, len(colorIndices)+len(regionIndices))
+		copy(allIndices, colorIndices)
+		copy(allIndices[len(colorIndices):], regionIndices)
+		sort.Slice(allIndices, func(i int, j int) bool {
+			return allIndices[i][0] < allIndices[j][0]
+		})
+	} else if findColors {
+		allIndices = colorIndices
+	} else {
+		allIndices = regionIndices
+	}
+
+	// Remove the tags from the original string.
 	var from int
 	buf := make([]byte, 0, len(text))
-	for _, indices := range colorIndices {
+	for _, indices := range allIndices {
 		buf = append(buf, []byte(text[from:indices[0]])...)
 		from = indices[1]
 	}
@@ -218,7 +248,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 	}
 
 	// Decompose the text.
-	colorIndices, colors, escapeIndices, strippedText, strippedWidth := decomposeString(text)
+	colorIndices, colors, _, _, escapeIndices, strippedText, strippedWidth := decomposeString(text, true, false)
 
 	// We want to reduce all alignments to AlignLeft.
 	if align == AlignRight {
@@ -382,7 +412,7 @@ func PrintSimple(screen tcell.Screen, text string, x, y int) {
 // StringWidth returns the width of the given string needed to print it on
 // screen. The text may contain color tags which are not counted.
 func StringWidth(text string) int {
-	_, _, _, _, width := decomposeString(text)
+	_, _, _, _, _, _, width := decomposeString(text, true, false)
 	return width
 }
 
@@ -394,7 +424,7 @@ func StringWidth(text string) int {
 //
 // Text is always split at newline characters ('\n').
 func WordWrap(text string, width int) (lines []string) {
-	colorTagIndices, _, escapeIndices, strippedText, _ := decomposeString(text)
+	colorTagIndices, _, _, _, escapeIndices, strippedText, _ := decomposeString(text, true, false)
 
 	// Find candidate breakpoints.
 	breakpoints := boundaryPattern.FindAllStringSubmatchIndex(strippedText, -1)

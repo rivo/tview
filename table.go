@@ -697,7 +697,7 @@ ColumnLoop:
 		expansion := 0
 		for _, row := range rows {
 			if cell := getCell(row, column); cell != nil {
-				_, _, _, _, cellWidth := decomposeString(cell.Text)
+				_, _, _, _, _, _, cellWidth := decomposeString(cell.Text, true, false)
 				if cell.MaxWidth > 0 && cell.MaxWidth < cellWidth {
 					cellWidth = cell.MaxWidth
 				}

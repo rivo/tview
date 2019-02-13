@@ -558,33 +558,11 @@ func (t *TextView) reindexBuffer(width int) {
 
 	// Go through each line in the buffer.
 	for bufferIndex, str := range t.buffer {
-		// Find all color tags in this line. Then remove them.
-		var (
-			colorTagIndices [][]int
-			colorTags       [][]string
-			escapeIndices   [][]int
-		)
-		strippedStr := str
-		if t.dynamicColors {
-			colorTagIndices, colorTags, escapeIndices, strippedStr, _ = decomposeString(str)
-		}
-
-		// Find all regions in this line. Then remove them.
-		var (
-			regionIndices [][]int
-			regions       [][]string
-		)
-		if t.regions {
-			regionIndices = regionPattern.FindAllStringIndex(str, -1)
-			regions = regionPattern.FindAllStringSubmatch(str, -1)
-			strippedStr = regionPattern.ReplaceAllString(strippedStr, "")
-		}
-
-		// We don't need the original string anymore for now.
-		str = strippedStr
+		colorTagIndices, colorTags, regionIndices, regions, escapeIndices, strippedStr, _ := decomposeString(str, t.dynamicColors, t.regions)
 
 		// Split the line if required.
 		var splitLines []string
+		str = strippedStr
 		if t.wrap && len(str) > 0 {
 			for len(str) > 0 {
 				extract := runewidth.Truncate(str, width, "")
@@ -829,31 +807,8 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		attributes := index.Attributes
 		regionID := index.Region
 
-		// Get color tags.
-		var (
-			colorTagIndices [][]int
-			colorTags       [][]string
-			escapeIndices   [][]int
-		)
-		strippedText := text
-		if t.dynamicColors {
-			colorTagIndices, colorTags, escapeIndices, strippedText, _ = decomposeString(text)
-		}
-
-		// Get regions.
-		var (
-			regionIndices [][]int
-			regions       [][]string
-		)
-		if t.regions {
-			regionIndices = regionPattern.FindAllStringIndex(text, -1)
-			regions = regionPattern.FindAllStringSubmatch(text, -1)
-			strippedText = regionPattern.ReplaceAllString(strippedText, "")
-			if !t.dynamicColors {
-				escapeIndices = escapePattern.FindAllStringIndex(text, -1)
-				strippedText = string(escapePattern.ReplaceAllString(strippedText, "[$1$2]"))
-			}
-		}
+		// Process tags.
+		colorTagIndices, colorTags, regionIndices, regions, escapeIndices, strippedText, _ := decomposeString(text, t.dynamicColors, t.regions)
 
 		// Calculate the position of the line.
 		var skip, posX int
