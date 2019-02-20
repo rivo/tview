@@ -67,6 +67,10 @@ type DropDown struct {
 	// A callback function set by the Form class and called when the user leaves
 	// this form item.
 	finished func(tcell.Key)
+
+	// A callback function which is called when the user changes the drop-down's
+	// selection.
+	selected func(text string, index int)
 }
 
 // NewDropDown returns a new drop-down.
@@ -203,13 +207,19 @@ func (d *DropDown) SetOptions(texts []string, selected func(text string, index i
 	d.options = nil
 	for index, text := range texts {
 		func(t string, i int) {
-			d.AddOption(text, func() {
-				if selected != nil {
-					selected(t, i)
-				}
-			})
+			d.AddOption(text, nil)
 		}(text, index)
 	}
+	d.selected = selected
+	return d
+}
+
+// SetSelectedFunc sets a handler which is called when the user changes the
+// drop-down's option. This handler will be called in addition and prior to
+// an option's optional individual handler. The handler is provided with the
+// selected option's text and index.
+func (d *DropDown) SetSelectedFunc(handler func(text string, index int)) *DropDown {
+	d.selected = handler
 	return d
 }
 
@@ -362,6 +372,9 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				d.currentOption = index
 
 				// Trigger "selected" event.
+				if d.selected != nil {
+					d.selected(d.options[d.currentOption].Text, d.currentOption)
+				}
 				if d.options[d.currentOption].Selected != nil {
 					d.options[d.currentOption].Selected()
 				}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"unicode/utf8"
 
@@ -12,8 +13,14 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 )
 
-// TabSize is the number of spaces with which a tab character will be replaced.
-var TabSize = 4
+var (
+	openColorRegex  = regexp.MustCompile(`\[([a-zA-Z]*|#[0-9a-zA-Z]*)$`)
+	openRegionRegex = regexp.MustCompile(`\["[a-zA-Z0-9_,;: \-\.]*"?$`)
+	newLineRegex    = regexp.MustCompile(`\r?\n`)
+
+	// TabSize is the number of spaces with which a tab character will be replaced.
+	TabSize = 4
+)
 
 // textViewIndex contains information about each line displayed in the text
 // view.
@@ -237,6 +244,34 @@ func (t *TextView) SetText(text string) *TextView {
 	t.Clear()
 	fmt.Fprint(t, text)
 	return t
+}
+
+// GetText returns the current text of this text view. If "stripTags" is set
+// to true, any region/color tags are stripped from the text.
+func (t *TextView) GetText(stripTags bool) string {
+	// Get the buffer.
+	buffer := t.buffer
+	if !stripTags {
+		buffer = append(buffer, string(t.recentBytes))
+	}
+
+	// Add newlines again.
+	text := strings.Join(buffer, "\n")
+
+	// Strip from tags if required.
+	if stripTags {
+		if t.regions {
+			text = regionPattern.ReplaceAllString(text, "")
+		}
+		if t.dynamicColors {
+			text = colorPattern.ReplaceAllString(text, "")
+		}
+		if t.regions || t.dynamicColors {
+			text = escapePattern.ReplaceAllString(text, `[$1$2]`)
+		}
+	}
+
+	return text
 }
 
 // SetDynamicColors sets the flag that allows the text color to be changed
@@ -497,8 +532,7 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 
 	// If we have a trailing open dynamic color, exclude it.
 	if t.dynamicColors {
-		openColor := regexp.MustCompile(`\[([a-zA-Z]*|#[0-9a-zA-Z]*)$`)
-		location := openColor.FindIndex(newBytes)
+		location := openColorRegex.FindIndex(newBytes)
 		if location != nil {
 			t.recentBytes = newBytes[location[0]:]
 			newBytes = newBytes[:location[0]]
@@ -507,8 +541,7 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 
 	// If we have a trailing open region, exclude it.
 	if t.regions {
-		openRegion := regexp.MustCompile(`\["[a-zA-Z0-9_,;: \-\.]*"?$`)
-		location := openRegion.FindIndex(newBytes)
+		location := openRegionRegex.FindIndex(newBytes)
 		if location != nil {
 			t.recentBytes = newBytes[location[0]:]
 			newBytes = newBytes[:location[0]]
@@ -516,9 +549,8 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 	}
 
 	// Transform the new bytes into strings.
-	newLine := regexp.MustCompile(`\r?\n`)
 	newBytes = bytes.Replace(newBytes, []byte{'\t'}, bytes.Repeat([]byte{' '}, TabSize), -1)
-	for index, line := range newLine.Split(string(newBytes), -1) {
+	for index, line := range newLineRegex.Split(string(newBytes), -1) {
 		if index == 0 {
 			if len(t.buffer) == 0 {
 				t.buffer = []string{line}
@@ -558,33 +590,11 @@ func (t *TextView) reindexBuffer(width int) {
 
 	// Go through each line in the buffer.
 	for bufferIndex, str := range t.buffer {
-		// Find all color tags in this line. Then remove them.
-		var (
-			colorTagIndices [][]int
-			colorTags       [][]string
-			escapeIndices   [][]int
-		)
-		strippedStr := str
-		if t.dynamicColors {
-			colorTagIndices, colorTags, escapeIndices, strippedStr, _ = decomposeString(str)
-		}
-
-		// Find all regions in this line. Then remove them.
-		var (
-			regionIndices [][]int
-			regions       [][]string
-		)
-		if t.regions {
-			regionIndices = regionPattern.FindAllStringIndex(str, -1)
-			regions = regionPattern.FindAllStringSubmatch(str, -1)
-			strippedStr = regionPattern.ReplaceAllString(strippedStr, "")
-		}
-
-		// We don't need the original string anymore for now.
-		str = strippedStr
+		colorTagIndices, colorTags, regionIndices, regions, escapeIndices, strippedStr, _ := decomposeString(str, t.dynamicColors, t.regions)
 
 		// Split the line if required.
 		var splitLines []string
+		str = strippedStr
 		if t.wrap && len(str) > 0 {
 			for len(str) > 0 {
 				extract := runewidth.Truncate(str, width, "")
@@ -829,31 +839,8 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		attributes := index.Attributes
 		regionID := index.Region
 
-		// Get color tags.
-		var (
-			colorTagIndices [][]int
-			colorTags       [][]string
-			escapeIndices   [][]int
-		)
-		strippedText := text
-		if t.dynamicColors {
-			colorTagIndices, colorTags, escapeIndices, strippedText, _ = decomposeString(text)
-		}
-
-		// Get regions.
-		var (
-			regionIndices [][]int
-			regions       [][]string
-		)
-		if t.regions {
-			regionIndices = regionPattern.FindAllStringIndex(text, -1)
-			regions = regionPattern.FindAllStringSubmatch(text, -1)
-			strippedText = regionPattern.ReplaceAllString(strippedText, "")
-			if !t.dynamicColors {
-				escapeIndices = escapePattern.FindAllStringIndex(text, -1)
-				strippedText = string(escapePattern.ReplaceAllString(strippedText, "[$1$2]"))
-			}
-		}
+		// Process tags.
+		colorTagIndices, colorTags, regionIndices, regions, escapeIndices, strippedText, _ := decomposeString(text, t.dynamicColors, t.regions)
 
 		// Calculate the position of the line.
 		var skip, posX int

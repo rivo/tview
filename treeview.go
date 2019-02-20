@@ -105,6 +105,11 @@ func (n *TreeNode) SetChildren(childNodes []*TreeNode) *TreeNode {
 	return n
 }
 
+// GetText returns this node's text.
+func (n *TreeNode) GetText() string {
+	return n.text
+}
+
 // GetChildren returns this node's children.
 func (n *TreeNode) GetChildren() []*TreeNode {
 	return n.children
