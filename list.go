@@ -47,8 +47,8 @@ type List struct {
 	// If true, the selection is only shown when the list has focus.
 	selectedFocusOnly bool
 
-	// If true, the selected background color spans the entire view.
-	spanSelectionHighlight bool
+	// If true, the entire row is highlighted when selected.
+	highlightFullLine bool
 
 	// An optional function which is called when the user has navigated to a list
 	// item.
@@ -142,12 +142,12 @@ func (l *List) SetSelectedFocusOnly(focusOnly bool) *List {
 	return l
 }
 
-// SetSpanSelectedBackgroundColor sets a flag which determines whether the
-// colored background of selected items spans the entire width of the view. If
-// set to true, the highlight spans the entire view. If set to false, only the
-// text of the selected item from beginning to end is highlighted.
-func (l *List) SetSpanSelectedBackgroundColor(span bool) *List {
-	l.spanSelectionHighlight = span
+// SetHighlightFullLine sets a flag which determines whether the colored
+// background of selected items spans the entire width of the view. If set to
+// true, the highlight spans the entire view. If set to false, only the text of
+// the selected item from beginning to end is highlighted.
+func (l *List) SetHighlightFullLine(highlight bool) *List {
+	l.highlightFullLine = highlight
 	return l
 }
 
@@ -290,7 +290,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 			// Width of background color of selected item.
 			var textWidth int = width
-			if !l.spanSelectionHighlight {
+			if !l.highlightFullLine {
 				if w := StringWidth(item.MainText); w < textWidth {
 					textWidth = w
 				}
