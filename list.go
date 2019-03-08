@@ -48,6 +48,9 @@ type List struct {
 	// If true, the selection is only shown when the list has focus.
 	selectedFocusOnly bool
 
+	// If true, the entire row is highlighted when selected.
+	highlightFullLine bool
+
 	// The number of list items skipped at the top before the first item is drawn.
 	offset int
 
@@ -190,6 +193,15 @@ func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
 // when the list has focus. If set to false, they are always highlighted.
 func (l *List) SetSelectedFocusOnly(focusOnly bool) *List {
 	l.selectedFocusOnly = focusOnly
+	return l
+}
+
+// SetHighlightFullLine sets a flag which determines whether the colored
+// background of selected items spans the entire width of the view. If set to
+// true, the highlight spans the entire view. If set to false, only the text of
+// the selected item from beginning to end is highlighted.
+func (l *List) SetHighlightFullLine(highlight bool) *List {
+	l.highlightFullLine = highlight
 	return l
 }
 
@@ -412,8 +424,16 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Background color of selected text.
 		if index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus()) {
-			textWidth := StringWidth(item.MainText)
-			for bx := 0; bx < textWidth && bx < width; bx++ {
+
+			// Width of background color of selected item.
+			var textWidth int = width
+			if !l.highlightFullLine {
+				if w := StringWidth(item.MainText); w < textWidth {
+					textWidth = w
+				}
+			}
+
+			for bx := 0; bx < textWidth; bx++ {
 				m, c, style, _ := screen.GetContent(x+bx, y)
 				fg, _, _ := style.Decompose()
 				if fg == l.mainTextColor {
