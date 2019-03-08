@@ -368,6 +368,7 @@ func (t *Table) Select(row, column int) *Table {
 // Fixed rows and columns are never skipped.
 func (t *Table) SetOffset(row, column int) *Table {
 	t.rowOffset, t.columnOffset = row, column
+	t.trackEnd = false
 	return t
 }
 

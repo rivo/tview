@@ -424,9 +424,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Background color of selected text.
 		if index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus()) {
-
-			// Width of background color of selected item.
-			var textWidth int = width
+			textWidth := width
 			if !l.highlightFullLine {
 				if w := StringWidth(item.MainText); w < textWidth {
 					textWidth = w
