@@ -2,8 +2,7 @@ package tview
 
 import "github.com/gdamore/tcell"
 
-// Styles defines various colors used when primitives are initialized. These
-// may be changed to accommodate a different look and feel.
+// Theme defines the colors used when primitives are initialized.
 type Theme struct {
 	PrimitiveBackgroundColor    tcell.Color // Main background color for primitives.
 	ContrastBackgroundColor     tcell.Color // Background color for contrasting elements.
@@ -18,9 +17,9 @@ type Theme struct {
 	ContrastSecondaryTextColor  tcell.Color // Secondary text on ContrastBackgroundColor-colored backgrounds.
 }
 
-// Styles is the global singleton which effects the current theming of widgets
-// The default is for applications with a black background and basic colors:
-// black, white, yellow, green, and blue.
+// Styles defines the theme for applications. The default is for a black
+// background and some basic colors: black, white, yellow, green, cyan, and
+// blue.
 var Styles = Theme{
 	PrimitiveBackgroundColor:    tcell.ColorBlack,
 	ContrastBackgroundColor:     tcell.ColorBlue,
