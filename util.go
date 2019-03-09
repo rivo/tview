@@ -366,7 +366,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 		}
 
 		// Handle color tags.
-		if colorPos < len(colorIndices) && textPos+tagOffset >= colorIndices[colorPos][0] && textPos+tagOffset < colorIndices[colorPos][1] {
+		for colorPos < len(colorIndices) && textPos+tagOffset >= colorIndices[colorPos][0] && textPos+tagOffset < colorIndices[colorPos][1] {
 			foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
 			tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
 			colorPos++
