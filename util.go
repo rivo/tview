@@ -20,7 +20,7 @@ const (
 
 // Common regular expressions.
 var (
-	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbdru]+|\-)?)?)?\]`)
+	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbdrusi]+|\-)?)?)?\]`)
 	regionPattern    = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
 	escapePattern    = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
 	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
@@ -139,6 +139,8 @@ func overlayStyle(background tcell.Color, defaultStyle tcell.Style, fgColor, bgC
 		style = style.Reverse(defAttr&tcell.AttrReverse > 0)
 		style = style.Underline(defAttr&tcell.AttrUnderline > 0)
 		style = style.Dim(defAttr&tcell.AttrDim > 0)
+		style = style.Dim(defAttr&tcell.AttrStrikethrough > 0)
+		style = style.Dim(defAttr&tcell.AttrItalic > 0)
 	} else if attributes != "" {
 		style = style.Normal()
 		for _, flag := range attributes {
