@@ -3,7 +3,7 @@ package tview
 import (
 	"strings"
 
-	"github.com/gdamore/tcell"
+	"github.com/diamondburned/tcell"
 	runewidth "github.com/mattn/go-runewidth"
 )
 

@@ -1,7 +1,7 @@
 package tview
 
 import (
-	"github.com/gdamore/tcell"
+	"github.com/diamondburned/tcell"
 )
 
 // Configuration values.

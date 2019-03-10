@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"unicode"
 
-	"github.com/gdamore/tcell"
+	"github.com/diamondburned/tcell"
 	runewidth "github.com/mattn/go-runewidth"
 )
 
@@ -153,6 +153,10 @@ func overlayStyle(background tcell.Color, defaultStyle tcell.Style, fgColor, bgC
 				style = style.Reverse(true)
 			case 'u':
 				style = style.Underline(true)
+			case 's':
+				style = style.Strikethrough(true)
+			case 'i':
+				style = style.Italic(true)
 			}
 		}
 	}

@@ -3,7 +3,7 @@ package tview
 import (
 	"sync"
 
-	"github.com/gdamore/tcell"
+	"github.com/diamondburned/tcell"
 )
 
 // The size of the event/update/redraw channels.
@@ -302,7 +302,7 @@ func (a *Application) Suspend(f func()) bool {
 		panic(err)
 	}
 	a.screenReplacement <- screen
-	// One key event will get lost, see https://github.com/gdamore/tcell/issues/194
+	// One key event will get lost, see https://github.com/diamondburned/tcell/issues/194
 
 	// Continue application loop.
 	return true
