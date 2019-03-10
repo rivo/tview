@@ -188,6 +188,11 @@ func (n *TreeNode) SetText(text string) *TreeNode {
 	return n
 }
 
+// GetColor returns the node's color.
+func (n *TreeNode) GetColor() tcell.Color {
+	return n.color
+}
+
 // SetColor sets the node's text color.
 func (n *TreeNode) SetColor(color tcell.Color) *TreeNode {
 	n.color = color
