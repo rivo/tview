@@ -114,6 +114,11 @@ func (i *InputField) GetText() string {
 	return i.text
 }
 
+// GetPlaceholder returns the current placeholder of the input field.
+func (i *InputField) GetPlaceholder() string {
+	return i.placeholder
+}
+
 // SetLabel sets the text to be displayed before the input area.
 func (i *InputField) SetLabel(label string) *InputField {
 	i.label = label
