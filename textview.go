@@ -691,7 +691,7 @@ func (t *TextView) reindexBuffer(width int) {
 						line := len(t.index)
 						if t.fromHighlight < 0 {
 							t.fromHighlight, t.toHighlight = line, line
-							t.posHighlight = runewidth.StringWidth(splitLine[:strippedTagStart])
+							t.posHighlight = stringWidth(splitLine[:strippedTagStart])
 						} else if line > t.toHighlight {
 							t.toHighlight = line
 						}
@@ -709,7 +709,7 @@ func (t *TextView) reindexBuffer(width int) {
 
 			// Append this line.
 			line.NextPos = originalPos
-			line.Width = runewidth.StringWidth(splitLine)
+			line.Width = stringWidth(splitLine)
 			t.index = append(t.index, line)
 		}
 
@@ -721,7 +721,7 @@ func (t *TextView) reindexBuffer(width int) {
 				if spaces != nil && spaces[len(spaces)-1][1] == len(str) {
 					oldNextPos := line.NextPos
 					line.NextPos -= spaces[len(spaces)-1][1] - spaces[len(spaces)-1][0]
-					line.Width -= runewidth.StringWidth(t.buffer[line.Line][line.NextPos:oldNextPos])
+					line.Width -= stringWidth(t.buffer[line.Line][line.NextPos:oldNextPos])
 				}
 			}
 		}

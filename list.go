@@ -426,7 +426,7 @@ func (l *List) Draw(screen tcell.Screen) {
 		if index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus()) {
 			textWidth := width
 			if !l.highlightFullLine {
-				if w := StringWidth(item.MainText); w < textWidth {
+				if w := TaggedStringWidth(item.MainText); w < textWidth {
 					textWidth = w
 				}
 			}

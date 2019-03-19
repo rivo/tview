@@ -33,7 +33,7 @@ type Button struct {
 // NewButton returns a new input field.
 func NewButton(label string) *Button {
 	box := NewBox().SetBackgroundColor(Styles.ContrastBackgroundColor)
-	box.SetRect(0, 0, StringWidth(label)+4, 1)
+	box.SetRect(0, 0, TaggedStringWidth(label)+4, 1)
 	return &Button{
 		Box:                      box,
 		label:                    label,

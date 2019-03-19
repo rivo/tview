@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell"
-	runewidth "github.com/mattn/go-runewidth"
 )
 
 // dropDownOption is one option that can be selected in a drop-down primitive.
@@ -182,7 +181,7 @@ func (d *DropDown) GetFieldWidth() int {
 	}
 	fieldWidth := 0
 	for _, option := range d.options {
-		width := StringWidth(option.Text)
+		width := TaggedStringWidth(option.Text)
 		if width > fieldWidth {
 			fieldWidth = width
 		}
@@ -268,7 +267,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	// What's the longest option text?
 	maxWidth := 0
 	for _, option := range d.options {
-		strWidth := StringWidth(option.Text)
+		strWidth := TaggedStringWidth(option.Text)
 		if strWidth > maxWidth {
 			maxWidth = strWidth
 		}
@@ -294,7 +293,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	if d.open && len(d.prefix) > 0 {
 		// Show the prefix.
 		Print(screen, d.prefix, x, y, fieldWidth, AlignLeft, d.prefixTextColor)
-		prefixWidth := runewidth.StringWidth(d.prefix)
+		prefixWidth := stringWidth(d.prefix)
 		listItemText := d.options[d.list.GetCurrentItem()].Text
 		if prefixWidth < fieldWidth && len(d.prefix) < len(listItemText) {
 			Print(screen, listItemText[len(d.prefix):], x+prefixWidth, y, fieldWidth-prefixWidth, AlignLeft, d.fieldTextColor)

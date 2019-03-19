@@ -116,7 +116,7 @@ func (m *Modal) Draw(screen tcell.Screen) {
 	// Calculate the width of this modal.
 	buttonsWidth := 0
 	for _, button := range m.form.buttons {
-		buttonsWidth += StringWidth(button.label) + 4 + 2
+		buttonsWidth += TaggedStringWidth(button.label) + 4 + 2
 	}
 	buttonsWidth -= 2
 	screenWidth, screenHeight := screen.Size()
