@@ -384,11 +384,15 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 					moveWordLeft()
 				case 'f': // Move word right.
 					moveWordRight()
+				default:
+					if !add(event.Rune()) {
+						return
+					}
 				}
 			} else {
 				// Other keys are simply accepted as regular characters.
 				if !add(event.Rune()) {
-					break
+					return
 				}
 			}
 		case tcell.KeyCtrlU: // Delete all.
