@@ -105,15 +105,15 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 	}
 
 	a.Lock()
-	if a.screen == nil {
+	if a.Screen == nil {
 		// Run() has not been called yet.
-		a.screen = screen
+		a.Screen = screen
 		a.Unlock()
 		return a
 	}
 
 	// Run() is already in progress. Exchange screen.
-	oldScreen := a.screen
+	oldScreen := a.Screen
 	a.Unlock()
 	oldScreen.Fini()
 	a.screenReplacement <- screen
@@ -127,14 +127,14 @@ func (a *Application) Run() error {
 	var err error
 	a.Lock()
 
-	// Make a screen if there is none yet.
-	if a.screen == nil {
-		a.screen, err = tcell.NewScreen()
+	// Make a.Screen if there is none yet.
+	if a.Screen == nil {
+		a.Screen, err = tcell.NewScreen()
 		if err != nil {
 			a.Unlock()
 			return err
 		}
-		if err = a.screen.Init(); err != nil {
+		if err = a.Screen.Init(); err != nil {
 			a.Unlock()
 			return err
 		}
@@ -143,8 +143,8 @@ func (a *Application) Run() error {
 	// We catch panics to clean up because they mess up the terminal.
 	defer func() {
 		if p := recover(); p != nil {
-			if a.screen != nil {
-				a.screen.Fini()
+			if a.Screen != nil {
+				a.Screen.Fini()
 			}
 			panic(p)
 		}
@@ -161,7 +161,7 @@ func (a *Application) Run() error {
 		defer wg.Done()
 		for {
 			a.RLock()
-			screen := a.screen
+			screen := a.Screen
 			a.RUnlock()
 			if screen == nil {
 				// We have no screen. Let's stop.
@@ -187,7 +187,7 @@ func (a *Application) Run() error {
 
 			// We have a new screen. Keep going.
 			a.Lock()
-			a.screen = screen
+			a.Screen = screen
 			a.Unlock()
 
 			// Initialize and draw this screen.
@@ -239,7 +239,7 @@ EventLoop:
 				}
 			case *tcell.EventResize:
 				a.RLock()
-				screen := a.screen
+				screen := a.Screen
 				a.RUnlock()
 				if screen == nil {
 					continue
@@ -256,7 +256,7 @@ EventLoop:
 
 	// Wait for the event loop to finish.
 	wg.Wait()
-	a.screen = nil
+	a.Screen = nil
 
 	return nil
 }
@@ -265,11 +265,11 @@ EventLoop:
 func (a *Application) Stop() {
 	a.Lock()
 	defer a.Unlock()
-	screen := a.screen
+	screen := a.Screen
 	if screen == nil {
 		return
 	}
-	a.screen = nil
+	a.Screen = nil
 	screen.Fini()
 	a.screenReplacement <- nil
 }
@@ -283,7 +283,7 @@ func (a *Application) Stop() {
 // terminal UI mode was not exited, and "f" was not called.
 func (a *Application) Suspend(f func()) bool {
 	a.RLock()
-	screen := a.screen
+	screen := a.Screen
 	a.RUnlock()
 	if screen == nil {
 		return false // Screen has not yet been initialized.
@@ -334,7 +334,7 @@ func (a *Application) draw() *Application {
 	a.Lock()
 	defer a.Unlock()
 
-	screen := a.screen
+	screen := a.Screen
 	root := a.root
 	fullscreen := a.rootFullscreen
 	before := a.beforeDraw
@@ -419,8 +419,8 @@ func (a *Application) SetRoot(root Primitive, fullscreen bool) *Application {
 	a.Lock()
 	a.root = root
 	a.rootFullscreen = fullscreen
-	if a.screen != nil {
-		a.screen.Clear()
+	if a.Screen != nil {
+		a.Screen.Clear()
 	}
 	a.Unlock()
 
@@ -433,7 +433,7 @@ func (a *Application) SetRoot(root Primitive, fullscreen bool) *Application {
 // screen.
 func (a *Application) ResizeToFullScreen(p Primitive) *Application {
 	a.RLock()
-	width, height := a.screen.Size()
+	width, height := a.Screen.Size()
 	a.RUnlock()
 	p.SetRect(0, 0, width, height)
 	return a
@@ -451,8 +451,8 @@ func (a *Application) SetFocus(p Primitive) *Application {
 		a.focus.Blur()
 	}
 	a.focus = p
-	if a.screen != nil {
-		a.screen.HideCursor()
+	if a.Screen != nil {
+		a.Screen.HideCursor()
 	}
 	a.Unlock()
 	if p != nil {
