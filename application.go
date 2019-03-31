@@ -24,10 +24,10 @@ const queueSize = 100
 type Application struct {
 	sync.RWMutex
 
-	// The application's screen. Apart from Run(), this variable should never be
+	// Screen is the application's screen. Apart from Run(), this variable should never be
 	// set directly. Always use the screenReplacement channel after calling
 	// Fini(), to set a new screen (or nil to stop the application).
-	screen tcell.Screen
+	Screen tcell.Screen
 
 	// The primitive which currently has the keyboard focus.
 	focus Primitive
