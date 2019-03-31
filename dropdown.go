@@ -100,6 +100,18 @@ func NewDropDown() *DropDown {
 func (d *DropDown) SetCurrentOption(index int) *DropDown {
 	d.currentOption = index
 	d.list.SetCurrentItem(index)
+	if d.currentOption >= 0 && d.currentOption < len(d.options) {
+		if d.selected != nil {
+			d.selected(d.options[d.currentOption].Text, d.currentOption)
+		}
+		if d.options[d.currentOption].Selected != nil {
+			d.options[d.currentOption].Selected()
+		}
+	} else {
+		if d.selected != nil {
+			d.selected("", d.currentOption)
+		}
+	}
 	return d
 }
 
