@@ -101,6 +101,14 @@ func (m *Modal) AddButtons(labels []string) *Modal {
 	return m
 }
 
+// ClearButtons removes all buttons from the window
+func (m *Modal) ClearButtons() *Modal {
+	for m.form.GetButtonCount() > 0 {
+		m.form.RemoveButton(0)
+	}
+	return m
+}
+
 // Focus is called when this primitive receives focus.
 func (m *Modal) Focus(delegate func(p Primitive)) {
 	delegate(m.form)
