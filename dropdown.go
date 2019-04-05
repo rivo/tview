@@ -96,10 +96,25 @@ func NewDropDown() *DropDown {
 }
 
 // SetCurrentOption sets the index of the currently selected option. This may
-// be a negative value to indicate that no option is currently selected.
+// be a negative value to indicate that no option is currently selected. Calling
+// this function will also trigger the "selected" callback (if there is one).
 func (d *DropDown) SetCurrentOption(index int) *DropDown {
-	d.currentOption = index
-	d.list.SetCurrentItem(index)
+	if index >= 0 && index < len(d.options) {
+		d.currentOption = index
+		d.list.SetCurrentItem(index)
+		if d.selected != nil {
+			d.selected(d.options[index].Text, index)
+		}
+		if d.options[index].Selected != nil {
+			d.options[index].Selected()
+		}
+	} else {
+		d.currentOption = -1
+		d.list.SetCurrentItem(0) // Set to 0 because -1 means "last item".
+		if d.selected != nil {
+			d.selected("", -1)
+		}
+	}
 	return d
 }
 
@@ -216,7 +231,8 @@ func (d *DropDown) SetOptions(texts []string, selected func(text string, index i
 // SetSelectedFunc sets a handler which is called when the user changes the
 // drop-down's option. This handler will be called in addition and prior to
 // an option's optional individual handler. The handler is provided with the
-// selected option's text and index.
+// selected option's text and index. If "no option" was selected, these values
+// are an empty string and -1.
 func (d *DropDown) SetSelectedFunc(handler func(text string, index int)) *DropDown {
 	d.selected = handler
 	return d
