@@ -53,9 +53,28 @@ func NewModal() *Modal {
 	return m
 }
 
+// SetBackgroundColor sets the color of the modal frame background.
+func (m *Modal) SetBackgroundColor(color tcell.Color) *Modal {
+	m.form.SetBackgroundColor(color)
+	m.frame.SetBackgroundColor(color)
+	return m
+}
+
 // SetTextColor sets the color of the message text.
 func (m *Modal) SetTextColor(color tcell.Color) *Modal {
 	m.textColor = color
+	return m
+}
+
+// SetButtonBackgroundColor sets the background color of the buttons.
+func (m *Modal) SetButtonBackgroundColor(color tcell.Color) *Modal {
+	m.form.SetButtonBackgroundColor(color)
+	return m
+}
+
+// SetButtonTextColor sets the color of the button texts.
+func (m *Modal) SetButtonTextColor(color tcell.Color) *Modal {
+	m.form.SetButtonTextColor(color)
 	return m
 }
 
