@@ -39,6 +39,9 @@ type List struct {
 	// The item shortcut text color.
 	shortcutColor tcell.Color
 
+	// The background color of the items.
+	backgroundColor tcell.Color
+
 	// The text color for selected items.
 	selectedTextColor tcell.Color
 
@@ -74,6 +77,7 @@ func NewList() *List {
 		mainTextColor:           Styles.PrimaryTextColor,
 		secondaryTextColor:      Styles.TertiaryTextColor,
 		shortcutColor:           Styles.SecondaryTextColor,
+		backgroundColor:         Styles.PrimitiveBackgroundColor,
 		selectedTextColor:       Styles.PrimitiveBackgroundColor,
 		selectedBackgroundColor: Styles.PrimaryTextColor,
 	}
@@ -173,6 +177,12 @@ func (l *List) SetSecondaryTextColor(color tcell.Color) *List {
 // SetShortcutColor sets the color of the items' shortcut.
 func (l *List) SetShortcutColor(color tcell.Color) *List {
 	l.shortcutColor = color
+	return l
+}
+
+// SetBackgroundColor sets the background color of items.
+func (l *List) SetBackgroundColor(color tcell.Color) *List {
+	l.backgroundColor = color
 	return l
 }
 
@@ -420,7 +430,7 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 
 		// Main text.
-		Print(screen, item.MainText, x, y, width, AlignLeft, l.mainTextColor)
+		Print(screen, item.MainText+strings.Repeat(" ", width-len(item.MainText)), x, y, width, AlignLeft, l.mainTextColor)
 
 		// Background color of selected text.
 		if index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus()) {
@@ -438,6 +448,12 @@ func (l *List) Draw(screen tcell.Screen) {
 					fg = l.selectedTextColor
 				}
 				style = style.Background(l.selectedBackgroundColor).Foreground(fg)
+				screen.SetContent(x+bx, y, m, c, style)
+			}
+		} else {
+			for bx := 0; bx < width; bx++ {
+				m, c, style, _ := screen.GetContent(x+bx, y)
+				style = style.Background(l.backgroundColor).Foreground(l.mainTextColor)
 				screen.SetContent(x+bx, y, m, c, style)
 			}
 		}
