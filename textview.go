@@ -327,6 +327,7 @@ func (t *TextView) ScrollTo(row, column int) *TextView {
 	if !t.scrollable {
 		return t
 	}
+	t.trackEnd = false
 	t.lineOffset = row
 	t.columnOffset = column
 	return t
