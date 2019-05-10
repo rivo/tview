@@ -677,18 +677,24 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.movement = treeDown
 			case 'k':
 				t.movement = treeUp
+			case ' ':
+				t.maybeSelect()
 			}
 		case tcell.KeyEnter:
-			if t.currentNode != nil {
-				if t.selected != nil {
-					t.selected(t.currentNode)
-				}
-				if t.currentNode.selected != nil {
-					t.currentNode.selected()
-				}
-			}
+			t.maybeSelect()
 		}
 
 		t.process()
 	})
+}
+
+func (t *TreeView) maybeSelect() {
+	if t.currentNode != nil {
+		if t.selected != nil {
+			t.selected(t.currentNode)
+		}
+		if t.currentNode.selected != nil {
+			t.currentNode.selected()
+		}
+	}
 }
