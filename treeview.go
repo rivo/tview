@@ -409,22 +409,26 @@ func (t *TreeView) process() {
 			node.graphicsX = 0
 			node.textX = 0
 		}
-		if node.textX > maxTextX {
-			maxTextX = node.textX
-		}
-		if node == t.currentNode && node.selectable {
-			selectedIndex = len(t.nodes)
-		}
 
-		// Maybe we want to skip this level.
-		if t.topLevel == node.level && (topLevelGraphicsX < 0 || node.graphicsX < topLevelGraphicsX) {
-			topLevelGraphicsX = node.graphicsX
-		}
-
-		// Add and recurse (if desired).
+		// Add the node to the list.
 		if node.level >= t.topLevel {
+			// This node will be visible.
+			if node.textX > maxTextX {
+				maxTextX = node.textX
+			}
+			if node == t.currentNode && node.selectable {
+				selectedIndex = len(t.nodes)
+			}
+
+			// Maybe we want to skip this level.
+			if t.topLevel == node.level && (topLevelGraphicsX < 0 || node.graphicsX < topLevelGraphicsX) {
+				topLevelGraphicsX = node.graphicsX
+			}
+
 			t.nodes = append(t.nodes, node)
 		}
+
+		// Recurse if desired.
 		return node.expanded
 	})
 
@@ -478,7 +482,7 @@ func (t *TreeView) process() {
 				}
 			}
 			newSelectedIndex = selectedIndex
-		case treePageUp:
+		case treePageDown:
 			if newSelectedIndex+height < len(t.nodes) {
 				newSelectedIndex += height
 			} else {
@@ -490,7 +494,7 @@ func (t *TreeView) process() {
 				}
 			}
 			newSelectedIndex = selectedIndex
-		case treePageDown:
+		case treePageUp:
 			if newSelectedIndex >= height {
 				newSelectedIndex -= height
 			} else {
