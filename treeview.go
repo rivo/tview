@@ -656,6 +656,17 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		selectNode := func() {
+			if t.currentNode != nil {
+				if t.selected != nil {
+					t.selected(t.currentNode)
+				}
+				if t.currentNode.selected != nil {
+					t.currentNode.selected()
+				}
+			}
+		}
+
 		// Because the tree is flattened into a list only at drawing time, we also
 		// postpone the (selection) movement to drawing time.
 		switch key := event.Key(); key {
@@ -681,16 +692,11 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.movement = treeDown
 			case 'k':
 				t.movement = treeUp
+			case ' ':
+				selectNode()
 			}
 		case tcell.KeyEnter:
-			if t.currentNode != nil {
-				if t.selected != nil {
-					t.selected(t.currentNode)
-				}
-				if t.currentNode.selected != nil {
-					t.currentNode.selected()
-				}
-			}
+			selectNode()
 		}
 
 		t.process()
