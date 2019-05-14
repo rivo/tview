@@ -121,7 +121,7 @@ func (g *Grid) SetRows(rows ...int) *Grid {
 }
 
 // SetSize is a shortcut for SetRows() and SetColumns() where all row and column
-// values are set to the given size values. See SetRows() for details on sizes.
+// values are set to the given size values. See SetColumns() for details on sizes.
 func (g *Grid) SetSize(numRows, numColumns, rowSize, columnSize int) *Grid {
 	g.rows = make([]int, numRows)
 	for index := range g.rows {
@@ -174,7 +174,7 @@ func (g *Grid) SetBordersColor(color tcell.Color) *Grid {
 // the given row and column and will span "rowSpan" rows and "colSpan" columns.
 // For example, for a primitive to occupy rows 2, 3, and 4 and columns 5 and 6:
 //
-//   grid.AddItem(p, 2, 5, 3, 2, true)
+//   grid.AddItem(p, 2, 5, 3, 2, 0, 0, true)
 //
 // If rowSpan or colSpan is 0, the primitive will not be drawn.
 //
@@ -317,7 +317,7 @@ func (g *Grid) Draw(screen tcell.Screen) {
 			continue
 		}
 		previousItem, ok := items[item.Item]
-		if ok && item.Width < previousItem.Width && item.Height < previousItem.Height {
+		if ok && item.MinGridWidth < previousItem.MinGridWidth && item.MinGridHeight < previousItem.MinGridHeight {
 			continue
 		}
 		items[item.Item] = item
