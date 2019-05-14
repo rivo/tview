@@ -254,9 +254,15 @@ func (f *Form) GetButtonIndex(label string) int {
 func (f *Form) Clear(includeButtons bool) *Form {
 	f.items = nil
 	if includeButtons {
-		f.buttons = nil
+		f.ClearButtons()
 	}
 	f.focusedElement = 0
+	return f
+}
+
+// ClearButtons removes all buttons from the form.
+func (f *Form) ClearButtons() *Form {
+	f.buttons = nil
 	return f
 }
 
