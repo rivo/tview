@@ -640,7 +640,7 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 			if node.textX+prefixWidth < width {
 				style := tcell.StyleDefault.Foreground(node.color)
 				if node == t.currentNode {
-					style = tcell.StyleDefault.Background(node.selectedColor).Foreground(t.backgroundColor)
+					style = tcell.StyleDefault.Background(node.color).Foreground(node.selectedColor)
 				}
 				printWithStyle(screen, node.text, x+node.textX+prefixWidth, posY, width-node.textX-prefixWidth, AlignLeft, style)
 			}
