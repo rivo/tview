@@ -27,7 +27,8 @@ type TreeNode struct {
 	text string
 
 	// The text color.
-	color tcell.Color
+	color         tcell.Color
+	selectedColor tcell.Color
 
 	// Whether or not this node can be selected.
 	selectable bool
@@ -191,6 +192,12 @@ func (n *TreeNode) SetText(text string) *TreeNode {
 // SetColor sets the node's text color.
 func (n *TreeNode) SetColor(color tcell.Color) *TreeNode {
 	n.color = color
+	return n
+}
+
+// SetSelectedColor sets the node's selected text color.
+func (n *TreeNode) SetSelectedColor(color tcell.Color) *TreeNode {
+	n.selectedColor = color
 	return n
 }
 
@@ -633,7 +640,7 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 			if node.textX+prefixWidth < width {
 				style := tcell.StyleDefault.Foreground(node.color)
 				if node == t.currentNode {
-					style = tcell.StyleDefault.Background(node.color).Foreground(t.backgroundColor)
+					style = tcell.StyleDefault.Background(node.selectedColor).Foreground(t.backgroundColor)
 				}
 				printWithStyle(screen, node.text, x+node.textX+prefixWidth, posY, width-node.textX-prefixWidth, AlignLeft, style)
 			}
