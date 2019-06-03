@@ -302,6 +302,12 @@ func (f *Form) GetFormItem(index int) FormItem {
 	return f.items[index]
 }
 
+// GetFormItems returns a slice of all form elements exluding Buttons.
+// Elements are returned in the order they were added.
+func (f *Form) GetFormItems() []FormItem {
+	return f.items
+}
+
 // RemoveFormItem removes the form element at the given position, starting with
 // index 0. Elements are referenced in the order they were added. Buttons are
 // not included.
