@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"time"
+
 	"github.com/diamondburned/tcell"
 )
 
@@ -13,6 +15,12 @@ const (
 	treeDown
 	treePageUp
 	treePageDown
+)
+
+var (
+	// DoubleClickDuration is used to determine the time between
+	// two clicks for a double click
+	DoubleClickDuration = 250 * time.Millisecond
 )
 
 // TreeNode represents one node in a tree view.
@@ -249,6 +257,7 @@ type TreeView struct {
 
 	// The currently selected node or nil if no node is selected.
 	currentNode *TreeNode
+	lastNode    *TreeNode
 
 	// The movement to be performed during the call to Draw(), one of the
 	// constants defined above.
@@ -279,8 +288,13 @@ type TreeView struct {
 	// An optional function which is called when a tree item was selected.
 	selected func(node *TreeNode)
 
-	// The visible nodes, top-down, as set by process().
+	// The visible nodes, top-down, as set by process(). Broken.
 	nodes []*TreeNode
+
+	visibleNodes []*TreeNode
+
+	mousefn       func(*tcell.EventMouse) bool
+	lastClickTime time.Time
 }
 
 // NewTreeView returns a new tree view.
@@ -310,6 +324,7 @@ func (t *TreeView) GetRoot() *TreeNode {
 //
 // This function does NOT trigger the "changed" callback.
 func (t *TreeView) SetCurrentNode(node *TreeNode) *TreeView {
+	t.lastNode = t.currentNode
 	t.currentNode = node
 	return t
 }
@@ -374,6 +389,12 @@ func (t *TreeView) SetChangedFunc(handler func(node *TreeNode)) *TreeView {
 // node by pressing Enter on the current selection.
 func (t *TreeView) SetSelectedFunc(handler func(node *TreeNode)) *TreeView {
 	t.selected = handler
+	return t
+}
+
+// SetMouseFunc sets the mouse function
+func (t *TreeView) SetMouseFunc(fn func(*tcell.EventMouse) bool) *TreeView {
+	t.mousefn = fn
 	return t
 }
 
@@ -505,7 +526,7 @@ func (t *TreeView) process() {
 			}
 			newSelectedIndex = selectedIndex
 		}
-		t.currentNode = t.nodes[newSelectedIndex]
+		t.SetCurrentNode(t.nodes[newSelectedIndex])
 		if newSelectedIndex != selectedIndex {
 			t.movement = treeNone
 			if t.changed != nil {
@@ -527,7 +548,7 @@ func (t *TreeView) process() {
 			for index, node := range t.nodes {
 				if node.selectable {
 					selectedIndex = index
-					t.currentNode = node
+					t.SetCurrentNode(node)
 					break
 				}
 			}
@@ -552,6 +573,8 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 	defer func() {
 		t.nodes = nil // Rebuild during next call to Draw()
 	}()
+
+	t.visibleNodes = t.nodes
 
 	// Scroll the tree.
 	x, y, width, height := t.GetInnerRect()
@@ -693,4 +716,53 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 		t.process()
 	})
+}
+
+// MouseHandler returns a mouse handler
+func (t *TreeView) MouseHandler() func(*tcell.EventMouse) bool {
+	return func(ev *tcell.EventMouse) (b bool) {
+		defer func() {
+			if t.mousefn != nil && t.mousefn(ev) {
+				b = true
+			}
+		}()
+
+		switch ev.Buttons() {
+		case tcell.Button1:
+			_, y := ev.Position()
+			n := t.offsetY + y - 1
+
+			if n >= len(t.visibleNodes) || n < 0 {
+				return false
+			}
+
+			t.SetCurrentNode(t.visibleNodes[n])
+
+			if ev.When().Sub(t.lastClickTime) <= DoubleClickDuration {
+				if t.currentNode != nil && t.lastNode == t.currentNode {
+					if t.selected != nil {
+						t.selected(t.currentNode)
+					}
+
+					if t.currentNode.selected != nil {
+						t.currentNode.selected()
+					}
+				}
+			}
+
+			t.lastClickTime = ev.When()
+
+			return true
+
+		case tcell.WheelUp:
+			t.movement = treeDown
+			return true
+
+		case tcell.WheelDown:
+			t.movement = treeUp
+			return true
+		}
+
+		return false
+	}
 }

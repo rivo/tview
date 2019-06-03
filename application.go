@@ -6,8 +6,8 @@ import (
 	"github.com/diamondburned/tcell"
 )
 
-// The size of the event/update/redraw channels.
-const queueSize = 100
+// QueueSize is the size of the event/update/redraw channels.
+var QueueSize = 100
 
 // Application represents the top node of an application.
 //
@@ -67,8 +67,8 @@ type Application struct {
 // NewApplication creates and returns a new application.
 func NewApplication() *Application {
 	return &Application{
-		events:            make(chan tcell.Event, queueSize),
-		updates:           make(chan func(), queueSize),
+		events:            make(chan tcell.Event, QueueSize),
+		updates:           make(chan func(), QueueSize),
 		screenReplacement: make(chan tcell.Screen, 1),
 	}
 }
@@ -138,6 +138,7 @@ func (a *Application) Run() error {
 			a.Unlock()
 			return err
 		}
+		a.Screen.EnableMouse()
 	}
 
 	// We catch panics to clean up because they mess up the terminal.
@@ -237,6 +238,26 @@ EventLoop:
 						a.draw()
 					}
 				}
+
+			case *tcell.EventMouse:
+				a.RLock()
+				atXY := a.GetComponentAt(event.Position())
+				a.RUnlock()
+
+				if atXY == nil {
+					continue
+				}
+
+				mouseSupport, ok := (*atXY).(MouseSupport)
+				if !ok {
+					continue
+				}
+
+				handler := mouseSupport.MouseHandler()
+				if handler != nil && handler(event) {
+					a.draw()
+				}
+
 			case *tcell.EventResize:
 				a.RLock()
 				screen := a.Screen
@@ -502,4 +523,53 @@ func (a *Application) QueueUpdateDraw(f func()) *Application {
 func (a *Application) QueueEvent(event tcell.Event) *Application {
 	a.events <- event
 	return a
+}
+
+// GetComponentAt returns the highest level component at the given coordinates
+// or zero if no component can be found.
+func (a *Application) GetComponentAt(x, y int) *Primitive {
+	return getComponentAtRecursively(a.root, x, y)
+}
+
+func getComponentAtRecursively(primitive Primitive, x, y int) *Primitive {
+	flex, isFlex := primitive.(*Flex)
+	if isFlex {
+		for _, child := range flex.items {
+			found := getComponentAtRecursively(child.Item, x, y)
+			if found != nil {
+				return found
+			}
+		}
+	}
+
+	grid, isGrid := primitive.(*Grid)
+	if isGrid {
+		for _, child := range grid.items {
+			found := getComponentAtRecursively(child.Item, x, y)
+			if found != nil {
+				return found
+			}
+		}
+	}
+
+	pages, isPages := primitive.(*Pages)
+	if isPages {
+		for _, page := range pages.pages {
+			if page.Visible {
+				found := getComponentAtRecursively(page.Item, x, y)
+				if found != nil {
+					return found
+				}
+				break
+			}
+		}
+	}
+
+	componentX, componentY, width, height := primitive.GetRect()
+	// Subtracting -1 from height and width, since we got a pixel with coordinate already.
+	if componentX <= x && componentY <= y && (componentX+width-1) >= x && (componentY+height-1) >= y {
+		return &primitive
+	}
+
+	return nil
 }
