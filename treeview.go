@@ -295,6 +295,7 @@ type TreeView struct {
 
 	mousefn       func(*tcell.EventMouse) bool
 	lastClickTime time.Time
+	singleClick   bool
 }
 
 // NewTreeView returns a new tree view.
@@ -738,7 +739,7 @@ func (t *TreeView) MouseHandler() func(*tcell.EventMouse) bool {
 
 			t.SetCurrentNode(t.visibleNodes[n])
 
-			if ev.When().Sub(t.lastClickTime) <= DoubleClickDuration {
+			if ev.When().Sub(t.lastClickTime) <= DoubleClickDuration || t.singleClick {
 				if t.currentNode != nil && t.lastNode == t.currentNode {
 					if t.selected != nil {
 						t.selected(t.currentNode)
@@ -755,14 +756,19 @@ func (t *TreeView) MouseHandler() func(*tcell.EventMouse) bool {
 			return true
 
 		case tcell.WheelUp:
-			t.movement = treeDown
+			t.movement = treeUp
 			return true
 
 		case tcell.WheelDown:
-			t.movement = treeUp
+			t.movement = treeDown
 			return true
 		}
 
 		return false
 	}
+}
+
+func (t *TreeView) SetSingleClick(s bool) *TreeView {
+	t.singleClick = s
+	return t
 }
