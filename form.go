@@ -280,6 +280,14 @@ func (f *Form) ClearButtons() *Form {
 	return f
 }
 
+// GetFocusedElement returns the number of the element that currently has
+// focus. This includes buttons which means if you have 10 fields and 2
+// buttons and the first button is focused then the index would be 10
+// (remembering that indexes start with 0)
+func (f *Form) GetFocusedElement() int {
+	return f.focusedElement
+}
+
 // AddFormItem adds a new item to the form. This can be used to add your own
 // objects to the form. Note, however, that the Form class will override some
 // of its attributes to make it work in the form context. Specifically, these
