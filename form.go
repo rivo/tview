@@ -79,6 +79,9 @@ type Form struct {
 
 	// An optional function which is called when the user hits Escape.
 	cancel func()
+
+	// An optional function which is called when the form item changes.
+	changed func(item FormItem)
 }
 
 // NewForm returns a new form.
@@ -341,6 +344,13 @@ func (f *Form) SetCancelFunc(callback func()) *Form {
 	return f
 }
 
+// SetChangedFunc sets a handler which is called when the user moves to
+// another field in the form.
+func (f *Form) SetChangedFunc(callback func(item FormItem)) *Form {
+	f.changed = callback
+	return f
+}
+
 // Draw draws this primitive onto the screen.
 func (f *Form) Draw(screen tcell.Screen) {
 	f.Box.Draw(screen)
@@ -562,6 +572,9 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 		item := f.items[f.focusedElement]
 		item.SetFinishedFunc(handler)
 		delegate(item)
+		if f.changed != nil {
+			f.changed(f.items[f.focusedElement])
+		}
 	} else {
 		// We're selecting a button.
 		button := f.buttons[f.focusedElement-len(f.items)]
