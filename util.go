@@ -123,7 +123,7 @@ func overlayStyle(background tcell.Color, defaultStyle tcell.Style, fgColor, bgC
 	style := defaultStyle.Background(background)
 
 	style = style.Foreground(defFg)
-	if fgColor != "" {
+	if fgColor != "" && fgColor != "-" {
 		style = style.Foreground(tcell.GetColor(fgColor))
 	}
 
