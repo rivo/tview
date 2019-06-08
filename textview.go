@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/diamondburned/tcell"
-	colorful "github.com/lucasb-eyer/go-colorful"
+	colorful "github.com/diamondburned/go-colorful"
 	runewidth "github.com/mattn/go-runewidth"
 )
 

@@ -4,7 +4,7 @@ import (
 	"sort"
 
 	"github.com/diamondburned/tcell"
-	colorful "github.com/lucasb-eyer/go-colorful"
+	colorful "github.com/diamondburned/go-colorful"
 )
 
 // TableCell represents one cell inside a Table. You can instantiate this type
