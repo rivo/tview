@@ -7,8 +7,8 @@ import (
 	"github.com/diamondburned/tcell"
 )
 
-// listItem represents one item in a List.
-type listItem struct {
+// ListItem represents one item in a List.
+type ListItem struct {
 	MainText      string // The main text of the list item.
 	SecondaryText string // A secondary text to be shown underneath the main text.
 	Shortcut      rune   // The key to select the list item directly, 0 if there is no shortcut.
@@ -22,7 +22,7 @@ type List struct {
 	*Box
 
 	// The items of the list.
-	items []*listItem
+	Items []*ListItem
 
 	// The index of the currently selected item.
 	currentItem int
@@ -87,10 +87,10 @@ func NewList() *List {
 // Calling this function triggers a "changed" event if the selection changes.
 func (l *List) SetCurrentItem(index int) *List {
 	if index < 0 {
-		index = len(l.items) + index
+		index = len(l.Items) + index
 	}
-	if index >= len(l.items) {
-		index = len(l.items) - 1
+	if index >= len(l.Items) {
+		index = len(l.Items) - 1
 	}
 	if index < 0 {
 		index = 0
@@ -98,7 +98,7 @@ func (l *List) SetCurrentItem(index int) *List {
 	l.currentItem = index
 
 	if index != l.currentItem && l.changed != nil {
-		item := l.items[l.currentItem]
+		item := l.Items[l.currentItem]
 		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 	}
 
@@ -120,26 +120,26 @@ func (l *List) GetCurrentItem() int {
 // The currently selected item is shifted accordingly. If it is the one that is
 // removed, a "changed" event is fired.
 func (l *List) RemoveItem(index int) *List {
-	if len(l.items) == 0 {
+	if len(l.Items) == 0 {
 		return l
 	}
 
 	// Adjust index.
 	if index < 0 {
-		index = len(l.items) + index
+		index = len(l.Items) + index
 	}
-	if index >= len(l.items) {
-		index = len(l.items) - 1
+	if index >= len(l.Items) {
+		index = len(l.Items) - 1
 	}
 	if index < 0 {
 		index = 0
 	}
 
 	// Remove item.
-	l.items = append(l.items[:index], l.items[index+1:]...)
+	l.Items = append(l.Items[:index], l.Items[index+1:]...)
 
 	// If there is nothing left, we're done.
-	if len(l.items) == 0 {
+	if len(l.Items) == 0 {
 		return l
 	}
 
@@ -151,7 +151,7 @@ func (l *List) RemoveItem(index int) *List {
 
 	// Fire "changed" event for removed items.
 	if previousCurrentItem == index && l.changed != nil {
-		item := l.items[l.currentItem]
+		item := l.Items[l.currentItem]
 		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 	}
 
@@ -266,8 +266,8 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 // The currently selected item will shift its position accordingly. If the list
 // was previously empty, a "changed" event is fired because the new item becomes
 // selected.
-func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut rune, selected func()) *List {
-	item := &listItem{
+func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut rune, selected func()) *ListItem {
+	item := &ListItem{
 		MainText:      mainText,
 		SecondaryText: secondaryText,
 		Shortcut:      shortcut,
@@ -276,50 +276,50 @@ func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut ru
 
 	// Shift index to range.
 	if index < 0 {
-		index = len(l.items) + index + 1
+		index = len(l.Items) + index + 1
 	}
 	if index < 0 {
 		index = 0
-	} else if index > len(l.items) {
-		index = len(l.items)
+	} else if index > len(l.Items) {
+		index = len(l.Items)
 	}
 
 	// Shift current item.
-	if l.currentItem < len(l.items) && l.currentItem >= index {
+	if l.currentItem < len(l.Items) && l.currentItem >= index {
 		l.currentItem++
 	}
 
 	// Insert item (make space for the new item, then shift and insert).
-	l.items = append(l.items, nil)
-	if index < len(l.items)-1 { // -1 because l.items has already grown by one item.
-		copy(l.items[index+1:], l.items[index:])
+	l.Items = append(l.Items, nil)
+	if index < len(l.Items)-1 { // -1 because l.Items has already grown by one item.
+		copy(l.Items[index+1:], l.Items[index:])
 	}
-	l.items[index] = item
+	l.Items[index] = item
 
 	// Fire a "change" event for the first item in the list.
-	if len(l.items) == 1 && l.changed != nil {
-		item := l.items[0]
+	if len(l.Items) == 1 && l.changed != nil {
+		item := l.Items[0]
 		l.changed(0, item.MainText, item.SecondaryText, item.Shortcut)
 	}
 
-	return l
+	return item
 }
 
 // GetItemCount returns the number of items in the list.
 func (l *List) GetItemCount() int {
-	return len(l.items)
+	return len(l.Items)
 }
 
 // GetItemText returns an item's texts (main and secondary). Panics if the index
 // is out of range.
 func (l *List) GetItemText(index int) (main, secondary string) {
-	return l.items[index].MainText, l.items[index].SecondaryText
+	return l.Items[index].MainText, l.Items[index].SecondaryText
 }
 
 // SetItemText sets an item's main and secondary text. Panics if the index is
 // out of range.
 func (l *List) SetItemText(index int, main, secondary string) *List {
-	item := l.items[index]
+	item := l.Items[index]
 	item.MainText = main
 	item.SecondaryText = secondary
 	return l
@@ -345,7 +345,7 @@ func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ig
 		secondarySearch = strings.ToLower(secondarySearch)
 	}
 
-	for index, item := range l.items {
+	for index, item := range l.Items {
 		mainText := item.MainText
 		secondaryText := item.SecondaryText
 		if ignoreCase {
@@ -367,7 +367,7 @@ func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ig
 
 // Clear removes all items from the list.
 func (l *List) Clear() *List {
-	l.items = nil
+	l.Items = nil
 	l.currentItem = 0
 	return l
 }
@@ -382,7 +382,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 	// Do we show any shortcuts?
 	var showShortcuts bool
-	for _, item := range l.items {
+	for _, item := range l.Items {
 		if item.Shortcut != 0 {
 			showShortcuts = true
 			x += 4
@@ -405,7 +405,7 @@ func (l *List) Draw(screen tcell.Screen) {
 	}
 
 	// Draw the list items.
-	for index, item := range l.items {
+	for index, item := range l.Items {
 		if index < l.offset {
 			continue
 		}
@@ -469,14 +469,14 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		case tcell.KeyHome:
 			l.currentItem = 0
 		case tcell.KeyEnd:
-			l.currentItem = len(l.items) - 1
+			l.currentItem = len(l.Items) - 1
 		case tcell.KeyPgDn:
 			l.currentItem += 5
 		case tcell.KeyPgUp:
 			l.currentItem -= 5
 		case tcell.KeyEnter:
-			if l.currentItem >= 0 && l.currentItem < len(l.items) {
-				item := l.items[l.currentItem]
+			if l.currentItem >= 0 && l.currentItem < len(l.Items) {
+				item := l.Items[l.currentItem]
 				if item.Selected != nil {
 					item.Selected()
 				}
@@ -493,7 +493,7 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 			if ch != ' ' {
 				// It's not a space bar. Is it a shortcut?
 				var found bool
-				for index, item := range l.items {
+				for index, item := range l.Items {
 					if item.Shortcut == ch {
 						// We have a shortcut.
 						found = true
@@ -505,7 +505,7 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 					break
 				}
 			}
-			item := l.items[l.currentItem]
+			item := l.Items[l.currentItem]
 			if item.Selected != nil {
 				item.Selected()
 			}
@@ -515,13 +515,13 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		}
 
 		if l.currentItem < 0 {
-			l.currentItem = len(l.items) - 1
-		} else if l.currentItem >= len(l.items) {
+			l.currentItem = len(l.Items) - 1
+		} else if l.currentItem >= len(l.Items) {
 			l.currentItem = 0
 		}
 
-		if l.currentItem != previousItem && l.currentItem < len(l.items) && l.changed != nil {
-			item := l.items[l.currentItem]
+		if l.currentItem != previousItem && l.currentItem < len(l.Items) && l.changed != nil {
+			item := l.Items[l.currentItem]
 			l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 		}
 	})
