@@ -99,6 +99,10 @@ func (l *List) SetCurrentItem(index int) *List {
 // GetCurrentItem returns the index of the currently selected list item,
 // starting at 0 for the first item.
 func (l *List) GetCurrentItem() (int, *ListItem) {
+	if len(l.Items) == 0 {
+		return 0, nil
+	}
+
 	return l.currentItem, l.Items[l.currentItem]
 }
 
