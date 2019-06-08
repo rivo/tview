@@ -1,7 +1,6 @@
 package tview
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/diamondburned/tcell"
@@ -86,15 +85,7 @@ func NewList() *List {
 //
 // Calling this function triggers a "changed" event if the selection changes.
 func (l *List) SetCurrentItem(index int) *List {
-	if index < 0 {
-		index = len(l.Items) + index
-	}
-	if index >= len(l.Items) {
-		index = len(l.Items) - 1
-	}
-	if index < 0 {
-		index = 0
-	}
+	index = l.reIndex(index)
 	l.currentItem = index
 
 	if index != l.currentItem && l.changed != nil {
@@ -107,11 +98,22 @@ func (l *List) SetCurrentItem(index int) *List {
 
 // GetCurrentItem returns the index of the currently selected list item,
 // starting at 0 for the first item.
-func (l *List) GetCurrentItem() int {
-	return l.currentItem
+func (l *List) GetCurrentItem() (int, *ListItem) {
+	return l.currentItem, l.Items[l.currentItem]
 }
 
-// RemoveItem removes the item with the given index (starting at 0) from the
+// RemoveItem finds the index then calls RemoveItemIndex.
+func (l *List) RemoveItem(it *ListItem) *List {
+	for n, i := range l.Items {
+		if i == it {
+			return l.RemoveItemIndex(n)
+		}
+	}
+
+	return l
+}
+
+// RemoveItemIndex removes the item with the given index (starting at 0) from the
 // list. If a negative index is provided, items are referred to from the back
 // (-1 = last item, -2 = second-to-last item, and so on). Out of range indices
 // are clamped to the beginning/end, i.e. unless the list is empty, an item is
@@ -119,21 +121,12 @@ func (l *List) GetCurrentItem() int {
 //
 // The currently selected item is shifted accordingly. If it is the one that is
 // removed, a "changed" event is fired.
-func (l *List) RemoveItem(index int) *List {
+func (l *List) RemoveItemIndex(index int) *List {
 	if len(l.Items) == 0 {
 		return l
 	}
 
-	// Adjust index.
-	if index < 0 {
-		index = len(l.Items) + index
-	}
-	if index >= len(l.Items) {
-		index = len(l.Items) - 1
-	}
-	if index < 0 {
-		index = 0
-	}
+	index = l.reIndex(index)
 
 	// Remove item.
 	l.Items = append(l.Items[:index], l.Items[index+1:]...)
@@ -156,6 +149,21 @@ func (l *List) RemoveItem(index int) *List {
 	}
 
 	return l
+}
+
+func (l *List) reIndex(index int) int {
+	// Adjust index.
+	if index < 0 {
+		index = len(l.Items) + index
+	}
+	if index >= len(l.Items) {
+		index = len(l.Items) - 1
+	}
+	if index < 0 {
+		index = 0
+	}
+
+	return index
 }
 
 // SetMainTextColor sets the color of the items' main text.
@@ -240,7 +248,7 @@ func (l *List) SetDoneFunc(handler func()) *List {
 
 // AddItem calls InsertItem() with an index of -1.
 func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected func()) *List {
-	l.InsertItem(-1, mainText, secondaryText, shortcut, selected)
+	l.InsertItem(-1, &ListItem{mainText, secondaryText, shortcut, selected})
 	return l
 }
 
@@ -266,23 +274,9 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 // The currently selected item will shift its position accordingly. If the list
 // was previously empty, a "changed" event is fired because the new item becomes
 // selected.
-func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut rune, selected func()) *ListItem {
-	item := &ListItem{
-		MainText:      mainText,
-		SecondaryText: secondaryText,
-		Shortcut:      shortcut,
-		Selected:      selected,
-	}
-
+func (l *List) InsertItem(index int, item *ListItem) *List {
 	// Shift index to range.
-	if index < 0 {
-		index = len(l.Items) + index + 1
-	}
-	if index < 0 {
-		index = 0
-	} else if index > len(l.Items) {
-		index = len(l.Items)
-	}
+	index = l.reIndex(index)
 
 	// Shift current item.
 	if l.currentItem < len(l.Items) && l.currentItem >= index {
@@ -302,7 +296,7 @@ func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut ru
 		l.changed(0, item.MainText, item.SecondaryText, item.Shortcut)
 	}
 
-	return item
+	return l
 }
 
 // GetItemCount returns the number of items in the list.
@@ -310,16 +304,27 @@ func (l *List) GetItemCount() int {
 	return len(l.Items)
 }
 
+// GetItem gets the item with the index. This checks the length to prevent
+// out of ranges.
+func (l *List) GetItem(index int) *ListItem {
+	if index >= len(l.Items) || index < 0 {
+		return nil
+	}
+
+	return l.Items[index]
+}
+
 // GetItemText returns an item's texts (main and secondary). Panics if the index
 // is out of range.
 func (l *List) GetItemText(index int) (main, secondary string) {
-	return l.Items[index].MainText, l.Items[index].SecondaryText
+	i := l.GetItem(index)
+	return i.MainText, i.SecondaryText
 }
 
 // SetItemText sets an item's main and secondary text. Panics if the index is
 // out of range.
 func (l *List) SetItemText(index int, main, secondary string) *List {
-	item := l.Items[index]
+	item := l.GetItem(index)
 	item.MainText = main
 	item.SecondaryText = secondary
 	return l
@@ -335,10 +340,12 @@ func (l *List) SetItemText(index int, main, secondary string) *List {
 // false, only one of the two search strings must be contained.
 //
 // Set ignoreCase to true for case-insensitive search.
-func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ignoreCase bool) (indices []int) {
+func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ignoreCase bool) []int {
 	if mainSearch == "" && secondarySearch == "" {
-		return
+		return nil
 	}
+
+	indices := make([]int, 0, len(l.Items))
 
 	if ignoreCase {
 		mainSearch = strings.ToLower(mainSearch)
@@ -362,12 +369,12 @@ func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ig
 		}
 	}
 
-	return
+	return indices
 }
 
 // Clear removes all items from the list.
 func (l *List) Clear() *List {
-	l.Items = nil
+	l.Items = []*ListItem{}
 	l.currentItem = 0
 	return l
 }
@@ -416,7 +423,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Shortcuts.
 		if showShortcuts && item.Shortcut != 0 {
-			Print(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 4, AlignRight, l.shortcutColor)
+			Print(screen, "("+string(item.Shortcut)+")", x-5, y, 4, AlignRight, l.shortcutColor)
 		}
 
 		// Main text.
@@ -437,13 +444,13 @@ func (l *List) Draw(screen tcell.Screen) {
 				if fg == l.mainTextColor {
 					fg = l.selectedTextColor
 				}
+
 				style = style.Background(l.selectedBackgroundColor).Foreground(fg)
 				screen.SetContent(x+bx, y, m, c, style)
 			}
 		}
 
 		y++
-
 		if y >= bottomLimit {
 			break
 		}
@@ -471,9 +478,9 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		case tcell.KeyEnd:
 			l.currentItem = len(l.Items) - 1
 		case tcell.KeyPgDn:
-			l.currentItem += 5
+			l.currentItem += l.height / 2
 		case tcell.KeyPgUp:
-			l.currentItem -= 5
+			l.currentItem -= l.height / 2
 		case tcell.KeyEnter:
 			if l.currentItem >= 0 && l.currentItem < len(l.Items) {
 				item := l.Items[l.currentItem]
