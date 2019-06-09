@@ -375,6 +375,21 @@ func (t *TreeView) SetSelectedFunc(handler func(node *TreeNode)) *TreeView {
 	return t
 }
 
+// GetScrollOffset returns the number of node rows that were skipped at the top
+// of the tree view. Note that when the user navigates the tree view, this value
+// is only updated after the tree view has been redrawn.
+func (t *TreeView) GetScrollOffset() int {
+	return t.offsetY
+}
+
+// GetRowCount returns the number of "visible" nodes. This includes nodes which
+// fall outside the tree view's box but notably does not include the children
+// of collapsed nodes. Note that this value is only up to date after the tree
+// view has been drawn.
+func (t *TreeView) GetRowCount() int {
+	return len(t.nodes)
+}
+
 // process builds the visible tree, populates the "nodes" slice, and processes
 // pending selection actions.
 func (t *TreeView) process() {
