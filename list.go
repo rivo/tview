@@ -303,6 +303,16 @@ func (l *List) InsertItem(index int, item *ListItem) *List {
 	return l
 }
 
+// SetIetms overrides the list of items with the new one
+func (l *List) SetItems(items []*ListItem) *List {
+	l.Items = items
+	if l.currentItem > len(l.Items)-1 {
+		l.currentItem = len(l.Items) - 1 // prevent out-of-range
+	}
+
+	return l
+}
+
 // GetItemCount returns the number of items in the list.
 func (l *List) GetItemCount() int {
 	return len(l.Items)
