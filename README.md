@@ -55,7 +55,7 @@ Refer to https://godoc.org/github.com/rivo/tview for the package's documentation
 
 ## Dependencies
 
-This package is based on [github.com/gdamore/tcell](https://github.com/gdamore/tcell) (and its dependencies).
+This package is based on [github.com/gdamore/tcell](https://github.com/gdamore/tcell) (and its dependencies) as well as on [github.com/rivo/uniseg](https://github.com/rivo/uniseg).
 
 ## Your Feedback
 

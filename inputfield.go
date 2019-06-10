@@ -281,8 +281,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		if i.maskCharacter > 0 {
 			text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
 		}
-		stringWidth := runewidth.StringWidth(text)
-		if fieldWidth >= stringWidth {
+		if fieldWidth >= stringWidth(text) {
 			// We have enough space for the full text.
 			Print(screen, Escape(text), x, y, fieldWidth, AlignLeft, i.fieldTextColor)
 			i.offset = 0
@@ -304,7 +303,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 			var shiftLeft int
 			if i.offset > i.cursorPos {
 				i.offset = i.cursorPos
-			} else if subWidth := runewidth.StringWidth(text[i.offset:i.cursorPos]); subWidth > fieldWidth-1 {
+			} else if subWidth := stringWidth(text[i.offset:i.cursorPos]); subWidth > fieldWidth-1 {
 				shiftLeft = subWidth - fieldWidth + 1
 			}
 			currentOffset := i.offset
@@ -391,11 +390,15 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 					moveWordLeft()
 				case 'f': // Move word right.
 					moveWordRight()
+				default:
+					if !add(event.Rune()) {
+						return
+					}
 				}
 			} else {
 				// Other keys are simply accepted as regular characters.
 				if !add(event.Rune()) {
-					break
+					return
 				}
 			}
 		case tcell.KeyCtrlU: // Delete all.

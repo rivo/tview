@@ -154,6 +154,20 @@ func (f *Form) SetButtonTextColor(color tcell.Color) *Form {
 	return f
 }
 
+// SetFocus shifts the focus to the form element with the given index, counting
+// non-button items first and buttons last. Note that this index is only used
+// when the form itself receives focus.
+func (f *Form) SetFocus(index int) *Form {
+	if index < 0 {
+		f.focusedElement = 0
+	} else if index >= len(f.items)+len(f.buttons) {
+		f.focusedElement = len(f.items) + len(f.buttons)
+	} else {
+		f.focusedElement = index
+	}
+	return f
+}
+
 // AddInputField adds an input field to the form. It has a label, an optional
 // initial value, a field width (a value of 0 extends it as far as possible),
 // an optional accept function to validate the item's value (set to nil to
@@ -254,9 +268,15 @@ func (f *Form) GetButtonIndex(label string) int {
 func (f *Form) Clear(includeButtons bool) *Form {
 	f.items = nil
 	if includeButtons {
-		f.buttons = nil
+		f.ClearButtons()
 	}
 	f.focusedElement = 0
+	return f
+}
+
+// ClearButtons removes all buttons from the form.
+func (f *Form) ClearButtons() *Form {
+	f.buttons = nil
 	return f
 }
 
@@ -335,7 +355,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	// Find the longest label.
 	var maxLabelWidth int
 	for _, item := range f.items {
-		labelWidth := StringWidth(item.GetLabel())
+		labelWidth := TaggedStringWidth(item.GetLabel())
 		if labelWidth > maxLabelWidth {
 			maxLabelWidth = labelWidth
 		}
@@ -347,7 +367,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	var focusedPosition struct{ x, y, width, height int }
 	for index, item := range f.items {
 		// Calculate the space needed.
-		labelWidth := StringWidth(item.GetLabel())
+		labelWidth := TaggedStringWidth(item.GetLabel())
 		var itemWidth int
 		if f.horizontal {
 			fieldWidth := item.GetFieldWidth()
@@ -401,7 +421,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 	buttonWidths := make([]int, len(f.buttons))
 	buttonsWidth := 0
 	for index, button := range f.buttons {
-		w := StringWidth(button.GetLabel()) + 4
+		w := TaggedStringWidth(button.GetLabel()) + 4
 		buttonWidths[index] = w
 		buttonsWidth += w + 1
 	}

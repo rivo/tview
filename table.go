@@ -792,7 +792,7 @@ ColumnLoop:
 			}
 			cell.x, cell.y, cell.width = x+columnX+1, y+rowY, finalWidth
 			_, printed := printWithStyle(screen, cell.Text, x+columnX+1, y+rowY, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color)|tcell.Style(cell.Attributes))
-			if StringWidth(cell.Text)-printed > 0 && printed > 0 {
+			if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
 				_, _, style, _ := screen.GetContent(x+columnX+1+finalWidth-1, y+rowY)
 				printWithStyle(screen, string(SemigraphicsHorizontalEllipsis), x+columnX+1+finalWidth-1, y+rowY, 1, AlignLeft, style)
 			}

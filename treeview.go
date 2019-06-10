@@ -197,6 +197,11 @@ func (n *TreeNode) SetText(text string) *TreeNode {
 	return n
 }
 
+// GetColor returns the node's color.
+func (n *TreeNode) GetColor() tcell.Color {
+	return n.color
+}
+
 // SetColor sets the node's text color.
 func (n *TreeNode) SetColor(color tcell.Color) *TreeNode {
 	n.color = color
@@ -399,6 +404,21 @@ func (t *TreeView) SetMouseFunc(fn func(*tcell.EventMouse) bool) *TreeView {
 	return t
 }
 
+// GetScrollOffset returns the number of node rows that were skipped at the top
+// of the tree view. Note that when the user navigates the tree view, this value
+// is only updated after the tree view has been redrawn.
+func (t *TreeView) GetScrollOffset() int {
+	return t.offsetY
+}
+
+// GetRowCount returns the number of "visible" nodes. This includes nodes which
+// fall outside the tree view's box but notably does not include the children
+// of collapsed nodes. Note that this value is only up to date after the tree
+// view has been drawn.
+func (t *TreeView) GetRowCount() int {
+	return len(t.nodes)
+}
+
 // process builds the visible tree, populates the "nodes" slice, and processes
 // pending selection actions.
 func (t *TreeView) process() {
@@ -433,22 +453,26 @@ func (t *TreeView) process() {
 			node.graphicsX = 0
 			node.textX = 0
 		}
-		if node.textX > maxTextX {
-			maxTextX = node.textX
-		}
-		if node == t.currentNode && node.selectable {
-			selectedIndex = len(t.nodes)
-		}
 
-		// Maybe we want to skip this level.
-		if t.topLevel == node.level && (topLevelGraphicsX < 0 || node.graphicsX < topLevelGraphicsX) {
-			topLevelGraphicsX = node.graphicsX
-		}
-
-		// Add and recurse (if desired).
+		// Add the node to the list.
 		if node.level >= t.topLevel {
+			// This node will be visible.
+			if node.textX > maxTextX {
+				maxTextX = node.textX
+			}
+			if node == t.currentNode && node.selectable {
+				selectedIndex = len(t.nodes)
+			}
+
+			// Maybe we want to skip this level.
+			if t.topLevel == node.level && (topLevelGraphicsX < 0 || node.graphicsX < topLevelGraphicsX) {
+				topLevelGraphicsX = node.graphicsX
+			}
+
 			t.nodes = append(t.nodes, node)
 		}
+
+		// Recurse if desired.
 		return node.expanded
 	})
 
@@ -502,7 +526,7 @@ func (t *TreeView) process() {
 				}
 			}
 			newSelectedIndex = selectedIndex
-		case treePageUp:
+		case treePageDown:
 			if newSelectedIndex+height < len(t.nodes) {
 				newSelectedIndex += height
 			} else {
@@ -514,7 +538,7 @@ func (t *TreeView) process() {
 				}
 			}
 			newSelectedIndex = selectedIndex
-		case treePageDown:
+		case treePageUp:
 			if newSelectedIndex >= height {
 				newSelectedIndex -= height
 			} else {
@@ -678,6 +702,17 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		selectNode := func() {
+			if t.currentNode != nil {
+				if t.selected != nil {
+					t.selected(t.currentNode)
+				}
+				if t.currentNode.selected != nil {
+					t.currentNode.selected()
+				}
+			}
+		}
+
 		// Because the tree is flattened into a list only at drawing time, we also
 		// postpone the (selection) movement to drawing time.
 		switch key := event.Key(); key {
@@ -703,16 +738,11 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.movement = treeDown
 			case 'k':
 				t.movement = treeUp
+			case ' ':
+				selectNode()
 			}
 		case tcell.KeyEnter:
-			if t.currentNode != nil {
-				if t.selected != nil {
-					t.selected(t.currentNode)
-				}
-				if t.currentNode.selected != nil {
-					t.currentNode.selected()
-				}
-			}
+			selectNode()
 		}
 
 		t.process()
