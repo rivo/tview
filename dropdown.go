@@ -439,3 +439,106 @@ func (d *DropDown) HasFocus() bool {
 	}
 	return d.hasFocus
 }
+
+// DropDownArgs provides a concise and readable way to initialize
+// all the properties of the DropDown struct by passing to the
+// <form>.AddFormItem(item,args).
+type DropDownArgs struct {
+	baseFormItemArgs
+
+	// The text to be displayed before the input area.
+	Label string
+
+	// The options from which the user can choose.
+	Options []string
+
+	// The index of the initial selected option. Negative if no option
+	// should be selected.
+	InitialOption int
+
+	// The color for prefixes.
+	PrefixTextColor tcell.Color
+
+	// A callback function which is called when the user changes
+	// the drop-down's selection.
+	SelectedFunc func(option string, optionIndex int)
+
+	// The screen width of the input area. A value of 0 means extend
+	// as much as possible.
+	FieldWidth int
+
+	// The screen width of the label area. A value of 0 means use
+	// the width of the label text.
+	LabelWidth int
+
+	// The label color.
+	LabelColor tcell.Color
+
+	// The background color of the input area.
+	FieldBackgroundColor tcell.Color
+
+	// The text color of the input area.
+	FieldTextColor tcell.Color
+
+	// The background color of the input area.
+	BackgroundColor tcell.Color
+
+	// An optional function which is called when the user indicated
+	// that they are done entering text. The key which was pressed
+	// is provided (tab, shift-tab, enter, or escape).
+	DoneFunc func(key tcell.Key)
+
+	// A callback function set by the Form class and called when
+	// the user leaves this form item.
+	FinishedFunc func(key tcell.Key)
+
+	// An optional function which is called before the box is drawn.
+	DrawFunc func(screen tcell.Screen, x, y, width, height int) (int, int, int, int)
+
+	// An optional capture function which receives a key event and
+	// returns the event to be forwarded to the primitive's default
+	// input handler (nil if nothing should be forwarded).
+	InputCaptureFunc func(event *tcell.EventKey) *tcell.EventKey
+}
+
+
+// ApplyArgs applies the values from a DropDownArgs{} struct to the
+// associated properties of the DropDown.
+func (d *DropDown) ApplyArgs(args *DropDownArgs) *DropDown {
+	d.SetLabel(args.Label)
+	d.SetFieldWidth(args.FieldWidth)
+	d.SetOptions(args.Options, args.SelectedFunc)
+	d.SetCurrentOption(args.InitialOption)
+
+	if args.LabelWidth > 0 {
+		d.SetLabelWidth(args.LabelWidth)
+	}
+	if args.LabelColor != 0 {
+		d.SetLabelColor(args.LabelColor)
+	}
+	if args.FieldBackgroundColor != 0 {
+		d.SetFieldBackgroundColor(args.FieldBackgroundColor)
+	}
+	if args.FieldTextColor != 0 {
+		d.SetFieldTextColor(args.FieldTextColor)
+	}
+	if args.BackgroundColor != 0 {
+		d.SetBackgroundColor(args.BackgroundColor)
+	}
+	if args.PrefixTextColor != 0 {
+		d.SetPrefixTextColor(args.PrefixTextColor)
+	}
+	if args.DoneFunc != nil {
+		d.SetDoneFunc(args.DoneFunc)
+	}
+	if args.DrawFunc != nil {
+		d.SetDrawFunc(args.DrawFunc)
+	}
+	if args.FinishedFunc != nil {
+		d.SetFinishedFunc(args.FinishedFunc)
+	}
+	if args.InputCaptureFunc != nil {
+		d.SetInputCapture(args.InputCaptureFunc)
+	}
+	return d
+}

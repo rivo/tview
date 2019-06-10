@@ -201,3 +201,96 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		}
 	})
 }
+
+// CheckboxArgs provides a concise and readable way to initialize
+// all the properties of the Checkbox struct by passing to the
+// <form>.AddFormItem(item,args).
+type CheckboxArgs struct {
+	baseFormItemArgs
+
+	// The text to be displayed before the input area.
+	Label string
+
+	// Whether or not this box is checked.
+	Checked bool
+
+	// An optional function which is called when the user changes
+	// the checked state of this checkbox.
+	ChangedFunc func(checked bool)
+
+	// The screen width of the input area. A value of 0 means extend
+	// as much as possible.
+	FieldWidth int
+
+	// The screen width of the label area. A value of 0 means use
+	// the width of the label text.
+	LabelWidth int
+
+	// The label color.
+	LabelColor tcell.Color
+
+	// The background color of the input area.
+	FieldBackgroundColor tcell.Color
+
+	// The text color of the input area.
+	FieldTextColor tcell.Color
+
+	// The background color of the input area.
+	BackgroundColor tcell.Color
+
+	// An optional function which is called when the user indicated
+	// that they are done entering text. The key which was pressed
+	// is provided (tab, shift-tab, enter, or escape).
+	DoneFunc func(key tcell.Key)
+
+	// A callback function set by the Form class and called when
+	// the user leaves this form item.
+	FinishedFunc func(key tcell.Key)
+
+	// An optional function which is called before the box is drawn.
+	DrawFunc func(screen tcell.Screen, x, y, width, height int) (int, int, int, int)
+
+	// An optional capture function which receives a key event and
+	// returns the event to be forwarded to the primitive's default
+	// input handler (nil if nothing should be forwarded).
+	InputCaptureFunc func(event *tcell.EventKey) *tcell.EventKey
+}
+
+// ApplyArgs applies the values from a CheckboxArgs{} struct to the
+// associated properties of the Checkbox.
+func (c *Checkbox) ApplyArgs(args *CheckboxArgs) *Checkbox{
+
+	c.SetLabel(args.Label)
+	c.SetChecked(args.Checked)
+	c.SetChangedFunc(args.ChangedFunc)
+
+	if args.LabelWidth > 0 {
+		c.SetLabelWidth(args.LabelWidth)
+	}
+	if args.LabelColor != 0 {
+		c.SetLabelColor(args.LabelColor)
+	}
+	if args.FieldBackgroundColor != 0 {
+		c.SetFieldBackgroundColor(args.FieldBackgroundColor)
+	}
+	if args.FieldTextColor != 0 {
+		c.SetFieldTextColor(args.FieldTextColor)
+	}
+	if args.BackgroundColor != 0 {
+		c.SetBackgroundColor(args.BackgroundColor)
+	}
+	if args.DoneFunc != nil {
+		c.SetDoneFunc(args.DoneFunc)
+	}
+	if args.DrawFunc != nil {
+		c.SetDrawFunc(args.DrawFunc)
+	}
+	if args.FinishedFunc != nil {
+		c.SetFinishedFunc(args.FinishedFunc)
+	}
+	if args.InputCaptureFunc != nil {
+		c.SetInputCapture(args.InputCaptureFunc)
+	}
+	return c
+}
+

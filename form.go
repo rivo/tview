@@ -281,17 +281,25 @@ func (f *Form) ClearButtons() *Form {
 }
 
 // AddFormItem adds a new item to the form. This can be used to add your own
-// objects to the form. Note, however, that the Form class will override some
-// of its attributes to make it work in the form context. Specifically, these
-// are:
+// objects to the form, or you can use it to pass a FormItemArgsImplementor
+// of the type for your FormItem as a 2nd parameter to enable initialization
+// of properties that FormItem currently does not provide access to set.
+
+// Note, however, that the Form class will override some of its attributes to
+// make it work in the form context. Specifically, these are:
 //
 //   - The label width
 //   - The label color
 //   - The background color
 //   - The field text color
 //   - The field background color
-func (f *Form) AddFormItem(item FormItem) *Form {
-	f.items = append(f.items, item)
+//
+func (f *Form) AddFormItem(item FormItem, args ...FormItemArgsImplementor) *Form {
+	if len(args) == 0 {
+		f.items = append(f.items, item)
+	} else {
+		f.items = append(f.items, f.ApplyFormItemArgs(item, args...))
+	}
 	return f
 }
 
@@ -587,3 +595,59 @@ func (f *Form) HasFocus() bool {
 	}
 	return false
 }
+
+// ApplyFormItemArgs applies the values from the `args` parameters to the
+// properties of the FormItem associated with its FormItemArgsImplementor
+// type e.g. InputFieldArgs, PasswordFieldArgs, DropDownArgs and CheckboxArgs
+// respectively.
+// See docs for each of the args struct types for the values they accept.
+func (f *Form) ApplyFormItemArgs(item FormItem, args ...FormItemArgsImplementor) FormItem {
+	if len(args) > 0 {
+		switch args[0].(type) {
+		case *InputFieldArgs:
+			f.ApplyInputFieldArgs(item, args[0].(*InputFieldArgs))
+		case *PasswordFieldArgs:
+			f.ApplyPasswordFieldArgs(item, args[0].(*PasswordFieldArgs))
+		case *DropDownArgs:
+			f.ApplyDropDownArgs(item, args[0].(*DropDownArgs))
+		case *CheckboxArgs:
+			f.ApplySetCheckboxArgs(item, args[0].(*CheckboxArgs))
+		default:
+			if fi,ok := item.(FormItemArgsApplier); ok {
+				fi.ApplyArgs(args[0].(*CheckboxArgs))
+			}
+		}
+	}
+	return item
+}
+
+// ApplyInputFieldArgs applies the values from an InputFieldArgs{} struct to
+// the associated properties of the InputField passed as item, an instance of
+// a struct that implements FormItem.
+func (f *Form) ApplyInputFieldArgs(item FormItem, args *InputFieldArgs) FormItem {
+	return item.(*InputField).ApplyArgs(args)
+}
+
+// ApplyPasswordFieldArgs applies the values from a PasswordFieldArgs{} struct to
+// the associated properties of the PasswordField passed as item, an instance of
+// a struct that implements FormItem.
+func (f *Form) ApplyPasswordFieldArgs(item FormItem, args *PasswordFieldArgs) FormItem {
+	return item.(*InputField).ApplyArgs(args)
+}
+
+// ApplyDropDownArgs applies the values from a DropDownArgs{} struct to
+// the associated properties of the DropDown passed as item, an instance of
+// a struct that implements FormItem.
+func (f *Form) ApplyDropDownArgs(item FormItem, args *DropDownArgs) FormItem {
+	return item.(*DropDown).ApplyArgs(args)
+}
+
+// ApplySetCheckboxArgs applies the values from a CheckboxArgs{} struct to
+// the associated properties of the Checkbox passed as item, an instance of
+// a struct that implements FormItem.
+func (f *Form) ApplySetCheckboxArgs(item FormItem, args *CheckboxArgs) FormItem {
+	return item.(*Checkbox).ApplyArgs(args)
+}
+
+
+
