@@ -64,6 +64,9 @@ type PasswordFieldArgs struct {
 	// returns the event to be forwarded to the primitive's default
 	// input handler (nil if nothing should be forwarded).
 	InputCaptureFunc func(event *tcell.EventKey) *tcell.EventKey
+
+	// An optional function which is called before the box is drawn.
+	ValidateFunc func(*InputField, *tcell.EventKey) bool
 }
 
 // applyPasswordFieldArgs applies the values from a PasswordFieldArgs{}
@@ -99,9 +102,11 @@ func (i *InputField) applyPasswordFieldArgs(args *PasswordFieldArgs) *InputField
 	if args.FinishedFunc != nil {
 		i.SetFinishedFunc(args.FinishedFunc)
 	}
+	if args.ValidateFunc != nil {
+		i.SetValidateFunc(args.ValidateFunc)
+	}
 	if args.InputCaptureFunc != nil {
 		i.SetInputCapture(args.InputCaptureFunc)
 	}
 	return i
 }
-

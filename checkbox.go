@@ -42,6 +42,11 @@ type Checkbox struct {
 	// A callback function set by the Form class and called when the user leaves
 	// this form item.
 	finished func(tcell.Key)
+
+	// A callback function to be called when one of the field exit keys — Enter,
+	// Tab, Backtab, or Escape — is used. If this callback returns false it will
+	// bypass the input handler and leave the focus on the non-valid field.
+	valid func(*Checkbox, *tcell.EventKey) bool
 }
 
 // NewCheckbox returns a new input field.
@@ -139,6 +144,14 @@ func (c *Checkbox) SetDoneFunc(handler func(key tcell.Key)) *Checkbox {
 // SetFinishedFunc sets a callback invoked when the user leaves this form item.
 func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	c.finished = handler
+	return c
+}
+
+// SetValidateFunc sets a callback to be called when one of the field exit keys —
+// Enter, Tab, Backtab, or Escape — is used. If this callback returns false it
+// will stop the input handler from moving focus to a different field.
+func (c *Checkbox) SetValidateFunc(handler func(*Checkbox, *tcell.EventKey) bool) *Checkbox {
+	c.valid = handler
 	return c
 }
 
@@ -254,11 +267,16 @@ type CheckboxArgs struct {
 	// returns the event to be forwarded to the primitive's default
 	// input handler (nil if nothing should be forwarded).
 	InputCaptureFunc func(event *tcell.EventKey) *tcell.EventKey
+
+	// A callback function to be called when one of the field exit keys — Enter,
+	// Tab, Backtab, or Escape — is used. If this callback returns false it will
+	// bypass the input handler and leave the focus on the non-valid field.
+	ValidateFunc func(*Checkbox, *tcell.EventKey) bool
 }
 
 // ApplyArgs applies the values from a CheckboxArgs{} struct to the
 // associated properties of the Checkbox.
-func (c *Checkbox) ApplyArgs(args *CheckboxArgs) *Checkbox{
+func (c *Checkbox) ApplyArgs(args *CheckboxArgs) *Checkbox {
 
 	c.SetLabel(args.Label)
 	c.SetChecked(args.Checked)
@@ -288,9 +306,11 @@ func (c *Checkbox) ApplyArgs(args *CheckboxArgs) *Checkbox{
 	if args.FinishedFunc != nil {
 		c.SetFinishedFunc(args.FinishedFunc)
 	}
+	if args.ValidateFunc != nil {
+		c.SetValidateFunc(args.ValidateFunc)
+	}
 	if args.InputCaptureFunc != nil {
 		c.SetInputCapture(args.InputCaptureFunc)
 	}
 	return c
 }
-

@@ -58,6 +58,11 @@ type Box struct {
 
 	// An optional function which is called before the box is drawn.
 	draw func(screen tcell.Screen, x, y, width, height int) (int, int, int, int)
+
+	// A callback function to be called when one of the field exit keys — Enter,
+	// Tab, Backtab, or Escape — is used. If this callback returns false it will
+	// bypass the input handler and leave the focus on the non-valid field.
+	valid func(Primitive, *tcell.EventKey) bool
 }
 
 // NewBox returns a Box without a border.
@@ -228,6 +233,14 @@ func (b *Box) SetTitleColor(color tcell.Color) *Box {
 // or AlignRight.
 func (b *Box) SetTitleAlign(align int) *Box {
 	b.titleAlign = align
+	return b
+}
+
+// SetValidateFunc sets a callback to be called when one of the field exit keys —
+// Enter, Tab, Backtab, or Escape — is used. If this callback returns false it
+// will stop the input handler from moving focus to a different field.
+func (b *Box) SetValidateFunc(handler func(Primitive, *tcell.EventKey) bool) *Box {
+	b.valid = handler
 	return b
 }
 

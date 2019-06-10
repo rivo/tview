@@ -85,6 +85,11 @@ type InputField struct {
 	// A callback function set by the Form class and called when the user leaves
 	// this form item.
 	finished func(tcell.Key)
+
+	// A callback function to be called when one of the field exit keys — Enter,
+	// Tab, Backtab, or Escape — is used. If this callback returns false it will
+	// bypass the input handler and leave the focus on the non-valid field.
+	valid func(*InputField, *tcell.EventKey) bool
 }
 
 // NewInputField returns a new input field.
@@ -223,6 +228,14 @@ func (i *InputField) SetDoneFunc(handler func(key tcell.Key)) *InputField {
 // SetFinishedFunc sets a callback invoked when the user leaves this form item.
 func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	i.finished = handler
+	return i
+}
+
+// SetValidateFunc sets a callback to be called when one of the field exit keys —
+// Enter, Tab, Backtab, or Escape — is used. If this callback returns false it
+// will stop the input handler from moving focus to a different field.
+func (i *InputField) SetValidateFunc(handler func(*InputField, *tcell.EventKey) bool) *InputField {
+	i.valid = handler
 	return i
 }
 
@@ -507,6 +520,9 @@ type InputFieldArgs struct {
 	// returns the event to be forwarded to the primitive's default
 	// input handler (nil if nothing should be forwarded).
 	InputCaptureFunc func(event *tcell.EventKey) *tcell.EventKey
+
+	// An optional function which is called before the box is drawn.
+	ValidateFunc func(*InputField, *tcell.EventKey) bool
 }
 
 // ApplyArgs applies the values from a InputFieldArgs{} or PasswordFieldArgs{}
@@ -563,10 +579,11 @@ func (i *InputField) applyInputFieldArgs(args *InputFieldArgs) *InputField {
 	if args.FinishedFunc != nil {
 		i.SetFinishedFunc(args.FinishedFunc)
 	}
+	if args.ValidateFunc != nil {
+		i.SetValidateFunc(args.ValidateFunc)
+	}
 	if args.InputCaptureFunc != nil {
 		i.SetInputCapture(args.InputCaptureFunc)
 	}
 	return i
 }
-
-
