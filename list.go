@@ -85,7 +85,16 @@ func NewList() *List {
 //
 // Calling this function triggers a "changed" event if the selection changes.
 func (l *List) SetCurrentItem(index int) *List {
-	index = l.reIndex(index)
+	if index < 0 {
+		index = len(l.Items) + index
+	}
+	if index >= len(l.Items) {
+		index = len(l.Items) - 1
+	}
+	if index < 0 {
+		index = 0
+	}
+
 	l.currentItem = index
 
 	if index != l.currentItem && l.changed != nil {
@@ -130,7 +139,15 @@ func (l *List) RemoveItemIndex(index int) *List {
 		return l
 	}
 
-	index = l.reIndex(index)
+	if index < 0 {
+		index = len(l.Items) + index
+	}
+	if index >= len(l.Items) {
+		index = len(l.Items) - 1
+	}
+	if index < 0 {
+		index = 0
+	}
 
 	// Remove item.
 	l.Items = append(l.Items[:index], l.Items[index+1:]...)
@@ -153,21 +170,6 @@ func (l *List) RemoveItemIndex(index int) *List {
 	}
 
 	return l
-}
-
-func (l *List) reIndex(index int) int {
-	// Adjust index.
-	if index < 0 {
-		index = len(l.Items) + index
-	}
-	if index >= len(l.Items) {
-		index = len(l.Items) - 1
-	}
-	if index < 0 {
-		index = 0
-	}
-
-	return index
 }
 
 // SetMainTextColor sets the color of the items' main text.
@@ -280,7 +282,14 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 // selected.
 func (l *List) InsertItem(index int, item *ListItem) *List {
 	// Shift index to range.
-	index = l.reIndex(index)
+	if index < 0 {
+		index = len(l.Items) + index + 1
+	}
+	if index < 0 {
+		index = 0
+	} else if index > len(l.Items) {
+		index = len(l.Items)
+	}
 
 	// Shift current item.
 	if l.currentItem < len(l.Items) && l.currentItem >= index {
