@@ -48,6 +48,11 @@ func (p *Pages) SetChangedFunc(handler func()) *Pages {
 	return p
 }
 
+// GetPageCount returns the number of pages currently stored in this object.
+func (p *Pages) GetPageCount() int {
+	return len(p.pages)
+}
+
 // AddPage adds a new page with the given name and primitive. If there was
 // previously a page with the same name, it is overwritten. Leaving the name
 // empty may cause conflicts in other functions so always specify a non-empty
