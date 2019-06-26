@@ -562,13 +562,7 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 		return
 	}
 
-	// Build the tree if necessary.
-	if t.nodes == nil {
-		t.process()
-	}
-	defer func() {
-		t.nodes = nil // Rebuild during next call to Draw()
-	}()
+	t.process()
 
 	// Scroll the tree.
 	x, y, width, height := t.GetInnerRect()
