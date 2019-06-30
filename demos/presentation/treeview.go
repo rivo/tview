@@ -74,7 +74,10 @@ var rootNode = &node{
 			{text: "Tree list starts one level down"},
 			{text: "Works better for lists where no top node is needed"},
 			{text: "Switch to this layout", selected: func() {
-				tree.SetAlign(false).SetTopLevel(1).SetGraphics(true).SetPrefixes(nil)
+				tree.SetAlign(false).
+					SetTopLevel(1).
+					SetGraphics(true).
+					SetPrefixes(nil)
 				treeCode.SetText(strings.Replace(treeAllCode, "$$$", treeTopLevelCode, -1))
 			}},
 		}},
@@ -82,7 +85,10 @@ var rootNode = &node{
 			{text: "For trees that are similar to lists"},
 			{text: "Hierarchy shown only in line drawings"},
 			{text: "Switch to this layout", selected: func() {
-				tree.SetAlign(true).SetTopLevel(0).SetGraphics(true).SetPrefixes(nil)
+				tree.SetAlign(true).
+					SetTopLevel(0).
+					SetGraphics(true).
+					SetPrefixes(nil)
 				treeCode.SetText(strings.Replace(treeAllCode, "$$$", treeAlignCode, -1))
 			}},
 		}},
@@ -90,7 +96,10 @@ var rootNode = &node{
 			{text: "Best for hierarchical bullet point lists"},
 			{text: "You can define your own prefixes per level"},
 			{text: "Switch to this layout", selected: func() {
-				tree.SetAlign(false).SetTopLevel(1).SetGraphics(false).SetPrefixes([]string{"[red]* ", "[darkcyan]- ", "[darkmagenta]- "})
+				tree.SetAlign(false).
+					SetTopLevel(1).
+					SetGraphics(false).
+					SetPrefixes([]string{"[red]* ", "[darkcyan]- ", "[darkmagenta]- "})
 				treeCode.SetText(strings.Replace(treeAllCode, "$$$", treePrefixCode, -1))
 			}},
 		}},
@@ -98,7 +107,10 @@ var rootNode = &node{
 			{text: "Lines illustrate hierarchy"},
 			{text: "Basic indentation"},
 			{text: "Switch to this layout", selected: func() {
-				tree.SetAlign(false).SetTopLevel(0).SetGraphics(true).SetPrefixes(nil)
+				tree.SetAlign(false).
+					SetTopLevel(0).
+					SetGraphics(true).
+					SetPrefixes(nil)
 				treeCode.SetText(strings.Replace(treeAllCode, "$$$", treeBasicCode, -1))
 			}},
 		}},
