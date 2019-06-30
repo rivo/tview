@@ -167,11 +167,14 @@ func overlayStyle(background tcell.Color, defaultStyle tcell.Style, fgColor, bgC
 // re.FindAllStringSubmatch()), the indices of region tags and the region tags
 // themselves, the indices of an escaped tags (only if at least color tags or
 // region tags are requested), the string stripped by any tags and escaped, and
-// the screen width of the stripped string.
-func decomposeString(text string, findColors, findRegions bool) (colorIndices [][]int, colors [][]string, regionIndices [][]int, regions [][]string, escapeIndices [][]int, stripped string, width int) {
+// optionally the screen width of the stripped string.
+func decomposeString(text string, findColors, findRegions, calcStringWidth bool) (colorIndices [][]int, colors [][]string, regionIndices [][]int, regions [][]string, escapeIndices [][]int, stripped string, width int) {
 	// Shortcut for the trivial case.
 	if !findColors && !findRegions {
-		return nil, nil, nil, nil, nil, text, stringWidth(text)
+		if calcStringWidth {
+			return nil, nil, nil, nil, nil, text, stringWidth(text)
+		}
+		return nil, nil, nil, nil, nil, text, 0
 	}
 
 	// Get positions of any tags.
@@ -221,8 +224,10 @@ func decomposeString(text string, findColors, findRegions bool) (colorIndices []
 	// Escape string.
 	stripped = string(escapePattern.ReplaceAll(buf, []byte("[$1$2]")))
 
-	// Get the width of the stripped string.
-	width = stringWidth(stripped)
+	if calcStringWidth {
+		// Get the width of the stripped string.
+		width = stringWidth(stripped)
+	}
 
 	return
 }
@@ -248,7 +253,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 	}
 
 	// Decompose the text.
-	colorIndices, colors, _, _, escapeIndices, strippedText, strippedWidth := decomposeString(text, true, false)
+	colorIndices, colors, _, _, escapeIndices, strippedText, strippedWidth := decomposeString(text, true, false, true)
 
 	// We want to reduce all alignments to AlignLeft.
 	if align == AlignRight {
@@ -412,7 +417,7 @@ func PrintSimple(screen tcell.Screen, text string, x, y int) {
 // TaggedStringWidth returns the width of the given string needed to print it on
 // screen. The text may contain color tags which are not counted.
 func TaggedStringWidth(text string) int {
-	_, _, _, _, _, _, width := decomposeString(text, true, false)
+	_, _, _, _, _, _, width := decomposeString(text, true, false, true)
 	return width
 }
 
@@ -442,7 +447,7 @@ func stringWidth(text string) (width int) {
 //
 // Text is always split at newline characters ('\n').
 func WordWrap(text string, width int) (lines []string) {
-	colorTagIndices, _, _, _, escapeIndices, strippedText, _ := decomposeString(text, true, false)
+	colorTagIndices, _, _, _, escapeIndices, strippedText, _ := decomposeString(text, true, false, false)
 
 	// Find candidate breakpoints.
 	breakpoints := boundaryPattern.FindAllStringSubmatchIndex(strippedText, -1)
