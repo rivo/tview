@@ -45,9 +45,13 @@ func TextView1(nextSlide func()) (title string, content tview.Primitive) {
 	go func() {
 		var n int
 		for {
-			n++
-			fmt.Fprintf(textView, "%d ", n)
-			time.Sleep(200 * time.Millisecond)
+			if textView.HasFocus() {
+				n++
+				fmt.Fprintf(textView, "%d ", n)
+				time.Sleep(200 * time.Millisecond)
+			} else {
+				time.Sleep(time.Second)
+			}
 		}
 	}()
 	textView.SetBorder(true).SetTitle("TextView implements io.Writer")
