@@ -83,8 +83,9 @@ type DropDown struct {
 
 // NewDropDown returns a new drop-down.
 func NewDropDown() *DropDown {
-	list := NewList().ShowSecondaryText(false)
-	list.SetMainTextColor(Styles.PrimitiveBackgroundColor).
+	list := NewList()
+	list.ShowSecondaryText(false).
+		SetMainTextColor(Styles.PrimitiveBackgroundColor).
 		SetSelectedTextColor(Styles.PrimitiveBackgroundColor).
 		SetSelectedBackgroundColor(Styles.PrimaryTextColor).
 		SetHighlightFullLine(true).
