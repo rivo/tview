@@ -43,6 +43,10 @@ type Application struct {
 	// be forwarded).
 	inputCapture func(event *tcell.EventKey) *tcell.EventKey
 
+	// An optional handler for handling events that tview does not yet support,
+	// such as a mouse event handler or a custom event handler.
+	unknownEventHandler func(event tcell.Event)
+
 	// An optional callback function which is invoked just before the root
 	// primitive is drawn.
 	beforeDraw func(screen tcell.Screen) bool
@@ -91,6 +95,19 @@ func (a *Application) SetInputCapture(capture func(event *tcell.EventKey) *tcell
 // if no such function has been installed.
 func (a *Application) GetInputCapture() func(event *tcell.EventKey) *tcell.EventKey {
 	return a.inputCapture
+}
+
+// SetUnknownEventHandler sets a function for handling all unknown events that
+// tview does not yet support, such as a mouse event or a custom event.
+func (a *Application) SetUnknownEventHandler(handler func(event tcell.Event)) *Application {
+	a.unknownEventHandler = handler
+	return a
+}
+
+// GetUnknownEventHandler returns the function installed with SetUnknownEventHandler() or nil
+// if no such function has been installed.
+func (a *Application) GetUnknownEventHandler() func(event tcell.Event) {
+	return a.unknownEventHandler
 }
 
 // SetScreen allows you to provide your own tcell.Screen object. For most
@@ -246,6 +263,15 @@ EventLoop:
 				}
 				screen.Clear()
 				a.draw()
+			default:
+				a.RLock()
+				unknownEventHandler := a.unknownEventHandler
+				a.RUnlock()
+
+				if unknownEventHandler != nil {
+					unknownEventHandler(event)
+					continue // Don't forward event.
+				}
 			}
 
 		// If we have updates, now is the time to execute them.
