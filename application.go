@@ -38,6 +38,9 @@ type Application struct {
 	// Whether or not the application resizes the root primitive.
 	rootFullscreen bool
 
+	// Whether or not enables mouse event.
+	enableMouse bool
+
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the default input handler (nil if nothing should
 	// be forwarded).
@@ -154,6 +157,9 @@ func (a *Application) Run() error {
 		if err = a.screen.Init(); err != nil {
 			a.Unlock()
 			return err
+		}
+		if a.enableMouse {
+			a.screen.EnableMouse()
 		}
 	}
 
@@ -452,6 +458,15 @@ func (a *Application) SetRoot(root Primitive, fullscreen bool) *Application {
 
 	a.SetFocus(root)
 
+	return a
+}
+
+// EnableMouse enables mouse event, which means that
+// with SetUnknownEventHandler can provide limited mouse support.
+func (a *Application) EnableMouse() *Application {
+	a.Lock()
+	a.enableMouse = true
+	a.Unlock()
 	return a
 }
 
