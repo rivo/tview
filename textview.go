@@ -365,6 +365,8 @@ func (t *TextView) GetScrollOffset() (row, column int) {
 
 // Clear removes all text from the buffer.
 func (t *TextView) Clear() *TextView {
+	t.Lock()
+	defer t.Unlock()
 	t.buffer = nil
 	t.recentBytes = nil
 	t.index = nil
