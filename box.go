@@ -44,6 +44,15 @@ type Box struct {
 	// The alignment of the title.
 	titleAlign int
 
+	// The footer. Only visible if there is a border, too.
+	footer string
+
+	// The color of the footer.
+	footerColor tcell.Color
+
+	// The alignment of the footer.
+	footerAlign int
+
 	// Provides a way to find out if this box has focus. We always go through
 	// this interface because it may be overridden by implementing classes.
 	focus Focusable
@@ -70,6 +79,8 @@ func NewBox() *Box {
 		borderColor:     Styles.BorderColor,
 		titleColor:      Styles.TitleColor,
 		titleAlign:      AlignCenter,
+		footerColor:     Styles.FooterColor,
+		footerAlign:     AlignRight,
 	}
 	b.focus = b
 	return b
@@ -239,6 +250,25 @@ func (b *Box) SetTitleAlign(align int) *Box {
 	return b
 }
 
+// SetFooter sets the box's footer.
+func (b *Box) SetFooter(footer string) *Box {
+	b.footer = footer
+	return b
+}
+
+// SetFooterColor sets the box's footer color.
+func (b *Box) SetFooterColor(color tcell.Color) *Box {
+	b.footerColor = color
+	return b
+}
+
+// SetFooterAlign sets the alignment of the footer, one of AlignLeft, AlignCenter,
+// or AlignRight.
+func (b *Box) SetFooterAlign(align int) *Box {
+	b.footerAlign = align
+	return b
+}
+
 // Draw draws this primitive onto the screen.
 func (b *Box) Draw(screen tcell.Screen) {
 	// Don't draw anything if there is no space.
@@ -297,6 +327,17 @@ func (b *Box) Draw(screen tcell.Screen) {
 				_, _, style, _ := screen.GetContent(b.x+b.width-2, b.y)
 				fg, _, _ := style.Decompose()
 				Print(screen, string(SemigraphicsHorizontalEllipsis), b.x+b.width-2, b.y, 1, AlignLeft, fg)
+			}
+		}
+
+		// Draw footer.
+		if b.footer != "" && b.width >= 4 {
+			footerY := b.y + b.height - 1
+			printed, _ := Print(screen, b.footer, b.x+1, footerY, b.width-2, b.footerAlign, b.footerColor)
+			if len(b.footer)-printed > 0 && printed > 0 {
+				_, _, style, _ := screen.GetContent(b.x+b.width-2, footerY)
+				fg, _, _ := style.Decompose()
+				Print(screen, string(SemigraphicsHorizontalEllipsis), b.x+b.width-2, footerY, 1, AlignLeft, fg)
 			}
 		}
 	}
