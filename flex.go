@@ -149,7 +149,15 @@ func (f *Flex) Draw(screen tcell.Screen) {
 	for _, item := range f.items {
 		size := item.FixedSize
 		if size <= 0 {
-			size = distSize * item.Proportion / proportionSum
+			if proportionSum > 0 {
+				// Proportion sum must be greater than zero, to avoid
+				// integer division error.
+				// This might happen if all items have proportion zero.
+				size = distSize * item.Proportion / proportionSum
+			} else {
+				// If all items had proportion zero, then the size is zero.
+				size = 0
+			}
 			distSize -= size
 			proportionSum -= item.Proportion
 		}
