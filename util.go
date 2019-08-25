@@ -5,10 +5,13 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	runewidth "github.com/mattn/go-runewidth"
+	"github.com/mpvl/textutil"
 	"github.com/rivo/uniseg"
+	"golang.org/x/text/transform"
 )
 
 // Text alignment within a box.
@@ -20,12 +23,11 @@ const (
 
 // Common regular expressions.
 var (
-	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbdru]+|\-)?)?)?\]`)
-	regionPattern    = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
-	escapePattern    = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
-	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
-	boundaryPattern  = regexp.MustCompile(`(([,\.\-:;!\?&#+]|\n)[ \t\f\r]*|([ \t\f\r]+))`)
-	spacePattern     = regexp.MustCompile(`\s+`)
+	colorPattern    = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbdru]+|\-)?)?)?\]`)
+	regionPattern   = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
+	escapePattern   = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
+	boundaryPattern = regexp.MustCompile(`(([,\.\-:;!\?&#+]|\n)[ \t\f\r]*|([ \t\f\r]+))`)
+	spacePattern    = regexp.MustCompile(`\s+`)
 )
 
 // Positions of substrings in regular expressions.
@@ -549,7 +551,52 @@ func WordWrap(text string, width int) (lines []string) {
 //   box.SetTitle(tview.Escape("[squarebrackets]"))
 //   fmt.Fprint(textView, tview.Escape(`["quoted"]`))
 func Escape(text string) string {
-	return nonEscapePattern.ReplaceAllString(text, "$1[]")
+	t := EscapeTransformer()
+	s, _, _ := transform.String(t, text)
+	return s
+}
+
+type escapeRewriter struct {
+	inTag   bool
+	hasBody bool
+}
+
+func (er *escapeRewriter) Rewrite(c textutil.State) {
+	r, _ := c.ReadRune()
+	switch {
+	case r == '[':
+		if !er.inTag {
+			er.inTag = true
+			er.hasBody = false
+		}
+	case r == ']':
+		if er.inTag && er.hasBody {
+			c.WriteRune('[')
+		}
+		er.inTag = false
+	case !(r >= '0' && r <= '9') && !(r >= 'a' && r <= 'z') && !(r >= 'A' && r <= 'Z') && !strings.ContainsRune(`_,;: -."#`, r):
+		if er.inTag {
+			er.inTag = false
+		}
+	default:
+		if er.inTag {
+			er.hasBody = true
+		}
+	}
+	c.WriteRune(r)
+}
+
+func (r *escapeRewriter) Reset() {
+	r.inTag = false
+	r.hasBody = false
+}
+
+// EscapeTransformer returns a transformer that escapes color and/or region
+// tags.
+//
+// For more information see Escape.
+func EscapeTransformer() transform.Transformer {
+	return textutil.NewTransformer(&escapeRewriter{})
 }
 
 // iterateString iterates through the given string one printed character at a
