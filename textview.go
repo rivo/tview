@@ -940,9 +940,9 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	// scrolled out of view.
 	if !t.scrollable && t.lineOffset > 0 {
 		if t.lineOffset <= len(t.index) {
-			t.buffer = nil
-		} else {
 			t.buffer = t.buffer[t.index[t.lineOffset].Line:]
+		} else {
+			t.buffer = nil
 		}
 		t.index = nil
 		t.lineOffset = 0
