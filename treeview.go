@@ -5,14 +5,17 @@ import (
 )
 
 // Tree navigation events.
+type treeAction int
+
 const (
-	treeNone int = iota
-	treeHome
-	treeEnd
-	treeUp
-	treeDown
-	treePageUp
-	treePageDown
+	treeActionNone treeAction = iota
+	TreeMoveHome
+	TreeMoveEnd
+	TreeMoveUp
+	TreeMoveDown
+	TreeMovePageUp
+	TreeMovePageDown
+	TreeSelectNode
 )
 
 // TreeNode represents one node in a tree view.
@@ -207,6 +210,13 @@ func (n *TreeNode) SetIndent(indent int) *TreeNode {
 	return n
 }
 
+// KeyBinding is a definition for a key-press, which can be assigned to a specific action.
+// Unlike tcell.Key, the KeyBinding allows to define every rune-key separately
+type KeyBinding struct {
+	Key  tcell.Key
+	Rune rune
+}
+
 // TreeView displays tree structures. A tree consists of nodes (TreeNode
 // objects) where each node has zero or more child nodes and exactly one parent
 // node (except for the root node which has no parent node).
@@ -250,7 +260,7 @@ type TreeView struct {
 
 	// The movement to be performed during the call to Draw(), one of the
 	// constants defined above.
-	movement int
+	movement treeAction
 
 	// The top hierarchical level shown. (0 corresponds to the root level.)
 	topLevel int
@@ -279,6 +289,8 @@ type TreeView struct {
 
 	// The visible nodes, top-down, as set by process().
 	nodes []*TreeNode
+
+	keys map[rune]treeAction
 }
 
 // NewTreeView returns a new tree view.
@@ -287,6 +299,32 @@ func NewTreeView() *TreeView {
 		Box:           NewBox(),
 		graphics:      true,
 		graphicsColor: Styles.GraphicsColor,
+		keys: map[rune]treeAction{
+			rune(tcell.KeyTab):   TreeMoveDown,
+			rune(tcell.KeyDown):  TreeMoveDown,
+			rune(tcell.KeyRight): TreeMoveDown,
+			'j':                  TreeMoveDown,
+
+			rune(tcell.KeyBacktab): TreeMoveUp,
+			rune(tcell.KeyUp):      TreeMoveUp,
+			rune(tcell.KeyLeft):    TreeMoveUp,
+			'k':                    TreeMoveUp,
+
+			rune(tcell.KeyHome): TreeMoveHome,
+			'g':                 TreeMoveHome,
+
+			rune(tcell.KeyEnd): TreeMoveEnd,
+			'G':                TreeMoveEnd,
+
+			rune(tcell.KeyPgDn):  TreeMovePageDown,
+			rune(tcell.KeyCtrlF): TreeMovePageDown,
+
+			rune(tcell.KeyPgUp):  TreeMovePageUp,
+			rune(tcell.KeyCtrlB): TreeMovePageUp,
+
+			rune(tcell.KeyEnter): TreeSelectNode,
+			' ':                  TreeSelectNode,
+		},
 	}
 }
 
@@ -467,7 +505,7 @@ func (t *TreeView) process() {
 		newSelectedIndex := selectedIndex
 	MovementSwitch:
 		switch t.movement {
-		case treeUp:
+		case TreeMoveUp:
 			for newSelectedIndex > 0 {
 				newSelectedIndex--
 				if t.nodes[newSelectedIndex].selectable {
@@ -475,7 +513,7 @@ func (t *TreeView) process() {
 				}
 			}
 			newSelectedIndex = selectedIndex
-		case treeDown:
+		case TreeMoveDown:
 			for newSelectedIndex < len(t.nodes)-1 {
 				newSelectedIndex++
 				if t.nodes[newSelectedIndex].selectable {
@@ -483,21 +521,21 @@ func (t *TreeView) process() {
 				}
 			}
 			newSelectedIndex = selectedIndex
-		case treeHome:
+		case TreeMoveHome:
 			for newSelectedIndex = 0; newSelectedIndex < len(t.nodes); newSelectedIndex++ {
 				if t.nodes[newSelectedIndex].selectable {
 					break MovementSwitch
 				}
 			}
 			newSelectedIndex = selectedIndex
-		case treeEnd:
+		case TreeMoveEnd:
 			for newSelectedIndex = len(t.nodes) - 1; newSelectedIndex >= 0; newSelectedIndex-- {
 				if t.nodes[newSelectedIndex].selectable {
 					break MovementSwitch
 				}
 			}
 			newSelectedIndex = selectedIndex
-		case treePageDown:
+		case TreeMovePageDown:
 			if newSelectedIndex+height < len(t.nodes) {
 				newSelectedIndex += height
 			} else {
@@ -509,7 +547,7 @@ func (t *TreeView) process() {
 				}
 			}
 			newSelectedIndex = selectedIndex
-		case treePageUp:
+		case TreeMovePageUp:
 			if newSelectedIndex >= height {
 				newSelectedIndex -= height
 			} else {
@@ -524,7 +562,7 @@ func (t *TreeView) process() {
 		}
 		t.currentNode = t.nodes[newSelectedIndex]
 		if newSelectedIndex != selectedIndex {
-			t.movement = treeNone
+			t.movement = treeActionNone
 			if t.changed != nil {
 				t.changed(t.currentNode)
 			}
@@ -567,20 +605,20 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 	// Scroll the tree.
 	x, y, width, height := t.GetInnerRect()
 	switch t.movement {
-	case treeUp:
+	case TreeMoveUp:
 		t.offsetY--
-	case treeDown:
+	case TreeMoveDown:
 		t.offsetY++
-	case treeHome:
+	case TreeMoveHome:
 		t.offsetY = 0
-	case treeEnd:
+	case TreeMoveEnd:
 		t.offsetY = len(t.nodes)
-	case treePageUp:
+	case TreeMovePageUp:
 		t.offsetY -= height
-	case treePageDown:
+	case TreeMovePageDown:
 		t.offsetY += height
 	}
-	t.movement = treeNone
+	t.movement = treeActionNone
 
 	// Fix invalid offsets.
 	if t.offsetY >= len(t.nodes)-height {
@@ -662,6 +700,24 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 	}
 }
 
+// SetKeyBinding re-binds the provided key to perform a specific movement in the tree.
+// The key is represented by a rune, e.g. 'G' pr '[', however it's also possible to
+// use tcell.Key constants just by converting them to a rune, e.g. rune(tcell.KeyUp).
+// You can also to bind multiple keys to the same movement type.
+func (t *TreeView) SetKeyBinding(action treeAction, key ...rune) {
+	// delete previous key bindings for this action
+	for k, a := range t.keys {
+		if a == action {
+			delete(t.keys, k)
+		}
+	}
+
+	// assign the new key bindings
+	for _, k := range key {
+		t.keys[k] = action
+	}
+}
+
 // InputHandler returns the handler for this primitive.
 func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
@@ -678,34 +734,19 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 		// Because the tree is flattened into a list only at drawing time, we also
 		// postpone the (selection) movement to drawing time.
-		switch key := event.Key(); key {
-		case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
-			t.movement = treeDown
-		case tcell.KeyBacktab, tcell.KeyUp, tcell.KeyLeft:
-			t.movement = treeUp
-		case tcell.KeyHome:
-			t.movement = treeHome
-		case tcell.KeyEnd:
-			t.movement = treeEnd
-		case tcell.KeyPgDn, tcell.KeyCtrlF:
-			t.movement = treePageDown
-		case tcell.KeyPgUp, tcell.KeyCtrlB:
-			t.movement = treePageUp
-		case tcell.KeyRune:
-			switch event.Rune() {
-			case 'g':
-				t.movement = treeHome
-			case 'G':
-				t.movement = treeEnd
-			case 'j':
-				t.movement = treeDown
-			case 'k':
-				t.movement = treeUp
-			case ' ':
+		var key rune
+		if event.Key() == tcell.KeyRune {
+			key = event.Rune()
+		} else {
+			key = rune(event.Key())
+		}
+
+		if movement, ok := t.keys[key]; ok {
+			if movement == TreeSelectNode {
 				selectNode()
+			} else {
+				t.movement = movement
 			}
-		case tcell.KeyEnter:
-			selectNode()
 		}
 
 		t.process()

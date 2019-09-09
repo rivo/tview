@@ -56,6 +56,11 @@ func main() {
 		}
 	})
 
+	// Example of overriding a key binding to select a tree node by pressing G
+	tree.SetKeyBinding(tview.TreeSelectNode, 'G')
+	// Example of overriding a key binding to move up by pressing "up" or "left"
+	tree.SetKeyBinding(tview.TreeMoveUp, rune(tcell.KeyUp), rune(tcell.KeyLeft))
+
 	if err := tview.NewApplication().SetRoot(tree, true).Run(); err != nil {
 		panic(err)
 	}
