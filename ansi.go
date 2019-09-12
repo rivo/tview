@@ -90,17 +90,21 @@ func (a *ansi) Write(text []byte) (int, error) {
 					fmt.Fprint(a.buffer, strings.Repeat("\n", count))
 				case 'm': // Select Graphic Rendition.
 					var (
-						background, foreground, attributes string
-						clearAttributes                    bool
+						background, foreground                       string
+						reset                                        bool
+						bold, dim, italic, underline, blink, reverse *bool
 					)
-					fields := strings.Split(a.csiParameter.String(), ";")
-					if len(fields) == 0 || len(fields) == 1 && fields[0] == "0" {
+
+					csiParameter := a.csiParameter.String()
+					fields := strings.Split(csiParameter, ";")
+					if len(csiParameter) == 0 || len(fields) == 1 && fields[0] == "0" {
 						// Reset.
 						if _, err := a.buffer.WriteString("[-:-:-]"); err != nil {
 							return 0, err
 						}
 						break
 					}
+
 					lookupColor := func(colorNumber int, bright bool) string {
 						if colorNumber < 0 || colorNumber > 7 {
 							return "black"
@@ -127,41 +131,64 @@ func (a *ansi) Write(text []byte) (int, error) {
 							"#ffffff",
 						}[colorNumber]
 					}
-				FieldLoop:
-					for index, field := range fields {
+
+					fieldsNum := len(fields)
+					for index := 0; index < fieldsNum; index++ {
+						field, err := strconv.Atoi(fields[index])
+						if err != nil {
+							break
+						}
 						switch field {
-						case "1", "01":
-							attributes += "b"
-						case "2", "02":
-							attributes += "d"
-						case "4", "04":
-							attributes += "u"
-						case "5", "05":
-							attributes += "l"
-						case "7", "07":
-							attributes += "7"
-						case "22", "24", "25", "27":
-							clearAttributes = true
-						case "30", "31", "32", "33", "34", "35", "36", "37":
-							colorNumber, _ := strconv.Atoi(field)
-							foreground = lookupColor(colorNumber-30, false)
-						case "39":
-							foreground = "-"
-						case "40", "41", "42", "43", "44", "45", "46", "47":
-							colorNumber, _ := strconv.Atoi(field)
-							background = lookupColor(colorNumber-40, false)
-						case "49":
+						case 0:
 							background = "-"
-						case "90", "91", "92", "93", "94", "95", "96", "97":
-							colorNumber, _ := strconv.Atoi(field)
-							foreground = lookupColor(colorNumber-90, true)
-						case "100", "101", "102", "103", "104", "105", "106", "107":
-							colorNumber, _ := strconv.Atoi(field)
-							background = lookupColor(colorNumber-100, true)
-						case "38", "48":
+							foreground = "-"
+							reset = true
+							bold = nil
+							dim = nil
+							italic = nil
+							underline = nil
+							blink = nil
+							reverse = nil
+						case 1:
+							bold = boolTrue()
+						case 2:
+							dim = boolTrue()
+						case 3:
+							italic = boolTrue()
+						case 4:
+							underline = boolTrue()
+						case 5:
+							blink = boolTrue()
+						case 7:
+							reverse = boolTrue()
+						case 21:
+							bold = boolFalse()
+						case 22:
+							dim = boolFalse()
+							bold = boolFalse()
+						case 23:
+							italic = boolFalse()
+						case 24:
+							underline = boolFalse()
+						case 25:
+							blink = boolFalse()
+						case 27:
+							reverse = boolFalse()
+						case 30, 31, 32, 33, 34, 35, 36, 37:
+							foreground = lookupColor(field-30, isTrue(bold))
+						case 40, 41, 42, 43, 44, 45, 46, 47:
+							background = lookupColor(field-40, false)
+						case 90, 91, 92, 93, 94, 95, 96, 97:
+							bold = boolTrue()
+							foreground = lookupColor(field-90, true)
+						case 100, 101, 102, 103, 104, 105, 106, 107:
+							bold = boolTrue()
+							background = lookupColor(field-100, true)
+						case 38, 48:
 							var color string
-							if len(fields) > index+1 {
-								if fields[index+1] == "5" && len(fields) > index+2 { // 8-bit colors.
+
+							if fieldsNum > index+1 {
+								if fields[index+1] == "5" && fieldsNum > index+2 { // 8-bit colors.
 									colorNumber, _ := strconv.Atoi(fields[index+2])
 									if colorNumber <= 7 {
 										color = lookupColor(colorNumber, false)
@@ -176,26 +203,26 @@ func (a *ansi) Write(text []byte) (int, error) {
 										grey := 255 * (colorNumber - 232) / 23
 										color = fmt.Sprintf("#%02x%02x%02x", grey, grey, grey)
 									}
+									index += 2
 								} else if fields[index+1] == "2" && len(fields) > index+4 { // 24-bit colors.
 									red, _ := strconv.Atoi(fields[index+2])
 									green, _ := strconv.Atoi(fields[index+3])
 									blue, _ := strconv.Atoi(fields[index+4])
 									color = fmt.Sprintf("#%02x%02x%02x", red, green, blue)
+									index += 4
 								}
 							}
+
 							if len(color) > 0 {
-								if field == "38" {
+								if field == 38 {
 									foreground = color
 								} else {
 									background = color
 								}
 							}
-							break FieldLoop
 						}
 					}
-					if len(attributes) > 0 || clearAttributes {
-						attributes = ":" + attributes
-					}
+					attributes := makeAttr(reset, bold, dim, italic, underline, blink, reverse)
 					if len(foreground) > 0 || len(background) > 0 || len(attributes) > 0 {
 						fmt.Fprintf(a.buffer, "[%s:%s%s]", foreground, background, attributes)
 					}
@@ -240,4 +267,93 @@ func TranslateANSI(text string) string {
 	writer := ANSIWriter(&buffer)
 	writer.Write([]byte(text))
 	return buffer.String()
+}
+
+func boolTrue() *bool  { b := true; return &b }
+func boolFalse() *bool { b := false; return &b }
+
+func isTrue(b *bool) bool  { return b != nil && *b }
+func isFalse(b *bool) bool { return b != nil && !*b }
+
+// makeAttr check SGR attributes, and generate a string.
+// If reset is True, then all attributes whose value is nil will be reset.
+// The meaning of each character contained in the returned string is as follows:
+//		b:  enable  bold
+//		B:  disable bold
+//		d:  enable  dim
+//		D:  disable dim
+//		u:  enable  underline
+//		U:  disable underline
+//		l:  enable  blink
+//		L:  disable blink
+//		r:  enable  reverse
+//		R:  disable reverse
+func makeAttr(reset bool, bold, dim, italic, underline, blink, reverse *bool) string {
+	attr := ""
+
+	if bold != nil {
+		if *bold {
+			attr += "b"
+		} else {
+			attr += "B"
+		}
+	} else if reset {
+		attr += "B"
+	}
+
+	if dim != nil {
+		if *dim {
+			attr += "d"
+		} else {
+			attr += "D"
+		}
+	} else if reset {
+		attr += "D"
+	}
+
+	if italic != nil {
+		if *italic {
+			attr += "i"
+		} else {
+			attr += "I"
+		}
+	} else if reset {
+		attr += "I"
+	}
+
+	if underline != nil {
+		if *underline {
+			attr += "u"
+		} else {
+			attr += "U"
+		}
+	} else if reset {
+		attr += "U"
+	}
+
+	if blink != nil {
+		if *blink {
+			attr += "l"
+		} else {
+			attr += "L"
+		}
+	} else if reset {
+		attr += "L"
+	}
+
+	if reverse != nil {
+		if *reverse {
+			attr += "r"
+		} else {
+			attr += "R"
+		}
+	} else if reset {
+		attr += "R"
+	}
+
+	if attr != "" {
+		attr = ":" + attr
+	}
+
+	return attr
 }

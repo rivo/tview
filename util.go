@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/gdamore/tcell"
 	runewidth "github.com/mattn/go-runewidth"
@@ -20,7 +22,7 @@ const (
 
 // Common regular expressions.
 var (
-	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbdru]+|\-)?)?)?\]`)
+	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(?i)(:([lbdrui]+|\-)?)?)?\]`)
 	regionPattern    = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
 	escapePattern    = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
 	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
@@ -106,7 +108,13 @@ func styleFromTag(fgColor, bgColor, attributes string, tagSubstrings []string) (
 		if flags == "-" {
 			attributes = "-"
 		} else if flags != "" {
-			attributes = flags
+			for _, flag := range flags {
+				if strings.ContainsRune("lLbBdDrRuUiI", flag) {
+					attributes = strings.Replace(attributes, string(unicode.ToUpper(flag)), "", -1)
+					attributes = strings.Replace(attributes, string(unicode.ToLower(flag)), "", -1)
+					attributes = attributes + string(flag)
+				}
+			}
 		}
 	}
 
@@ -114,11 +122,13 @@ func styleFromTag(fgColor, bgColor, attributes string, tagSubstrings []string) (
 }
 
 // overlayStyle mixes a background color with a foreground color (fgColor),
-// a (possibly new) background color (bgColor), and style attributes, and
-// returns the resulting style. For a definition of the colors and attributes,
-// see styleFromTag(). Reset instructions cause the corresponding part of the
-// default style to be used.
-func overlayStyle(background tcell.Color, defaultStyle tcell.Style, fgColor, bgColor, attributes string) tcell.Style {
+// a (possibly new) background color (bgColor), the previous style (attr),
+// and new style attributes, and returns the resulting style.
+//
+// Reset instructions cause the corresponding part of the default style to be used.
+//
+// For a definition of the colors and attributes, see styleFromTag().
+func overlayStyle(background tcell.Color, prevAttr tcell.AttrMask, defaultStyle tcell.Style, fgColor, bgColor, attributes string) tcell.Style {
 	defFg, defBg, defAttr := defaultStyle.Decompose()
 	style := defaultStyle.Background(background)
 
@@ -144,19 +154,35 @@ func overlayStyle(background tcell.Color, defaultStyle tcell.Style, fgColor, bgC
 		style = style.Underline(defAttr&tcell.AttrUnderline > 0)
 		style = style.Dim(defAttr&tcell.AttrDim > 0)
 	} else if attributes != "" {
-		style = style.Normal()
+		style = style.Bold(prevAttr&tcell.AttrBold > 0)
+		style = style.Blink(prevAttr&tcell.AttrBlink > 0)
+		style = style.Reverse(prevAttr&tcell.AttrReverse > 0)
+		style = style.Underline(prevAttr&tcell.AttrUnderline > 0)
+		style = style.Dim(prevAttr&tcell.AttrDim > 0)
 		for _, flag := range attributes {
 			switch flag {
 			case 'l':
 				style = style.Blink(true)
+			case 'L':
+				style = style.Blink(false)
 			case 'b':
 				style = style.Bold(true)
+			case 'B':
+				style = style.Bold(false)
 			case 'd':
 				style = style.Dim(true)
+			case 'D':
+				style = style.Dim(false)
 			case 'r':
 				style = style.Reverse(true)
+			case 'R':
+				style = style.Reverse(false)
 			case 'u':
 				style = style.Underline(true)
+			case 'U':
+				style = style.Underline(false)
+			case 'i', 'I':
+				/// NOTE: the tcell does not support italic yet.
 			}
 		}
 	}
@@ -265,12 +291,12 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 			bytes, width, colorPos, escapePos, tagOffset int
 			foregroundColor, backgroundColor, attributes string
 		)
-		_, originalBackground, _ := style.Decompose()
+		_, originalBackground, attr := style.Decompose()
 		iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
 			// Update color/escape tag offset and style.
 			if colorPos < len(colorIndices) && textPos+tagOffset >= colorIndices[colorPos][0] && textPos+tagOffset < colorIndices[colorPos][1] {
 				foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
-				style = overlayStyle(originalBackground, style, foregroundColor, backgroundColor, attributes)
+				style = overlayStyle(originalBackground, attr, style, foregroundColor, backgroundColor, attributes)
 				tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
 				colorPos++
 			}
@@ -327,7 +353,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 				colorPos, escapePos, tagOffset               int
 				foregroundColor, backgroundColor, attributes string
 			)
-			_, originalBackground, _ := style.Decompose()
+			_, originalBackground, attr := style.Decompose()
 			for index := range strippedText {
 				// We only need the offset of the left index.
 				if index > leftIndex {
@@ -344,7 +370,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 				if colorPos < len(colorIndices) && index+tagOffset >= colorIndices[colorPos][0] && index+tagOffset < colorIndices[colorPos][1] {
 					if index <= leftIndex {
 						foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
-						style = overlayStyle(originalBackground, style, foregroundColor, backgroundColor, attributes)
+						style = overlayStyle(originalBackground, attr, style, foregroundColor, backgroundColor, attributes)
 					}
 					tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
 					colorPos++
@@ -387,8 +413,8 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 		// Print the rune sequence.
 		finalX := x + drawnWidth
 		_, _, finalStyle, _ := screen.GetContent(finalX, y)
-		_, background, _ := finalStyle.Decompose()
-		finalStyle = overlayStyle(background, style, foregroundColor, backgroundColor, attributes)
+		_, background, attr := finalStyle.Decompose()
+		finalStyle = overlayStyle(background, attr, style, foregroundColor, backgroundColor, attributes)
 		for offset := screenWidth - 1; offset >= 0; offset-- {
 			// To avoid undesired effects, we populate all cells.
 			if offset == 0 {
