@@ -230,6 +230,9 @@ type Table struct {
 	// The number of fixed rows / columns.
 	fixedRows, fixedColumns int
 
+	// Whether or not all the cells in a column have the same width.
+	fixedColumnsWidth bool
+
 	// Whether or not rows or columns can be selected. If both are set to true,
 	// cells can be selected.
 	rowsSelectable, columnsSelectable bool
@@ -325,6 +328,16 @@ func (t *Table) SetSeparator(separator rune) *Table {
 // top-most ones. Columns are always the left-most ones.
 func (t *Table) SetFixed(rows, columns int) *Table {
 	t.fixedRows, t.fixedColumns = rows, columns
+	return t
+}
+
+// SetFixedColumnsWidth determine whether all the cells in each column have the
+// same width.  If fixed = false (the default), each column will adjust its
+// width and it will grow or shrink when you scroll through the table.
+// If fixed = true every column's width will be always the same even if the
+// displayed cells are smaller in width.
+func (t *Table) SetFixedColumnsWidth(fixed bool) *Table {
+	t.fixedColumnsWidth = fixed
 	return t
 }
 
@@ -701,7 +714,16 @@ ColumnLoop:
 		// What's this column's width (without expansion)?
 		maxWidth := -1
 		expansion := 0
-		for _, row := range rows {
+		var rowsToCalcWidth []int
+		if t.fixedColumnsWidth {
+			rowsToCalcWidth = make([]int, len(t.cells))
+			for row := range t.cells {
+				rowsToCalcWidth[row] = row
+			}
+		} else {
+			rowsToCalcWidth = rows
+		}
+		for _, row := range rowsToCalcWidth {
 			if cell := getCell(row, column); cell != nil {
 				_, _, _, _, _, _, cellWidth := decomposeString(cell.Text, true, false)
 				if cell.MaxWidth > 0 && cell.MaxWidth < cellWidth {
