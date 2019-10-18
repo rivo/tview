@@ -188,7 +188,8 @@ func NewTextView() *TextView {
 }
 
 // SetScrollable sets the flag that decides whether or not the text view is
-// scrollable. If true, text is kept in a buffer and can be navigated.
+// scrollable. If true, text is kept in a buffer and can be navigated. If false,
+// the last line will always be visible.
 func (t *TextView) SetScrollable(scrollable bool) *TextView {
 	t.scrollable = scrollable
 	if !scrollable {
@@ -947,7 +948,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	// If this view is not scrollable, we'll purge the buffer of lines that have
 	// scrolled out of view.
 	if !t.scrollable && t.lineOffset > 0 {
-		if t.lineOffset <= len(t.index) {
+		if t.lineOffset >= len(t.index) {
 			t.buffer = nil
 		} else {
 			t.buffer = t.buffer[t.index[t.lineOffset].Line:]
