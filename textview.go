@@ -163,6 +163,11 @@ type TextView struct {
 	// highlight(s) into the visible screen.
 	scrollToHighlights bool
 
+	// An optinal value which will give the feature for the developer to pass
+	// the keys they wan't to handle on done func. This can be used to override
+	// the defaults used inside the textView
+	customKeys []tcell.Key
+
 	// An optional function which is called when the content of the text view has
 	// changed.
 	changed func()
@@ -293,6 +298,13 @@ func (t *TextView) SetRegions(regions bool) *TextView {
 		t.index = nil
 	}
 	t.regions = regions
+	return t
+}
+
+//SetCustomKeys sets the key that allows to call done function on these keys
+// along with the default keys
+func (t *TextView) SetCustomKeys(customKeys []tcell.Key) *TextView {
+	t.customKeys = customKeys
 	return t
 }
 
@@ -963,7 +975,7 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		key := event.Key()
 
-		if key == tcell.KeyEscape || key == tcell.KeyEnter || key == tcell.KeyTab || key == tcell.KeyBacktab {
+		if key == tcell.KeyEscape || key == tcell.KeyEnter || key == tcell.KeyTab || key == tcell.KeyBacktab || Contains(t.customKeys, key) {
 			if t.done != nil {
 				t.done(key)
 			}

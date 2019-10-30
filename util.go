@@ -624,3 +624,12 @@ func iterateStringReverse(text string, callback func(main rune, comb []rune, tex
 
 	return false
 }
+
+func Contains(keys []tcell.Key, key tcell.Key) bool {
+	for _, elem := range keys {
+		if elem == key {
+			return true
+		}
+	}
+	return false
+}

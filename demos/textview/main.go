@@ -21,13 +21,15 @@ Capitalize on low hanging fruit to identify a ballpark value added activity to b
 
 func main() {
 	app := tview.NewApplication()
+	customKeys := []tcell.Key{tcell.KeyF1}
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetRegions(true).
 		SetWordWrap(true).
 		SetChangedFunc(func() {
 			app.Draw()
-		})
+		}).
+		SetCustomKeys(customKeys)
 	numSelections := 0
 	go func() {
 		for _, word := range strings.Split(corporate, " ") {
@@ -50,6 +52,8 @@ func main() {
 			} else {
 				textView.Highlight("0").ScrollToHighlight()
 			}
+		} else if key == tcell.KeyF1 {
+			textView.Highlight("2").ScrollToHighlight()
 		} else if len(currentSelection) > 0 {
 			index, _ := strconv.Atoi(currentSelection[0])
 			if key == tcell.KeyTab {
