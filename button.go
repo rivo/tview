@@ -135,3 +135,15 @@ func (b *Button) InputHandler() func(event *tcell.EventKey, setFocus func(p Prim
 		}
 	})
 }
+
+// InputHandler returns the handler for this primitive.
+func (b *Button) MouseHandler() func(event EventMouse) {
+	return b.WrapMouseHandler(func(event EventMouse) {
+		// Process mouse event.
+		if event.Buttons()&tcell.Button1 != 0 {
+			if b.selected != nil {
+				b.selected()
+			}
+		}
+	})
+}

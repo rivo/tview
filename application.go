@@ -38,6 +38,9 @@ type Application struct {
 	// Whether or not the application resizes the root primitive.
 	rootFullscreen bool
 
+	// Enable mouse events?
+	enableMouse bool
+
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the default input handler (nil if nothing should
 	// be forwarded).
@@ -62,6 +65,33 @@ type Application struct {
 	// (screen.Init() and draw() will be called implicitly). A value of nil will
 	// stop the application.
 	screenReplacement chan tcell.Screen
+
+	// An optional capture function which receives a mouse event and returns the
+	// event to be forwarded to the default mouse handler (nil if nothing should
+	// be forwarded).
+	mouseCapture func(event EventMouse) EventMouse
+}
+
+// EventKey is the key input event info.
+// This exists for some consistency with EventMouse,
+// even though it's just an alias to *tcell.EventKey for backwards compatibility.
+type EventKey = *tcell.EventKey
+
+// EventMouse is the mouse event info.
+type EventMouse struct {
+	*tcell.EventMouse
+	Target      Primitive
+	Application *Application
+}
+
+// IsZero returns true if this is a zero object.
+func (e EventMouse) IsZero() bool {
+	return e == EventMouse{}
+}
+
+// SetFocus will set focus to the primitive.
+func (e EventMouse) SetFocus(p Primitive) {
+	e.Application.SetFocus(p)
 }
 
 // NewApplication creates and returns a new application.
@@ -93,6 +123,22 @@ func (a *Application) GetInputCapture() func(event *tcell.EventKey) *tcell.Event
 	return a.inputCapture
 }
 
+// SetMouseCapture sets a function which captures mouse events before they are
+// forwarded to the appropriate mouse event handler.
+//  This function can then choose to forward that event (or a
+// different one) by returning it or stop the event processing by returning
+// nil.
+func (a *Application) SetMouseCapture(capture func(event EventMouse) EventMouse) *Application {
+	a.mouseCapture = capture
+	return a
+}
+
+// GetMouseCapture returns the function installed with SetMouseCapture() or nil
+// if no such function has been installed.
+func (a *Application) GetMouseCapture() func(event EventMouse) EventMouse {
+	return a.mouseCapture
+}
+
 // SetScreen allows you to provide your own tcell.Screen object. For most
 // applications, this is not needed and you should be familiar with
 // tcell.Screen when using this function.
@@ -121,6 +167,13 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 	return a
 }
 
+// EnableMouse enables mouse events.
+func (a *Application) EnableMouse() {
+	a.Lock()
+	a.enableMouse = true
+	a.Unlock()
+}
+
 // Run starts the application and thus the event loop. This function returns
 // when Stop() was called.
 func (a *Application) Run() error {
@@ -137,6 +190,9 @@ func (a *Application) Run() error {
 		if err = a.screen.Init(); err != nil {
 			a.Unlock()
 			return err
+		}
+		if a.enableMouse {
+			a.screen.EnableMouse()
 		}
 	}
 
@@ -207,13 +263,15 @@ EventLoop:
 				break EventLoop
 			}
 
+			a.RLock()
+			p := a.focus
+			inputCapture := a.inputCapture
+			mouseCapture := a.mouseCapture
+			screen := a.screen
+			a.RUnlock()
+
 			switch event := event.(type) {
 			case *tcell.EventKey:
-				a.RLock()
-				p := a.focus
-				inputCapture := a.inputCapture
-				a.RUnlock()
-
 				// Intercept keys.
 				if inputCapture != nil {
 					event = inputCapture(event)
@@ -238,14 +296,32 @@ EventLoop:
 					}
 				}
 			case *tcell.EventResize:
-				a.RLock()
-				screen := a.screen
-				a.RUnlock()
 				if screen == nil {
 					continue
 				}
 				screen.Clear()
 				a.draw()
+			case *tcell.EventMouse:
+				atX, atY := event.Position()
+				ptarget := a.GetPrimitiveAtPoint(atX, atY) // p under mouse.
+				if ptarget == nil {
+					ptarget = p // Fallback to focused.
+				}
+				event2 := EventMouse{event, ptarget, a}
+
+				// Intercept event.
+				if mouseCapture != nil {
+					event2 = mouseCapture(event2)
+					if event2.IsZero() {
+						a.draw()
+						continue // Don't forward event.
+					}
+				}
+
+				if handler := ptarget.MouseHandler(); handler != nil {
+					handler(event2)
+					a.draw()
+				}
 			}
 
 		// If we have updates, now is the time to execute them.
@@ -259,6 +335,34 @@ EventLoop:
 	a.screen = nil
 
 	return nil
+}
+
+func findAtPoint(atX, atY int, p Primitive) Primitive {
+	x, y, w, h := p.GetRect()
+	if atX < x || atY < y {
+		return nil
+	}
+	if atX >= x+w || atY >= y+h {
+		return nil
+	}
+	bestp := p
+	for _, pchild := range p.GetChildren() {
+		x := findAtPoint(atX, atY, pchild)
+		if x != nil {
+			// Always overwrite if we find another one,
+			// this is because if any overlap, the last one is "on top".
+			bestp = x
+		}
+	}
+	return bestp
+}
+
+// GetPrimitiveAtPoint returns the Primitive at the specified point, or nil.
+// Note that this only works with a valid hierarchy of primitives (children)
+func (a *Application) GetPrimitiveAtPoint(atX, atY int) Primitive {
+	a.RLock()
+	defer a.RUnlock()
+	return findAtPoint(atX, atY, a.root)
 }
 
 // Stop stops the application, causing Run() to return.

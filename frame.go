@@ -155,3 +155,7 @@ func (f *Frame) HasFocus() bool {
 	}
 	return false
 }
+
+func (f *Frame) GetChildren() []Primitive {
+	return []Primitive{f.primitive}
+}

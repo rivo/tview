@@ -660,3 +660,11 @@ func (g *Grid) Draw(screen tcell.Screen) {
 		}
 	}
 }
+
+func (g *Grid) GetChildren() []Primitive {
+	children := make([]Primitive, len(g.items))
+	for i, item := range g.items {
+		children[i] = item.Item
+	}
+	return children
+}

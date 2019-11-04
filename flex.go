@@ -195,3 +195,11 @@ func (f *Flex) HasFocus() bool {
 	}
 	return false
 }
+
+func (f *Flex) GetChildren() []Primitive {
+	children := make([]Primitive, len(f.items))
+	for i, item := range f.items {
+		children[i] = item.Item
+	}
+	return children
+}

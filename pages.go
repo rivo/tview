@@ -278,3 +278,15 @@ func (p *Pages) Draw(screen tcell.Screen) {
 		page.Item.Draw(screen)
 	}
 }
+
+func (p *Pages) GetChildren() []Primitive {
+	var children []Primitive
+	for _, page := range p.pages {
+		// Considering invisible pages as not children.
+		// Even though we track all the pages, not all are "children" currently.
+		if page.Visible {
+			children = append(children, page.Item)
+		}
+	}
+	return children
+}
