@@ -554,7 +554,17 @@ func (l *List) MouseHandler() func(event EventMouse) {
 			atX, atY := event.Position()
 			index := l.indexAtPoint(atX, atY)
 			if index != -1 {
-				l.SetCurrentItem(index)
+				item := l.items[index]
+				if item.Selected != nil {
+					item.Selected()
+				}
+				if l.selected != nil {
+					l.selected(index, item.MainText, item.SecondaryText, item.Shortcut)
+				}
+				if index != l.currentItem && l.changed != nil {
+					l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
+				}
+				l.currentItem = index
 			}
 		}
 	})
