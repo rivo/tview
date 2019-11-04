@@ -483,3 +483,14 @@ func (d *DropDown) HasFocus() bool {
 	}
 	return d.hasFocus
 }
+
+// MouseHandler returns the mouse handler for this primitive.
+func (d *DropDown) MouseHandler() func(event EventMouse) {
+	return d.WrapMouseHandler(func(event EventMouse) {
+		// Process mouse event.
+		if event.Buttons()&tcell.Button1 != 0 {
+			//d.open = !d.open // FIXME: clicks go through the dropdown!
+			event.SetFocus(d)
+		}
+	})
+}
