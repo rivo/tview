@@ -168,10 +168,11 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 }
 
 // EnableMouse enables mouse events.
-func (a *Application) EnableMouse() {
+func (a *Application) EnableMouse() *Application {
 	a.Lock()
 	a.enableMouse = true
 	a.Unlock()
+	return a
 }
 
 // Run starts the application and thus the event loop. This function returns
