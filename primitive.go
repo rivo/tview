@@ -50,10 +50,10 @@ type Primitive interface {
 	// MouseHandler returns a handler which receives mouse events.
 	// It is called by the Application class.
 	//
-	// A zero value of EventMouse{} may also be returned to stop propagation.
+	// A value of nil may also be returned to stop propagation.
 	//
 	// The Box class provides functionality to intercept mouse events. If you
 	// subclass from Box, it is recommended that you wrap your handler using
 	// Box.WrapMouseHandler() so you inherit that functionality.
-	MouseHandler() func(event EventMouse)
+	MouseHandler() func(event *EventMouse)
 }

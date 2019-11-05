@@ -468,7 +468,7 @@ func (d *DropDown) openList(setFocus func(Primitive), app *Application) {
 		return event
 	})
 	if app != nil {
-		app.SetMouseCapture(func(event EventMouse) EventMouse {
+		app.SetMouseCapture(func(event *EventMouse) *EventMouse {
 			if d.open {
 				// Forward the mouse event to the list.
 				atX, atY := event.Position()
@@ -476,17 +476,19 @@ func (d *DropDown) openList(setFocus func(Primitive), app *Application) {
 				if atX >= x && atY >= y && atX < x+w && atY < y+h {
 					// Mouse is within the list.
 					if handler := d.list.MouseHandler(); handler != nil {
-						if event.Action&MouseUp != 0 {
+						if event.Action()&MouseUp != 0 {
 							// Treat mouse up as click here.
 							// This allows you to expand and select in one go.
-							event.Action |= MouseClick
+							event = NewEventMouse(event.EventMouse,
+								event.Target(), event.Application(),
+								event.Action()|MouseClick)
 						}
 						handler(event)
-						return EventMouse{} // handled
+						return nil // handled
 					}
 				} else {
 					// Mouse not within the list.
-					if event.Action&MouseDown != 0 {
+					if event.Action()&MouseDown != 0 {
 						// If a mouse button was pressed, cancel this capture.
 						app.SetMouseCapture(nil)
 						d.closeList(event.SetFocus)
@@ -523,16 +525,16 @@ func (d *DropDown) HasFocus() bool {
 }
 
 // MouseHandler returns the mouse handler for this primitive.
-func (d *DropDown) MouseHandler() func(event EventMouse) {
-	return d.WrapMouseHandler(func(event EventMouse) {
+func (d *DropDown) MouseHandler() func(event *EventMouse) {
+	return d.WrapMouseHandler(func(event *EventMouse) {
 		// Process mouse event.
-		if event.Action&MouseDown != 0 && event.Buttons()&tcell.Button1 != 0 {
+		if event.Action()&MouseDown != 0 && event.Buttons()&tcell.Button1 != 0 {
 			//d.open = !d.open
 			//event.SetFocus(d)
 			if d.open {
 				d.closeList(event.SetFocus)
 			} else {
-				d.openList(event.SetFocus, event.Application)
+				d.openList(event.SetFocus, event.Application())
 			}
 		}
 	})
