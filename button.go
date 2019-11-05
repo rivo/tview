@@ -140,7 +140,7 @@ func (b *Button) InputHandler() func(event *tcell.EventKey, setFocus func(p Prim
 func (b *Button) MouseHandler() func(event EventMouse) {
 	return b.WrapMouseHandler(func(event EventMouse) {
 		// Process mouse event.
-		if event.Buttons()&tcell.Button1 != 0 {
+		if event.Action&MouseClick != 0 {
 			if b.selected != nil {
 				b.selected()
 			}

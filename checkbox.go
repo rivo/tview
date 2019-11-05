@@ -206,7 +206,7 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 func (c *Checkbox) MouseHandler() func(event EventMouse) {
 	return c.WrapMouseHandler(func(event EventMouse) {
 		// Process mouse event.
-		if event.Buttons()&tcell.Button1 != 0 {
+		if event.Action&MouseClick != 0 {
 			c.checked = !c.checked
 			if c.changed != nil {
 				c.changed(c.checked)

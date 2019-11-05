@@ -70,6 +70,10 @@ type Application struct {
 	// event to be forwarded to the default mouse handler (nil if nothing should
 	// be forwarded).
 	mouseCapture func(event EventMouse) EventMouse
+
+	lastMouseX, lastMouseY int
+	lastMouseBtn           tcell.ButtonMask
+	lastMouseTarget        Primitive // nil if none
 }
 
 // EventKey is the key input event info.
@@ -77,11 +81,22 @@ type Application struct {
 // even though it's just an alias to *tcell.EventKey for backwards compatibility.
 type EventKey = *tcell.EventKey
 
+// MouseAction are bit flags indicating what the mouse is logically doing.
+type MouseAction int
+
+const (
+	MouseDown MouseAction = 1 << iota
+	MouseUp
+	MouseClick // Button1 only.
+	MouseMove  // The mouse position changed.
+)
+
 // EventMouse is the mouse event info.
 type EventMouse struct {
 	*tcell.EventMouse
 	Target      Primitive
 	Application *Application
+	Action      MouseAction
 }
 
 // IsZero returns true if this is a zero object.
@@ -304,11 +319,46 @@ EventLoop:
 				a.draw()
 			case *tcell.EventMouse:
 				atX, atY := event.Position()
-				ptarget := a.GetPrimitiveAtPoint(atX, atY) // p under mouse.
-				if ptarget == nil {
-					ptarget = p // Fallback to focused.
+				btn := event.Buttons()
+
+				var ptarget Primitive
+				if a.lastMouseBtn != 0 {
+					// While a button is down, the same primitive gets events.
+					ptarget = a.lastMouseTarget
 				}
-				event2 := EventMouse{event, ptarget, a}
+				if ptarget == nil {
+					ptarget = a.GetPrimitiveAtPoint(atX, atY) // p under mouse.
+					if ptarget == nil {
+						ptarget = p // Fallback to focused.
+					}
+				}
+				a.lastMouseTarget = ptarget
+
+				// Calculate mouse actions.
+				var act MouseAction
+				if atX != a.lastMouseX || atY != a.lastMouseY {
+					act |= MouseMove
+					a.lastMouseX = atX
+					a.lastMouseY = atY
+				}
+				btnDiff := btn ^ a.lastMouseBtn
+				if btnDiff != 0 {
+					if btn&btnDiff != 0 {
+						act |= MouseDown
+					}
+					if a.lastMouseBtn&btnDiff != 0 {
+						act |= MouseUp
+					}
+					if a.lastMouseBtn == tcell.Button1 && btn == 0 {
+						if ptarget == a.GetPrimitiveAtPoint(atX, atY) {
+							// Only if Button1 and mouse up over same p.
+							act |= MouseClick
+						}
+					}
+					a.lastMouseBtn = btn
+				}
+
+				event2 := EventMouse{event, ptarget, a, act}
 
 				// Intercept event.
 				if mouseCapture != nil {

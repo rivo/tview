@@ -550,7 +550,7 @@ func (l *List) indexAtPoint(atX, atY int) int {
 func (l *List) MouseHandler() func(event EventMouse) {
 	return l.WrapMouseHandler(func(event EventMouse) {
 		// Process mouse event.
-		if event.Buttons()&tcell.Button1 != 0 {
+		if event.Action&MouseClick != 0 {
 			atX, atY := event.Position()
 			index := l.indexAtPoint(atX, atY)
 			if index != -1 {

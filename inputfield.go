@@ -596,7 +596,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 func (i *InputField) MouseHandler() func(event EventMouse) {
 	return i.WrapMouseHandler(func(event EventMouse) {
 		// Process mouse event.
-		if event.Buttons()&tcell.Button1 != 0 {
+		if event.Action&MouseDown != 0 {
 			event.SetFocus(i)
 		}
 	})
