@@ -471,9 +471,21 @@ func (d *DropDown) openList(setFocus func(Primitive), app *Application) {
 		app.SetMouseCapture(func(event EventMouse) EventMouse {
 			if d.open {
 				// Forward the mouse event to the list.
-				if handler := d.list.MouseHandler(); handler != nil {
-					handler(event)
-					return EventMouse{} // handled
+				atX, atY := event.Position()
+				x, y, w, h := d.list.GetInnerRect()
+				if atX >= x && atY >= y && atX < x+w && atY < y+h {
+					// Mouse is within the list.
+					if handler := d.list.MouseHandler(); handler != nil {
+						handler(event)
+						return EventMouse{} // handled
+					}
+				} else {
+					// Mouse not within the list.
+					if event.Buttons() != 0 {
+						// If a mouse button was pressed, cancel this capture.
+						app.SetMouseCapture(nil)
+						d.closeList(nil) // Close but don't focus.
+					}
 				}
 			}
 			return event
@@ -484,7 +496,9 @@ func (d *DropDown) openList(setFocus func(Primitive), app *Application) {
 
 func (d *DropDown) closeList(setFocus func(Primitive)) {
 	d.open = false
-	setFocus(d)
+	if setFocus != nil {
+		setFocus(d)
+	}
 }
 
 // Focus is called by the application when the primitive receives focus.
