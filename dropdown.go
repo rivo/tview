@@ -484,7 +484,7 @@ func (d *DropDown) openList(setFocus func(Primitive), app *Application) {
 					if event.Buttons() != 0 {
 						// If a mouse button was pressed, cancel this capture.
 						app.SetMouseCapture(nil)
-						d.closeList(nil) // Close but don't focus.
+						d.closeList(event.SetFocus)
 					}
 				}
 			}
@@ -496,7 +496,7 @@ func (d *DropDown) openList(setFocus func(Primitive), app *Application) {
 
 func (d *DropDown) closeList(setFocus func(Primitive)) {
 	d.open = false
-	if setFocus != nil {
+	if d.list.HasFocus() {
 		setFocus(d)
 	}
 }
