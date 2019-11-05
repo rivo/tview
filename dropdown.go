@@ -394,22 +394,6 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return d.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		// A helper function which selects an item in the drop-down list based on
-		// the current prefix.
-		evalPrefix := func() {
-			if len(d.prefix) > 0 {
-				for index, option := range d.options {
-					if strings.HasPrefix(strings.ToLower(option.Text), d.prefix) {
-						d.list.SetCurrentItem(index)
-						return
-					}
-				}
-				// Prefix does not match any item. Remove last rune.
-				r := []rune(d.prefix)
-				d.prefix = string(r[:len(r)-1])
-			}
-		}
-
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyEnter, tcell.KeyRune, tcell.KeyDown:
@@ -418,45 +402,10 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			// If the first key was a letter already, it becomes part of the prefix.
 			if r := event.Rune(); key == tcell.KeyRune && r != ' ' {
 				d.prefix += string(r)
-				evalPrefix()
+				d.evalPrefix()
 			}
 
-			// Hand control over to the list.
-			d.open = true
-			optionBefore := d.currentOption
-			d.list.SetSelectedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
-				// An option was selected. Close the list again.
-				d.open = false
-				setFocus(d)
-				d.currentOption = index
-
-				// Trigger "selected" event.
-				if d.selected != nil {
-					d.selected(d.options[d.currentOption].Text, d.currentOption)
-				}
-				if d.options[d.currentOption].Selected != nil {
-					d.options[d.currentOption].Selected()
-				}
-			}).SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-				if event.Key() == tcell.KeyRune {
-					d.prefix += string(event.Rune())
-					evalPrefix()
-				} else if event.Key() == tcell.KeyBackspace || event.Key() == tcell.KeyBackspace2 {
-					if len(d.prefix) > 0 {
-						r := []rune(d.prefix)
-						d.prefix = string(r[:len(r)-1])
-					}
-					evalPrefix()
-				} else if event.Key() == tcell.KeyEscape {
-					d.open = false
-					d.currentOption = optionBefore
-					setFocus(d)
-				} else {
-					d.prefix = ""
-				}
-				return event
-			})
-			setFocus(d.list)
+			d.openList(setFocus, nil)
 		case tcell.KeyEscape, tcell.KeyTab, tcell.KeyBacktab:
 			if d.done != nil {
 				d.done(key)
@@ -466,6 +415,76 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			}
 		}
 	})
+}
+
+// A helper function which selects an item in the drop-down list based on
+// the current prefix.
+func (d *DropDown) evalPrefix() {
+	if len(d.prefix) > 0 {
+		for index, option := range d.options {
+			if strings.HasPrefix(strings.ToLower(option.Text), d.prefix) {
+				d.list.SetCurrentItem(index)
+				return
+			}
+		}
+		// Prefix does not match any item. Remove last rune.
+		r := []rune(d.prefix)
+		d.prefix = string(r[:len(r)-1])
+	}
+}
+
+// Hand control over to the list.
+func (d *DropDown) openList(setFocus func(Primitive), app *Application) {
+	d.open = true
+	optionBefore := d.currentOption
+	d.list.SetSelectedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
+		// An option was selected. Close the list again.
+		d.currentOption = index
+		d.closeList(setFocus)
+
+		// Trigger "selected" event.
+		if d.selected != nil {
+			d.selected(d.options[d.currentOption].Text, d.currentOption)
+		}
+		if d.options[d.currentOption].Selected != nil {
+			d.options[d.currentOption].Selected()
+		}
+	}).SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyRune {
+			d.prefix += string(event.Rune())
+			d.evalPrefix()
+		} else if event.Key() == tcell.KeyBackspace || event.Key() == tcell.KeyBackspace2 {
+			if len(d.prefix) > 0 {
+				r := []rune(d.prefix)
+				d.prefix = string(r[:len(r)-1])
+			}
+			d.evalPrefix()
+		} else if event.Key() == tcell.KeyEscape {
+			d.currentOption = optionBefore
+			d.closeList(setFocus)
+		} else {
+			d.prefix = ""
+		}
+		return event
+	})
+	if app != nil {
+		app.SetMouseCapture(func(event EventMouse) EventMouse {
+			if d.open {
+				// Forward the mouse event to the list.
+				if handler := d.list.MouseHandler(); handler != nil {
+					handler(event)
+					return EventMouse{} // handled
+				}
+			}
+			return event
+		})
+	}
+	setFocus(d.list)
+}
+
+func (d *DropDown) closeList(setFocus func(Primitive)) {
+	d.open = false
+	setFocus(d)
 }
 
 // Focus is called by the application when the primitive receives focus.
@@ -489,8 +508,13 @@ func (d *DropDown) MouseHandler() func(event EventMouse) {
 	return d.WrapMouseHandler(func(event EventMouse) {
 		// Process mouse event.
 		if event.Buttons()&tcell.Button1 != 0 {
-			//d.open = !d.open // FIXME: clicks go through the dropdown!
-			event.SetFocus(d)
+			//d.open = !d.open
+			//event.SetFocus(d)
+			if d.open {
+				d.closeList(event.SetFocus)
+			} else {
+				d.openList(event.SetFocus, event.Application)
+			}
 		}
 	})
 }
