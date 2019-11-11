@@ -303,6 +303,11 @@ func (f *Form) GetFormItem(index int) FormItem {
 	return f.items[index]
 }
 
+// GetFormItemCount returns the count of form element.
+func (f *Form) GetFormItemCount() int {
+	return len(f.items)
+}
+
 // RemoveFormItem removes the form element at the given position, starting with
 // index 0. Elements are referenced in the order they were added. Buttons are
 // not included.
