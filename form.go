@@ -296,9 +296,15 @@ func (f *Form) AddFormItem(item FormItem) *Form {
 	return f
 }
 
-// GetFormItem returns the form element at the given position, starting with
-// index 0. Elements are referenced in the order they were added. Buttons are
-// not included.
+// GetFormItemCount returns the number of items in the form (not including the
+// buttons).
+func (f *Form) GetFormItemCount() int {
+	return len(f.items)
+}
+
+// GetFormItem returns the form item at the given position, starting with index
+// 0. Elements are referenced in the order they were added. Buttons are not
+// included.
 func (f *Form) GetFormItem(index int) FormItem {
 	return f.items[index]
 }
