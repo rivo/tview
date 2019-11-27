@@ -298,8 +298,9 @@ func (t *TextView) SetRegions(regions bool) *TextView {
 
 // SetChangedFunc sets a handler function which is called when the text of the
 // text view has changed. This is useful when text is written to this io.Writer
-// in a separate goroutine. This does not automatically cause the screen to be
-// refreshed so you may want to use the "changed" handler to redraw the screen.
+// in a separate goroutine. Doing so does not automatically cause the screen to
+// be refreshed so you may want to use the "changed" handler to redraw the
+// screen.
 //
 // Note that to avoid race conditions or deadlocks, there are a few rules you
 // should follow:
