@@ -4,12 +4,11 @@ import (
 	"github.com/gdamore/tcell"
 )
 
-// Box implements Primitive with a background and optional elements such as a
-// border and a title. Most subclasses keep their content contained in the box
-// but don't necessarily have to.
+// Box draws a background and optional border and a title. It can not hold
+// content, but most other components inherit its methods and properties to
+// keep their content contained in the box.
 //
-// Note that all classes which subclass from Box will also have access to its
-// functions.
+// Box itself implements Primitive.
 //
 // See https://github.com/rivo/tview/wiki/Box for an example.
 type Box struct {
