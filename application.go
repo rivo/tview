@@ -2,6 +2,7 @@ package tview
 
 import (
 	"sync"
+	"time"
 
 	"github.com/gdamore/tcell"
 )
@@ -125,6 +126,8 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 // when Stop() was called.
 func (a *Application) Run() error {
 	var err error
+	var redrawTimer *time.Timer
+
 	a.Lock()
 
 	// Make a screen if there is none yet.
@@ -244,8 +247,14 @@ EventLoop:
 				if screen == nil {
 					continue
 				}
-				screen.Clear()
-				a.draw()
+				//throttle event size handling to once/500ms in order to mitigate screen flashing 
+				if(redrawTimer != nil) {
+					redrawTimer.Stop()
+				}
+				redrawTimer = time.AfterFunc(0.5*1000000000/*convert seconds to nanoseconds*/, func() {
+					screen.Clear()
+					a.draw()
+				})
 			}
 
 		// If we have updates, now is the time to execute them.
