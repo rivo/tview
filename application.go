@@ -247,11 +247,12 @@ EventLoop:
 				if screen == nil {
 					continue
 				}
-				//throttle event size handling to once/500ms in order to mitigate screen flashing 
+
+				// Throttle event resize handling in order to mitigate screen flashing
 				if(redrawTimer != nil) {
 					redrawTimer.Stop()
 				}
-				redrawTimer = time.AfterFunc(0.5*1000000000/*convert seconds to nanoseconds*/, func() {
+				redrawTimer = time.AfterFunc(200*time.Millisecond, func() {
 					screen.Clear()
 					a.draw()
 				})
