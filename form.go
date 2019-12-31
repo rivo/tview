@@ -341,6 +341,19 @@ func (f *Form) GetFormItemIndex(label string) int {
 	return -1
 }
 
+// GetFocusedItemIndex returns the indices of the form element or button which
+// currently has focus. If they don't, -1 is returned resepectively.
+func (f *Form) GetFocusedItemIndex() (formItem, button int) {
+	index := f.focusIndex()
+	if index < 0 {
+		return -1, -1
+	}
+	if index < len(f.items) {
+		return index, -1
+	}
+	return -1, index - len(f.items)
+}
+
 // SetCancelFunc sets a handler which is called when the user hits the Escape
 // key.
 func (f *Form) SetCancelFunc(callback func()) *Form {
