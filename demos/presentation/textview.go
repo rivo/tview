@@ -46,6 +46,11 @@ func TextView1(nextSlide func()) (title string, content tview.Primitive) {
 		var n int
 		for {
 			n++
+			if n > 512 {
+				n = 1
+				textView.SetText("")
+			}
+
 			fmt.Fprintf(textView, "%d ", n)
 			time.Sleep(200 * time.Millisecond)
 		}
