@@ -672,7 +672,7 @@ func (t *TextView) reindexBuffer(width int) {
 				}
 
 				// Is the next tag in range?
-				if tagIndex < 0 || minPos >= tagEnd+remainingLength {
+				if tagIndex < 0 || minPos > tagEnd+remainingLength {
 					break // No. We're done with this line.
 				}
 
