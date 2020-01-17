@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/gdamore/tcell"
@@ -502,4 +503,11 @@ func (a *Application) QueueUpdateDraw(f func()) *Application {
 func (a *Application) QueueEvent(event tcell.Event) *Application {
 	a.events <- event
 	return a
+}
+
+// RingBell sends a bell code to the terminal.
+func (a *Application) RingBell() {
+	a.QueueUpdate(func() {
+		fmt.Print(string(byte(7)))
+	})
 }
