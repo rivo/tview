@@ -601,16 +601,25 @@ func (f *Form) focusIndex() int {
 	return -1
 }
 
-func (f *Form) GetChildren() []Primitive {
-	children := make([]Primitive, len(f.items)+len(f.buttons))
-	i := 0
-	for _, item := range f.items {
-		children[i] = item
-		i++
-	}
-	for _, button := range f.buttons {
-		children[i] = button
-		i++
-	}
-	return children
+// MouseHandler returns the mouse handler for this primitive.
+func (f *Form) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
+	return f.WrapMouseHandler(func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+		if !f.InRect(event.Position()) {
+			return false, false
+		}
+		// Process mouse event.
+		for _, item := range f.items {
+			consumed, capture = item.MouseHandler()(event, action, setFocus)
+			if consumed {
+				return consumed, capture
+			}
+		}
+		for _, button := range f.buttons {
+			consumed, capture = button.MouseHandler()(event, action, setFocus)
+			if consumed {
+				return consumed, capture
+			}
+		}
+		return true, false
+	})
 }

@@ -44,9 +44,6 @@ type Primitive interface {
 	// GetFocusable returns the item's Focusable.
 	GetFocusable() Focusable
 
-	// GetChildren gets the children.
-	GetChildren() []Primitive
-
 	// MouseHandler returns a handler which receives mouse events.
 	// It is called by the Application class.
 	//
@@ -55,5 +52,5 @@ type Primitive interface {
 	// The Box class provides functionality to intercept mouse events. If you
 	// subclass from Box, it is recommended that you wrap your handler using
 	// Box.WrapMouseHandler() so you inherit that functionality.
-	MouseHandler() func(event *EventMouse)
+	MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool)
 }

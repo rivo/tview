@@ -62,7 +62,7 @@ type Box struct {
 	// An optional capture function which receives a mouse event and returns the
 	// event to be forwarded to the primitive's default mouse event handler (nil if
 	// nothing should be forwarded).
-	mouseCapture func(event *EventMouse) *EventMouse
+	mouseCapture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)
 }
 
 // NewBox returns a Box without a border.
@@ -202,19 +202,20 @@ func (b *Box) GetInputCapture() func(event *tcell.EventKey) *tcell.EventKey {
 // on to the provided (default) event handler.
 //
 // This is only meant to be used by subclassing primitives.
-func (b *Box) WrapMouseHandler(mouseHandler func(*EventMouse)) func(*EventMouse) {
-	return func(event *EventMouse) {
+func (b *Box) WrapMouseHandler(mouseHandler func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool)) func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
+	return func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
 		if b.mouseCapture != nil {
-			event = b.mouseCapture(event)
+			event, action = b.mouseCapture(event, action)
 		}
 		if event != nil && mouseHandler != nil {
-			mouseHandler(event)
+			consumed, capture = mouseHandler(event, action, setFocus)
 		}
+		return
 	}
 }
 
 // MouseHandler returns nil.
-func (b *Box) MouseHandler() func(event *EventMouse) {
+func (b *Box) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
 	return b.WrapMouseHandler(nil)
 }
 
@@ -225,14 +226,20 @@ func (b *Box) MouseHandler() func(event *EventMouse) {
 // be called.
 //
 // Providing a nil handler will remove a previously existing handler.
-func (b *Box) SetMouseCapture(capture func(*EventMouse) *EventMouse) *Box {
+func (b *Box) SetMouseCapture(capture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)) *Box {
 	b.mouseCapture = capture
 	return b
 }
 
+func (b *Box) InRect(atX, atY int) bool {
+	x, y, w, h := b.GetRect()
+	return atX >= x && atX < x+w &&
+		atY >= y && atY < y+h
+}
+
 // GetMouseCapture returns the function installed with SetMouseCapture() or nil
 // if no such function has been installed.
-func (b *Box) GetMouseCapture() func(*EventMouse) *EventMouse {
+func (b *Box) GetMouseCapture() func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction) {
 	return b.mouseCapture
 }
 
@@ -396,9 +403,4 @@ func (b *Box) HasFocus() bool {
 // GetFocusable returns the item's Focusable.
 func (b *Box) GetFocusable() Focusable {
 	return b.focus
-}
-
-// GetChildren gets the children.
-func (b *Box) GetChildren() []Primitive {
-	return nil
 }

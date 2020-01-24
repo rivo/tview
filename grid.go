@@ -661,10 +661,19 @@ func (g *Grid) Draw(screen tcell.Screen) {
 	}
 }
 
-func (g *Grid) GetChildren() []Primitive {
-	children := make([]Primitive, len(g.items))
-	for i, item := range g.items {
-		children[i] = item.Item
-	}
-	return children
+// MouseHandler returns the mouse handler for this primitive.
+func (g *Grid) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
+	return g.WrapMouseHandler(func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+		if !g.InRect(event.Position()) {
+			return false, false
+		}
+		// Process mouse event.
+		for _, item := range g.items {
+			consumed, capture = item.Item.MouseHandler()(event, action, setFocus)
+			if consumed {
+				return consumed, capture
+			}
+		}
+		return true, false
+	})
 }

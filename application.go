@@ -69,11 +69,12 @@ type Application struct {
 	// An optional capture function which receives a mouse event and returns the
 	// event to be forwarded to the default mouse handler (nil if nothing should
 	// be forwarded).
-	mouseCapture func(event *EventMouse) *EventMouse
+	mouseCapture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)
 
-	lastMouseX, lastMouseY int
+	lastMouseX, lastMouseY int16 // track last mouse pos
+	mouseDownX, mouseDownY int16 // track last mouse down pos
+	lastMouseAct           MouseAction
 	lastMouseBtn           tcell.ButtonMask
-	lastMouseTarget        Primitive // nil if none
 }
 
 // NewApplication creates and returns a new application.
@@ -110,14 +111,14 @@ func (a *Application) GetInputCapture() func(event *tcell.EventKey) *tcell.Event
 //  This function can then choose to forward that event (or a
 // different one) by returning it or stop the event processing by returning
 // nil.
-func (a *Application) SetMouseCapture(capture func(event *EventMouse) *EventMouse) *Application {
+func (a *Application) SetMouseCapture(capture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)) *Application {
 	a.mouseCapture = capture
 	return a
 }
 
 // GetMouseCapture returns the function installed with SetMouseCapture() or nil
 // if no such function has been installed.
-func (a *Application) GetMouseCapture() func(event *EventMouse) *EventMouse {
+func (a *Application) GetMouseCapture() func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction) {
 	return a.mouseCapture
 }
 
@@ -251,6 +252,7 @@ EventLoop:
 			inputCapture := a.inputCapture
 			mouseCapture := a.mouseCapture
 			screen := a.screen
+			root := a.root
 			a.RUnlock()
 
 			switch event := event.(type) {
@@ -288,56 +290,38 @@ EventLoop:
 				atX, atY := event.Position()
 				btn := event.Buttons()
 
-				var ptarget Primitive
-				if a.lastMouseBtn != 0 {
-					// While a button is down, the same primitive gets events.
-					ptarget = a.lastMouseTarget
-				}
-				if ptarget == nil {
-					ptarget = a.GetPrimitiveAtPoint(atX, atY) // p under mouse.
-					if ptarget == nil {
-						ptarget = p // Fallback to focused.
-					}
-				}
-				a.lastMouseTarget = ptarget
-
 				// Calculate mouse actions.
-				var act MouseAction
-				if atX != a.lastMouseX || atY != a.lastMouseY {
-					act |= MouseMove
-					a.lastMouseX = atX
-					a.lastMouseY = atY
+				var action MouseAction
+				if atX != int(a.lastMouseX) || atY != int(a.lastMouseY) {
+					action |= MouseMove
+					a.lastMouseX = int16(atX)
+					a.lastMouseY = int16(atY)
 				}
-				btnDiff := btn ^ a.lastMouseBtn
-				if btnDiff != 0 {
-					if btn&btnDiff != 0 {
-						act |= MouseDown
-					}
-					if a.lastMouseBtn&btnDiff != 0 {
-						act |= MouseUp
-					}
-					if a.lastMouseBtn == tcell.Button1 && btn == 0 {
-						if ptarget == a.GetPrimitiveAtPoint(atX, atY) {
-							// Only if Button1 and mouse up over same p.
-							act |= MouseClick
-						}
-					}
-					a.lastMouseBtn = btn
+				action |= getMouseButtonAction(a.lastMouseBtn, btn)
+				if atX == int(a.mouseDownX) && atY == int(a.mouseDownY) {
+					action |= getMouseClickAction(a.lastMouseAct, action)
 				}
-
-				event2 := NewEventMouse(event, ptarget, a, act)
+				a.lastMouseAct = action
+				a.lastMouseBtn = btn
+				if action&(MouseLeftDown|MouseMiddleDown|MouseRightDown) != 0 {
+					a.mouseDownX = int16(atX)
+					a.mouseDownY = int16(atY)
+				}
 
 				// Intercept event.
 				if mouseCapture != nil {
-					event2 = mouseCapture(event2)
-					if event2 == nil {
+					event, action = mouseCapture(event, action)
+					if event == nil {
 						a.draw()
 						continue // Don't forward event.
 					}
 				}
 
-				if handler := ptarget.MouseHandler(); handler != nil {
-					handler(event2)
+				if handler := root.MouseHandler(); handler != nil {
+					//consumed, capture :=
+					handler(event, action, func(p Primitive) {
+						a.SetFocus(p)
+					})
 					a.draw()
 				}
 			}
@@ -353,34 +337,6 @@ EventLoop:
 	a.screen = nil
 
 	return nil
-}
-
-func findAtPoint(atX, atY int, p Primitive) Primitive {
-	x, y, w, h := p.GetRect()
-	if atX < x || atY < y {
-		return nil
-	}
-	if atX >= x+w || atY >= y+h {
-		return nil
-	}
-	bestp := p
-	for _, pchild := range p.GetChildren() {
-		x := findAtPoint(atX, atY, pchild)
-		if x != nil {
-			// Always overwrite if we find another one,
-			// this is because if any overlap, the last one is "on top".
-			bestp = x
-		}
-	}
-	return bestp
-}
-
-// GetPrimitiveAtPoint returns the Primitive at the specified point, or nil.
-// Note that this only works with a valid hierarchy of primitives (children)
-func (a *Application) GetPrimitiveAtPoint(atX, atY int) Primitive {
-	a.RLock()
-	defer a.RUnlock()
-	return findAtPoint(atX, atY, a.root)
 }
 
 // Stop stops the application, causing Run() to return.

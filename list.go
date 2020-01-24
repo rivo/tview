@@ -547,10 +547,13 @@ func (l *List) indexAtPoint(atX, atY int) int {
 }
 
 // MouseHandler returns the mouse handler for this primitive.
-func (l *List) MouseHandler() func(event *EventMouse) {
-	return l.WrapMouseHandler(func(event *EventMouse) {
+func (l *List) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
+	return l.WrapMouseHandler(func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+		if !l.InRect(event.Position()) {
+			return false, false
+		}
 		// Process mouse event.
-		if event.Action()&MouseClick != 0 {
+		if action&MouseLeftClick != 0 {
 			atX, atY := event.Position()
 			index := l.indexAtPoint(atX, atY)
 			if index != -1 {
@@ -567,5 +570,6 @@ func (l *List) MouseHandler() func(event *EventMouse) {
 				l.currentItem = index
 			}
 		}
+		return true, false
 	})
 }

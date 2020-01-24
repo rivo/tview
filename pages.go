@@ -279,14 +279,21 @@ func (p *Pages) Draw(screen tcell.Screen) {
 	}
 }
 
-func (p *Pages) GetChildren() []Primitive {
-	var children []Primitive
-	for _, page := range p.pages {
-		// Considering invisible pages as not children.
-		// Even though we track all the pages, not all are "children" currently.
-		if page.Visible {
-			children = append(children, page.Item)
+// MouseHandler returns the mouse handler for this primitive.
+func (p *Pages) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
+	return p.WrapMouseHandler(func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+		if !p.InRect(event.Position()) {
+			return false, false
 		}
-	}
-	return children
+		// Process mouse event.
+		for _, page := range p.pages {
+			if page.Visible {
+				consumed, capture = page.Item.MouseHandler()(event, action, setFocus)
+				if consumed {
+					return consumed, capture
+				}
+			}
+		}
+		return true, false
+	})
 }
