@@ -78,21 +78,21 @@ func getMouseButtonAction(lastBtn, btn tcell.ButtonMask) MouseAction {
 func getMouseClickAction(lastAct, action MouseAction) MouseAction {
 	if action&MouseMove == 0 {
 		if action&MouseLeftUp != 0 {
-			if lastAct&(MouseLeftClick&MouseLeftDoubleClick) == 0 {
+			if lastAct&(MouseLeftClick|MouseLeftDoubleClick) == 0 {
 				action |= MouseLeftClick
 			} else if lastAct&MouseLeftDoubleClick == 0 {
 				action |= MouseLeftDoubleClick
 			}
 		}
 		if action&MouseMiddleUp != 0 {
-			if lastAct&(MouseMiddleClick&MouseMiddleDoubleClick) == 0 {
+			if lastAct&(MouseMiddleClick|MouseMiddleDoubleClick) == 0 {
 				action |= MouseMiddleClick
 			} else if lastAct&MouseMiddleDoubleClick == 0 {
 				action |= MouseMiddleDoubleClick
 			}
 		}
 		if action&MouseRightUp != 0 {
-			if lastAct&(MouseRightClick&MouseRightDoubleClick) == 0 {
+			if lastAct&(MouseRightClick|MouseRightDoubleClick) == 0 {
 				action |= MouseRightClick
 			} else if lastAct&MouseRightDoubleClick == 0 {
 				action |= MouseRightDoubleClick
