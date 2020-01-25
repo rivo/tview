@@ -277,6 +277,10 @@ type TreeView struct {
 	// An optional function which is called when a tree item was selected.
 	selected func(node *TreeNode)
 
+	// An optional function which is called when the user moves away from this
+	// primitive.
+	done func(key tcell.Key)
+
 	// The visible nodes, top-down, as set by process().
 	nodes []*TreeNode
 }
@@ -372,6 +376,13 @@ func (t *TreeView) SetChangedFunc(handler func(node *TreeNode)) *TreeView {
 // node by pressing Enter on the current selection.
 func (t *TreeView) SetSelectedFunc(handler func(node *TreeNode)) *TreeView {
 	t.selected = handler
+	return t
+}
+
+// SetDoneFunc sets a handler which is called whenever the user presses the
+// Escape, Tab, or Backtab key.
+func (t *TreeView) SetDoneFunc(handler func(key tcell.Key)) *TreeView {
+	t.done = handler
 	return t
 }
 
@@ -679,9 +690,13 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		// Because the tree is flattened into a list only at drawing time, we also
 		// postpone the (selection) movement to drawing time.
 		switch key := event.Key(); key {
-		case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
+		case tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape:
+			if t.done != nil {
+				t.done(key)
+			}
+		case tcell.KeyDown, tcell.KeyRight:
 			t.movement = treeDown
-		case tcell.KeyBacktab, tcell.KeyUp, tcell.KeyLeft:
+		case tcell.KeyUp, tcell.KeyLeft:
 			t.movement = treeUp
 		case tcell.KeyHome:
 			t.movement = treeHome
