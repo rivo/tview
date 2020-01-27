@@ -2,12 +2,18 @@ package tview
 
 import (
 	"sync"
+	"time"
 
 	"github.com/gdamore/tcell"
 )
 
-// The size of the event/update/redraw channels.
-const queueSize = 100
+const (
+	// The size of the event/update/redraw channels.
+	queueSize = 100
+
+	// The minimum time between two consecutive redraws.
+	redrawPause = 50 * time.Millisecond
+)
 
 // Application represents the top node of an application.
 //
@@ -124,7 +130,12 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 // Run starts the application and thus the event loop. This function returns
 // when Stop() was called.
 func (a *Application) Run() error {
-	var err error
+	var (
+		err           error
+		width, height int         // The current size of the screen.
+		lastRedraw    time.Time   // The time the screen was last redrawn.
+		redrawTimer   *time.Timer // A timer to schedule the next redraw.
+	)
 	a.Lock()
 
 	// Make a screen if there is none yet.
@@ -238,12 +249,25 @@ EventLoop:
 					}
 				}
 			case *tcell.EventResize:
+				if time.Since(lastRedraw) < redrawPause {
+					if redrawTimer != nil {
+						redrawTimer.Stop()
+					}
+					redrawTimer = time.AfterFunc(redrawPause, func() {
+						a.events <- event
+					})
+				}
 				a.RLock()
 				screen := a.screen
 				a.RUnlock()
 				if screen == nil {
 					continue
 				}
+				newWidth, newHeight := screen.Size()
+				if newWidth == width && newHeight == height {
+					continue
+				}
+				width, height = newWidth, newHeight
 				screen.Clear()
 				a.draw()
 			}
