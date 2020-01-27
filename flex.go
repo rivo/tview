@@ -101,7 +101,7 @@ func (f *Flex) RemoveItem(p Primitive) *Flex {
 	return f
 }
 
-// Clear removes all items from the flexbox
+// Clear removes all items from the container.
 func (f *Flex) Clear() *Flex {
 	f.items = nil
 	return f
