@@ -268,6 +268,7 @@ EventLoop:
 					continue
 				}
 				width, height = newWidth, newHeight
+				lastRedraw = time.Now()
 				screen.Clear()
 				a.draw()
 			}
