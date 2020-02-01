@@ -251,6 +251,12 @@ type Table struct {
 	// The number of visible rows the last time the table was drawn.
 	visibleRows int
 
+	// Visibility of the scroll bar.
+	scrollBarVisibility ScrollBarVisibility
+
+	// The scroll bar color.
+	scrollBarColor tcell.Color
+
 	// The style of the selected rows. If this value is 0, selected rows are
 	// simply inverted.
 	selectedStyle tcell.Style
@@ -273,10 +279,12 @@ type Table struct {
 // NewTable returns a new table.
 func NewTable() *Table {
 	return &Table{
-		Box:          NewBox(),
-		bordersColor: Styles.GraphicsColor,
-		separator:    ' ',
-		lastColumn:   -1,
+		Box:                 NewBox(),
+		scrollBarVisibility: ScrollBarAuto,
+		scrollBarColor:      Styles.ScrollBarColor,
+		bordersColor:        Styles.GraphicsColor,
+		separator:           ' ',
+		lastColumn:          -1,
 	}
 }
 
@@ -297,6 +305,18 @@ func (t *Table) SetBorders(show bool) *Table {
 // SetBordersColor sets the color of the cell borders.
 func (t *Table) SetBordersColor(color tcell.Color) *Table {
 	t.bordersColor = color
+	return t
+}
+
+// SetScrollBarVisibility specifies the display of the scroll bar.
+func (t *Table) SetScrollBarVisibility(visibility ScrollBarVisibility) *Table {
+	t.scrollBarVisibility = visibility
+	return t
+}
+
+// SetScrollBarColor sets the color of the scroll bar.
+func (t *Table) SetScrollBarColor(color tcell.Color) *Table {
+	t.scrollBarColor = color
 	return t
 }
 
@@ -570,6 +590,11 @@ func (t *Table) Draw(screen tcell.Screen) {
 		t.visibleRows = height
 	}
 
+	showVerticalScrollBar := t.scrollBarVisibility == ScrollBarAlways || (t.scrollBarVisibility == ScrollBarAuto && len(t.cells) > t.visibleRows-t.fixedRows)
+	if showVerticalScrollBar {
+		width-- // Subtract space for scroll bar.
+	}
+
 	// Return the cell at the specified position (nil if it doesn't exist).
 	getCell := func(row, column int) *TableCell {
 		if row < 0 || column < 0 || row >= len(t.cells) || column >= len(t.cells[row]) {
@@ -766,6 +791,7 @@ ColumnLoop:
 			toDistribute -= expWidth
 			expansionTotal -= expansion
 		}
+		tableWidth = width - toDistribute
 	}
 
 	// Helper function which draws border runes.
@@ -860,6 +886,38 @@ ColumnLoop:
 			drawBorder(columnX, rowY, Borders.BottomRight)
 		}
 	}
+
+	if showVerticalScrollBar {
+		// Calculate scroll bar position and dimensions.
+		rows := len(t.cells)
+
+		scrollBarItems := rows - t.fixedRows
+		scrollBarHeight := t.visibleRows - t.fixedRows
+
+		scrollBarX := x + width
+		scrollBarY := y + t.fixedRows
+		if scrollBarX > x+tableWidth {
+			scrollBarX = x + tableWidth
+		}
+
+		padTotalOffset := 1
+		if t.borders {
+			padTotalOffset = 2
+
+			scrollBarItems *= 2
+			scrollBarHeight = (scrollBarHeight * 2) - 1
+
+			scrollBarY += t.fixedRows + 1
+		}
+
+		// Draw scroll bar.
+		cursor := int(float64(scrollBarItems) * (float64(t.rowOffset) / float64(((rows-t.fixedRows)-t.visibleRows)+padTotalOffset)))
+		for printed := 0; printed < scrollBarHeight; printed++ {
+			RenderScrollBar(screen, t.scrollBarVisibility, scrollBarX, scrollBarY+printed, scrollBarHeight, scrollBarItems, cursor, printed, t.hasFocus, t.scrollBarColor)
+		}
+	}
+
+	// TODO Draw horizontal scroll bar
 
 	// Helper function which colors the background of a box.
 	// backgroundColor == tcell.ColorDefault => Don't color the background.

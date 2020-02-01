@@ -270,6 +270,12 @@ type TreeView struct {
 	// The color of the lines.
 	graphicsColor tcell.Color
 
+	// Visibility of the scroll bar.
+	scrollBarVisibility ScrollBarVisibility
+
+	// The scroll bar color.
+	scrollBarColor tcell.Color
+
 	// An optional function which is called when the user has navigated to a new
 	// tree node.
 	changed func(node *TreeNode)
@@ -288,9 +294,11 @@ type TreeView struct {
 // NewTreeView returns a new tree view.
 func NewTreeView() *TreeView {
 	return &TreeView{
-		Box:           NewBox(),
-		graphics:      true,
-		graphicsColor: Styles.GraphicsColor,
+		Box:                 NewBox(),
+		scrollBarVisibility: ScrollBarAuto,
+		graphics:            true,
+		graphicsColor:       Styles.GraphicsColor,
+		scrollBarColor:      Styles.ScrollBarColor,
 	}
 }
 
@@ -362,6 +370,18 @@ func (t *TreeView) SetGraphics(showGraphics bool) *TreeView {
 // SetGraphicsColor sets the colors of the lines used to draw the tree structure.
 func (t *TreeView) SetGraphicsColor(color tcell.Color) *TreeView {
 	t.graphicsColor = color
+	return t
+}
+
+// SetScrollBarVisibility specifies the display of the scroll bar.
+func (t *TreeView) SetScrollBarVisibility(visibility ScrollBarVisibility) *TreeView {
+	t.scrollBarVisibility = visibility
+	return t
+}
+
+// SetScrollBarColor sets the color of the scroll bar.
+func (t *TreeView) SetScrollBarColor(color tcell.Color) *TreeView {
+	t.scrollBarColor = color
 	return t
 }
 
@@ -601,12 +621,16 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 		t.offsetY = 0
 	}
 
+	// Calculate scroll bar position.
+	rows := len(t.nodes)
+	cursor := int(float64(rows) * (float64(t.offsetY) / float64(rows-height)))
+
 	// Draw the tree.
 	posY := y
 	lineStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.graphicsColor)
 	for index, node := range t.nodes {
 		// Skip invisible parts.
-		if posY >= y+height+1 {
+		if posY >= y+height {
 			break
 		}
 		if index < t.offsetY {
@@ -667,6 +691,9 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 				printWithStyle(screen, node.text, x+node.textX+prefixWidth, posY, width-node.textX-prefixWidth, AlignLeft, style)
 			}
 		}
+
+		// Draw scroll bar.
+		RenderScrollBar(screen, t.scrollBarVisibility, x+(width-1), posY, height, rows, cursor, posY-y, t.hasFocus, tcell.ColorWhite)
 
 		// Advance.
 		posY++

@@ -15,6 +15,7 @@ type Theme struct {
 	TertiaryTextColor           tcell.Color // Tertiary text (e.g. subtitles, notes).
 	InverseTextColor            tcell.Color // Text on primary-colored backgrounds.
 	ContrastSecondaryTextColor  tcell.Color // Secondary text on ContrastBackgroundColor-colored backgrounds.
+	ScrollBarColor              tcell.Color // Scroll bar.
 }
 
 // Styles defines the theme for applications. The default is for a black
@@ -32,4 +33,5 @@ var Styles = Theme{
 	TertiaryTextColor:           tcell.ColorGreen,
 	InverseTextColor:            tcell.ColorBlue,
 	ContrastSecondaryTextColor:  tcell.ColorDarkCyan,
+	ScrollBarColor:              tcell.ColorWhite,
 }

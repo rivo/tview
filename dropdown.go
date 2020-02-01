@@ -374,7 +374,6 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		// We prefer to drop down but if there is no space, maybe drop up?
 		lx := x
 		ly := y + 1
-		lwidth := maxWidth
 		lheight := len(d.options)
 		_, sheight := screen.Size()
 		if ly+lheight >= sheight && ly-2 > lheight-ly {
@@ -385,6 +384,10 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		}
 		if ly+lheight >= sheight {
 			lheight = sheight - ly
+		}
+		lwidth := maxWidth
+		if d.list.scrollBarVisibility == ScrollBarAlways || (d.list.scrollBarVisibility == ScrollBarAuto && len(d.options) > lheight) {
+			lwidth++ // Add space for scroll bar
 		}
 		d.list.SetRect(lx, ly, lwidth, lheight)
 		d.list.Draw(screen)
