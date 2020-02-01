@@ -422,6 +422,9 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		if ly+lheight >= sheight {
 			lheight = sheight - ly
 		}
+		if i.autocompleteList.scrollBarVisibility == ScrollBarAlways || (i.autocompleteList.scrollBarVisibility == ScrollBarAuto && i.autocompleteList.GetItemCount() > lheight) {
+			lwidth++ // Add space for scroll bar
+		}
 		i.autocompleteList.SetRect(lx, ly, lwidth, lheight)
 		i.autocompleteList.Draw(screen)
 	}
