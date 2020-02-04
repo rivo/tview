@@ -409,6 +409,9 @@ func (t *TreeView) process() {
 	// Determine visible nodes and their placement.
 	var graphicsOffset, maxTextX int
 	t.nodes = nil
+	if t.root == nil {
+		return
+	}
 	selectedIndex := -1
 	topLevelGraphicsX := -1
 	if t.graphics {
