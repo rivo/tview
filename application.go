@@ -2,6 +2,7 @@ package tview
 
 import (
 	"sync"
+	"time"
 
 	"github.com/gdamore/tcell"
 )
@@ -77,6 +78,7 @@ type Application struct {
 	lastMouseX, lastMouseY int // track last mouse pos
 	mouseDownX, mouseDownY int // track last mouse down pos
 	lastMouseAct           MouseAction
+	lastClickTime          time.Time
 	lastMouseBtn           tcell.ButtonMask
 }
 
@@ -254,7 +256,6 @@ EventLoop:
 			p := a.focus
 			inputCapture := a.inputCapture
 			mouseCapture := a.mouseCapture
-			mouseHandlerCapture := a.mouseHandlerCapture
 			screen := a.screen
 			root := a.root
 			a.RUnlock()
@@ -303,7 +304,7 @@ EventLoop:
 				}
 				action = action.getMouseButtonAction(a.lastMouseBtn, btn)
 				if atX == int(a.mouseDownX) && atY == int(a.mouseDownY) {
-					action = action.getMouseClickAction(a.lastMouseAct)
+					action = action.getMouseClickAction(a.lastMouseAct, &a.lastClickTime)
 				}
 				a.lastMouseAct = action
 				a.lastMouseBtn = btn
@@ -322,8 +323,8 @@ EventLoop:
 				}
 
 				var newHandlerCapture Primitive = nil // Clear it by default.
-				if mouseHandlerCapture != nil {       // Check if already captured.
-					if handler := mouseHandlerCapture.MouseHandler(); handler != nil {
+				if a.mouseHandlerCapture != nil {     // Check if already captured.
+					if handler := a.mouseHandlerCapture.MouseHandler(); handler != nil {
 						_, newHandlerCapture = handler(action, event, func(p Primitive) {
 							a.SetFocus(p)
 						})
@@ -335,10 +336,7 @@ EventLoop:
 					})
 					a.draw()
 				}
-
-				a.Lock()
 				a.mouseHandlerCapture = newHandlerCapture
-				a.Unlock()
 			}
 
 		// If we have updates, now is the time to execute them.

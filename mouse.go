@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"time"
+
 	"github.com/gdamore/tcell"
 )
 
@@ -26,6 +28,8 @@ const (
 	WheelLeft
 	WheelRight
 )
+
+var DoubleClickInterval = 500 * time.Millisecond
 
 // Does not set MouseMove or *Click actions.
 func (action MouseAction) getMouseButtonAction(lastBtn, btn tcell.ButtonMask) MouseAction {
@@ -74,27 +78,33 @@ func (action MouseAction) getMouseButtonAction(lastBtn, btn tcell.ButtonMask) Mo
 // Do not call if the mouse moved.
 // Sets the *Click, including *DoubleClick.
 // This should be called last, after setting all the other flags.
-func (action MouseAction) getMouseClickAction(lastAct MouseAction) MouseAction {
+func (action MouseAction) getMouseClickAction(lastAct MouseAction, lastClickTime *time.Time) MouseAction {
 	if action&MouseMove == 0 {
 		if action&MouseLeftUp != 0 {
-			if lastAct&(MouseLeftClick|MouseLeftDoubleClick) == 0 {
+			if (*lastClickTime).Add(DoubleClickInterval).Before(time.Now()) {
 				action |= MouseLeftClick
-			} else if lastAct&MouseLeftDoubleClick == 0 {
+				*lastClickTime = time.Now()
+			} else {
 				action |= MouseLeftDoubleClick
+				*lastClickTime = time.Time{} // reset
 			}
 		}
 		if action&MouseMiddleUp != 0 {
-			if lastAct&(MouseMiddleClick|MouseMiddleDoubleClick) == 0 {
+			if (*lastClickTime).Add(DoubleClickInterval).Before(time.Now()) {
 				action |= MouseMiddleClick
-			} else if lastAct&MouseMiddleDoubleClick == 0 {
+				*lastClickTime = time.Now()
+			} else {
 				action |= MouseMiddleDoubleClick
+				*lastClickTime = time.Time{} // reset
 			}
 		}
 		if action&MouseRightUp != 0 {
-			if lastAct&(MouseRightClick|MouseRightDoubleClick) == 0 {
+			if (*lastClickTime).Add(DoubleClickInterval).Before(time.Now()) {
 				action |= MouseRightClick
-			} else if lastAct&MouseRightDoubleClick == 0 {
+				*lastClickTime = time.Now()
+			} else {
 				action |= MouseRightDoubleClick
+				*lastClickTime = time.Time{} // reset
 			}
 		}
 	}
