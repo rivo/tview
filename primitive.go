@@ -52,5 +52,5 @@ type Primitive interface {
 	// The Box class provides functionality to intercept mouse events. If you
 	// subclass from Box, it is recommended that you wrap your handler using
 	// Box.WrapMouseHandler() so you inherit that functionality.
-	MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool)
+	MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive)
 }

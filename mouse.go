@@ -28,9 +28,8 @@ const (
 )
 
 // Does not set MouseMove or *Click actions.
-func getMouseButtonAction(lastBtn, btn tcell.ButtonMask) MouseAction {
+func (action MouseAction) getMouseButtonAction(lastBtn, btn tcell.ButtonMask) MouseAction {
 	btnDiff := btn ^ lastBtn
-	var action MouseAction
 
 	if btnDiff&tcell.Button1 != 0 {
 		if btn&tcell.Button1 != 0 {
@@ -75,7 +74,7 @@ func getMouseButtonAction(lastBtn, btn tcell.ButtonMask) MouseAction {
 // Do not call if the mouse moved.
 // Sets the *Click, including *DoubleClick.
 // This should be called last, after setting all the other flags.
-func getMouseClickAction(lastAct, action MouseAction) MouseAction {
+func (action MouseAction) getMouseClickAction(lastAct MouseAction) MouseAction {
 	if action&MouseMove == 0 {
 		if action&MouseLeftUp != 0 {
 			if lastAct&(MouseLeftClick|MouseLeftDoubleClick) == 0 {

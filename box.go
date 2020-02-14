@@ -62,7 +62,7 @@ type Box struct {
 	// An optional capture function which receives a mouse event and returns the
 	// event to be forwarded to the primitive's default mouse event handler (nil if
 	// nothing should be forwarded).
-	mouseCapture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)
+	mouseCapture func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse)
 }
 
 // NewBox returns a Box without a border.
@@ -202,20 +202,20 @@ func (b *Box) GetInputCapture() func(event *tcell.EventKey) *tcell.EventKey {
 // on to the provided (default) event handler.
 //
 // This is only meant to be used by subclassing primitives.
-func (b *Box) WrapMouseHandler(mouseHandler func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool)) func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
-	return func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+func (b *Box) WrapMouseHandler(mouseHandler func(MouseAction, *tcell.EventMouse, func(p Primitive)) (bool, Primitive)) func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		if b.mouseCapture != nil {
-			event, action = b.mouseCapture(event, action)
+			action, event = b.mouseCapture(action, event)
 		}
 		if event != nil && mouseHandler != nil {
-			consumed, capture = mouseHandler(event, action, setFocus)
+			consumed, capture = mouseHandler(action, event, setFocus)
 		}
 		return
 	}
 }
 
 // MouseHandler returns nil.
-func (b *Box) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
+func (b *Box) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return b.WrapMouseHandler(nil)
 }
 
@@ -226,7 +226,7 @@ func (b *Box) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primiti
 // be called.
 //
 // Providing a nil handler will remove a previously existing handler.
-func (b *Box) SetMouseCapture(capture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)) *Box {
+func (b *Box) SetMouseCapture(capture func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse)) *Box {
 	b.mouseCapture = capture
 	return b
 }
@@ -239,7 +239,7 @@ func (b *Box) InRect(atX, atY int) bool {
 
 // GetMouseCapture returns the function installed with SetMouseCapture() or nil
 // if no such function has been installed.
-func (b *Box) GetMouseCapture() func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction) {
+func (b *Box) GetMouseCapture() func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse) {
 	return b.mouseCapture
 }
 

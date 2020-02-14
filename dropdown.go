@@ -493,7 +493,7 @@ func (d *DropDown) HasFocus() bool {
 	return d.hasFocus
 }
 
-func (d *DropDown) listClick(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+func (d *DropDown) listClick(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	atX, atY := event.Position()
 	x, y, w, h := d.list.GetRect()
 	if atX >= x && atY >= y && atX < x+w && atY < y+h {
@@ -501,23 +501,23 @@ func (d *DropDown) listClick(event *tcell.EventMouse, action MouseAction, setFoc
 		if handler := d.list.MouseHandler(); handler != nil {
 			// Treat mouse up as click here.
 			// This allows you to expand and select in one go.
-			return handler(event, MouseLeftUp|MouseLeftClick, setFocus)
+			handler(MouseLeftUp|MouseLeftClick, event, setFocus)
 		}
-		return true, false
+		return true, d
 	}
-	return false, false
+	return false, nil
 }
 
 // MouseHandler returns the mouse handler for this primitive.
-func (d *DropDown) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
-	return d.WrapMouseHandler(func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+func (d *DropDown) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return d.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		inRect := d.InRect(event.Position())
 		if !d.open && !inRect {
-			return false, false
+			return false, nil
 		}
 		// Process mouse event.
 		if d.open && action&(MouseLeftDown|MouseLeftUp) != 0 { // Close it:
-			consumed, capture = d.listClick(event, action, setFocus)
+			consumed, capture = d.listClick(action, event, setFocus)
 			if consumed {
 				d.closeList(setFocus)
 				return consumed, capture
@@ -527,8 +527,14 @@ func (d *DropDown) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Pr
 			}
 		} else if !d.open && inRect && action&MouseLeftDown != 0 { // Open it:
 			d.openList(setFocus)
-			return true, true // capture
+			return true, d // capture
+		} else if d.open {
+			// Non-click while list is open.
+			if handler := d.list.MouseHandler(); handler != nil {
+				handler(action, event, setFocus)
+			}
+			return true, d // capture
 		}
-		return true, false
+		return true, nil
 	})
 }

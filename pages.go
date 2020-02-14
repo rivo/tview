@@ -280,20 +280,20 @@ func (p *Pages) Draw(screen tcell.Screen) {
 }
 
 // MouseHandler returns the mouse handler for this primitive.
-func (p *Pages) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
-	return p.WrapMouseHandler(func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+func (p *Pages) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return p.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		if !p.InRect(event.Position()) {
-			return false, false
+			return false, nil
 		}
 		// Process mouse event.
 		for _, page := range p.pages {
 			if page.Visible {
-				consumed, capture = page.Item.MouseHandler()(event, action, setFocus)
+				consumed, capture = page.Item.MouseHandler()(action, event, setFocus)
 				if consumed {
 					return consumed, capture
 				}
 			}
 		}
-		return true, false
+		return true, nil
 	})
 }

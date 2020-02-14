@@ -593,15 +593,15 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 }
 
 // MouseHandler returns the mouse handler for this primitive.
-func (i *InputField) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
-	return i.WrapMouseHandler(func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+func (i *InputField) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return i.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		if !i.InRect(event.Position()) {
-			return false, false
+			return false, nil
 		}
 		// Process mouse event.
 		if action&MouseLeftDown != 0 {
 			setFocus(i)
 		}
-		return true, false
+		return true, nil
 	})
 }

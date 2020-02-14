@@ -71,8 +71,11 @@ type Application struct {
 	// be forwarded).
 	mouseCapture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)
 
-	lastMouseX, lastMouseY int16 // track last mouse pos
-	mouseDownX, mouseDownY int16 // track last mouse down pos
+	// An optional mouse capture Primitive returned from the MouseHandler.
+	mouseHandlerCapture Primitive
+
+	lastMouseX, lastMouseY int // track last mouse pos
+	mouseDownX, mouseDownY int // track last mouse down pos
 	lastMouseAct           MouseAction
 	lastMouseBtn           tcell.ButtonMask
 }
@@ -251,6 +254,7 @@ EventLoop:
 			p := a.focus
 			inputCapture := a.inputCapture
 			mouseCapture := a.mouseCapture
+			mouseHandlerCapture := a.mouseHandlerCapture
 			screen := a.screen
 			root := a.root
 			a.RUnlock()
@@ -294,18 +298,18 @@ EventLoop:
 				var action MouseAction
 				if atX != int(a.lastMouseX) || atY != int(a.lastMouseY) {
 					action |= MouseMove
-					a.lastMouseX = int16(atX)
-					a.lastMouseY = int16(atY)
+					a.lastMouseX = atX
+					a.lastMouseY = atY
 				}
-				action |= getMouseButtonAction(a.lastMouseBtn, btn)
+				action = action.getMouseButtonAction(a.lastMouseBtn, btn)
 				if atX == int(a.mouseDownX) && atY == int(a.mouseDownY) {
-					action |= getMouseClickAction(a.lastMouseAct, action)
+					action = action.getMouseClickAction(a.lastMouseAct)
 				}
 				a.lastMouseAct = action
 				a.lastMouseBtn = btn
 				if action&(MouseLeftDown|MouseMiddleDown|MouseRightDown) != 0 {
-					a.mouseDownX = int16(atX)
-					a.mouseDownY = int16(atY)
+					a.mouseDownX = atX
+					a.mouseDownY = atY
 				}
 
 				// Intercept event.
@@ -317,13 +321,24 @@ EventLoop:
 					}
 				}
 
-				if handler := root.MouseHandler(); handler != nil {
-					//consumed, capture :=
-					handler(event, action, func(p Primitive) {
+				var newHandlerCapture Primitive = nil // Clear it by default.
+				if mouseHandlerCapture != nil {       // Check if already captured.
+					if handler := mouseHandlerCapture.MouseHandler(); handler != nil {
+						_, newHandlerCapture = handler(action, event, func(p Primitive) {
+							a.SetFocus(p)
+						})
+						a.draw()
+					}
+				} else if handler := root.MouseHandler(); handler != nil {
+					_, newHandlerCapture = handler(action, event, func(p Primitive) {
 						a.SetFocus(p)
 					})
 					a.draw()
 				}
+
+				a.Lock()
+				a.mouseHandlerCapture = newHandlerCapture
+				a.Unlock()
 			}
 
 		// If we have updates, now is the time to execute them.

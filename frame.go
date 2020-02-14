@@ -157,16 +157,16 @@ func (f *Frame) HasFocus() bool {
 }
 
 // MouseHandler returns the mouse handler for this primitive.
-func (f *Frame) MouseHandler() func(*tcell.EventMouse, MouseAction, func(p Primitive)) (bool, bool) {
-	return f.WrapMouseHandler(func(event *tcell.EventMouse, action MouseAction, setFocus func(p Primitive)) (consumed, capture bool) {
+func (f *Frame) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return f.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		if !f.InRect(event.Position()) {
-			return false, false
+			return false, nil
 		}
 		// Process mouse event.
-		consumed, capture = f.primitive.MouseHandler()(event, action, setFocus)
+		consumed, capture = f.primitive.MouseHandler()(action, event, setFocus)
 		if consumed {
 			return consumed, capture
 		}
-		return true, false
+		return true, nil
 	})
 }
