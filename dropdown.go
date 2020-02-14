@@ -494,16 +494,14 @@ func (d *DropDown) HasFocus() bool {
 }
 
 func (d *DropDown) listClick(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
-	atX, atY := event.Position()
-	x, y, w, h := d.list.GetRect()
-	if atX >= x && atY >= y && atX < x+w && atY < y+h {
+	if d.list.InRect(event.Position()) {
 		// Mouse is within the list.
 		if handler := d.list.MouseHandler(); handler != nil {
 			// Treat mouse up as click here.
 			// This allows you to expand and select in one go.
 			handler(MouseLeftUp|MouseLeftClick, event, setFocus)
 		}
-		return true, d
+		return true, d // capture
 	}
 	return false, nil
 }
@@ -519,17 +517,21 @@ func (d *DropDown) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		if d.open && action&(MouseLeftDown|MouseLeftUp) != 0 { // Close it:
 			consumed, capture = d.listClick(action, event, setFocus)
 			if consumed {
+				// The list click was processed.
 				d.closeList(setFocus)
 				return consumed, capture
 			}
 			if inRect && action&MouseLeftClick == 0 {
+				// Close the list if mouse down/up is not a click.
+				d.closeList(setFocus)
+			} else if !inRect && action&MouseLeftDown != 0 {
+				// Close the list if not in the list and mouse is down.
 				d.closeList(setFocus)
 			}
 		} else if !d.open && inRect && action&MouseLeftDown != 0 { // Open it:
 			d.openList(setFocus)
 			return true, d // capture
-		} else if d.open {
-			// Non-click while list is open.
+		} else if d.open { // Non-click while list is open:
 			if handler := d.list.MouseHandler(); handler != nil {
 				handler(action, event, setFocus)
 			}
