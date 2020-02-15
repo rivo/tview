@@ -628,3 +628,50 @@ func iterateStringReverse(text string, callback func(main rune, comb []rune, tex
 
 	return false
 }
+
+// ScrollBarVisibility specifies the display of a scroll bar.
+type ScrollBarVisibility int
+
+const (
+	// ScrollBarNever never shows a scroll bar.
+	ScrollBarNever ScrollBarVisibility = iota
+
+	// ScrollBarAuto shows a scroll bar when there are items offscreen.
+	ScrollBarAuto
+
+	// ScrollBarAlways always shows a scroll bar.
+	ScrollBarAlways
+)
+
+// RenderScrollBar renders a scroll bar character at the specified position.
+func RenderScrollBar(screen tcell.Screen, x int, y int, height int, items int, cursor int, printed int, focused bool, color tcell.Color) {
+	// Do not render a scroll bar when all items are visible.
+	if items <= height {
+		return
+	}
+
+	// Handle negative cursor.
+	if cursor < 0 {
+		cursor = 0
+	}
+
+	// Calculate handle position.
+	handlePosition := int(float64(height-1) * (float64(cursor) / float64(items-1)))
+
+	// Print character.
+	var scrollBar string
+	if printed == handlePosition {
+		if focused {
+			scrollBar = "[::r] [-:-:-]"
+		} else {
+			scrollBar = "▓"
+		}
+	} else {
+		if focused {
+			scrollBar = "▒"
+		} else {
+			scrollBar = "░"
+		}
+	}
+	Print(screen, scrollBar, x, y, 1, AlignLeft, color)
+}

@@ -42,6 +42,12 @@ type List struct {
 	// The text color for selected items.
 	selectedTextColor tcell.Color
 
+	// Visibility of the scroll bar.
+	scrollBarVisibility ScrollBarVisibility
+
+	// The scroll bar color.
+	scrollBarColor tcell.Color
+
 	// The background color for selected items.
 	selectedBackgroundColor tcell.Color
 
@@ -75,10 +81,12 @@ func NewList() *List {
 		Box:                     NewBox(),
 		showSecondaryText:       true,
 		wrapAround:              true,
+		scrollBarVisibility:     ScrollBarAuto,
 		mainTextColor:           Styles.PrimaryTextColor,
 		secondaryTextColor:      Styles.TertiaryTextColor,
 		shortcutColor:           Styles.SecondaryTextColor,
 		selectedTextColor:       Styles.PrimitiveBackgroundColor,
+		scrollBarColor:          Styles.ScrollBarColor,
 		selectedBackgroundColor: Styles.PrimaryTextColor,
 	}
 }
@@ -213,6 +221,18 @@ func (l *List) SetHighlightFullLine(highlight bool) *List {
 // ShowSecondaryText determines whether or not to show secondary item texts.
 func (l *List) ShowSecondaryText(show bool) *List {
 	l.showSecondaryText = show
+	return l
+}
+
+// SetScrollBarVisibility specifies the display of the scroll bar.
+func (l *List) SetScrollBarVisibility(visibility ScrollBarVisibility) *List {
+	l.scrollBarVisibility = visibility
+	return l
+}
+
+// SetScrollBarColor sets the color of the scroll bar.
+func (l *List) SetScrollBarColor(color tcell.Color) *List {
+	l.scrollBarColor = color
 	return l
 }
 
@@ -395,6 +415,18 @@ func (l *List) Draw(screen tcell.Screen) {
 	x, y, width, height := l.GetInnerRect()
 	bottomLimit := y + height
 
+	screenWidth, _ := screen.Size()
+	scrollBarHeight := height
+	scrollBarX := x + (width - 1)
+	if scrollBarX > screenWidth-1 {
+		scrollBarX = screenWidth - 1
+	}
+
+	// Halve scroll bar height when drawing two lines per list item.
+	if l.showSecondaryText {
+		scrollBarHeight /= 2
+	}
+
 	// Do we show any shortcuts?
 	var showShortcuts bool
 	for _, item := range l.items {
@@ -457,6 +489,10 @@ func (l *List) Draw(screen tcell.Screen) {
 			}
 		}
 
+		if l.scrollBarVisibility == ScrollBarAlways || (l.scrollBarVisibility == ScrollBarAuto && len(l.items) > scrollBarHeight) {
+			RenderScrollBar(screen, scrollBarX, y, scrollBarHeight, len(l.items), l.currentItem, index-l.offset, l.hasFocus, l.scrollBarColor)
+		}
+
 		y++
 
 		if y >= bottomLimit {
@@ -466,6 +502,11 @@ func (l *List) Draw(screen tcell.Screen) {
 		// Secondary text.
 		if l.showSecondaryText {
 			Print(screen, item.SecondaryText, x, y, width, AlignLeft, l.secondaryTextColor)
+
+			if l.scrollBarVisibility == ScrollBarAlways || (l.scrollBarVisibility == ScrollBarAuto && len(l.items) > scrollBarHeight) {
+				RenderScrollBar(screen, scrollBarX, y, scrollBarHeight, len(l.items), l.currentItem, index-l.offset, l.hasFocus, l.scrollBarColor)
+			}
+
 			y++
 		}
 	}
