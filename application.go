@@ -15,6 +15,14 @@ const (
 	redrawPause = 50 * time.Millisecond
 )
 
+// queuedUpdate represented the execution of f queued by
+// Application.QueueUpdate(). The "done" channel receives exactly one element
+// after f has executed.
+type queuedUpdate struct {
+	f    func()
+	done chan struct{}
+}
+
 // Application represents the top node of an application.
 //
 // It is not strictly required to use this class as none of the other classes
@@ -61,7 +69,7 @@ type Application struct {
 	events chan tcell.Event
 
 	// Functions queued from goroutines, used to serialize updates to primitives.
-	updates chan func()
+	updates chan queuedUpdate
 
 	// An object that the screen variable will be set to after Fini() was called.
 	// Use this channel to set a new screen object for the application
@@ -74,7 +82,7 @@ type Application struct {
 func NewApplication() *Application {
 	return &Application{
 		events:            make(chan tcell.Event, queueSize),
-		updates:           make(chan func(), queueSize),
+		updates:           make(chan queuedUpdate, queueSize),
 		screenReplacement: make(chan tcell.Screen, 1),
 	}
 }
@@ -274,8 +282,9 @@ EventLoop:
 			}
 
 		// If we have updates, now is the time to execute them.
-		case updater := <-a.updates:
-			updater()
+		case update := <-a.updates:
+			update.f()
+			update.done <- struct{}{}
 		}
 	}
 
@@ -335,7 +344,8 @@ func (a *Application) Suspend(f func()) bool {
 
 // Draw refreshes the screen (during the next update cycle). It calls the Draw()
 // function of the application's root primitive and then syncs the screen
-// buffer.
+// buffer. It is almost never necessary to call this function. Please see
+// https://github.com/rivo/tview/wiki/Concurrency for details.
 func (a *Application) Draw() *Application {
 	a.QueueUpdate(func() {
 		a.draw()
@@ -506,8 +516,12 @@ func (a *Application) GetFocus() Primitive {
 // may not be desirable. You can call Draw() from f if the screen should be
 // refreshed after each update. Alternatively, use QueueUpdateDraw() to follow
 // up with an immediate refresh of the screen.
+//
+// This function returns after f has executed.
 func (a *Application) QueueUpdate(f func()) *Application {
-	a.updates <- f
+	ch := make(chan struct{})
+	a.updates <- queuedUpdate{f: f, done: ch}
+	<-ch
 	return a
 }
 
