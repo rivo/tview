@@ -434,8 +434,10 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				if d.selected != nil {
 					d.selected(d.options[d.currentOption].Text, d.currentOption)
 				}
-				if d.options[d.currentOption].Selected != nil {
-					d.options[d.currentOption].Selected()
+				if d.currentOption >= 0 && d.currentOption < len(d.options) {
+					if d.options[d.currentOption].Selected != nil {
+						d.options[d.currentOption].Selected()
+					}
 				}
 			}).SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 				if event.Key() == tcell.KeyRune {
