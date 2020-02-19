@@ -247,6 +247,11 @@ EventLoop:
 					a.Stop()
 				}
 
+				// Allow a validation to short-circuit input handling
+				if !a.ValidatePrimitive(p, event) {
+					continue
+				}
+
 				// Pass other key events to the currently focused primitive.
 				if p != nil {
 					if handler := p.InputHandler(); handler != nil {
@@ -541,4 +546,53 @@ func (a *Application) QueueUpdateDraw(f func()) *Application {
 func (a *Application) QueueEvent(event tcell.Event) *Application {
 	a.events <- event
 	return a
+}
+
+// ValidatePrimitive will call a validation function specific to
+// a FormItem set using the SetValidateFunc() methods when one of
+// the field exit keys — Enter, Tab, Backtab, or Escape — is used.
+// If the validation function returns false the focus will stay on
+// the non-valid form field.
+func (a *Application) ValidatePrimitive(p Primitive, event *tcell.EventKey) bool {
+	switch event.Key() {
+	case tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape:
+		// We will check validation below
+	default:
+		// No need to check
+		return true
+	}
+	switch p.(type) {
+	case *InputField:
+		i := p.(*InputField)
+		if i.valid == nil {
+			break
+		}
+		return i.valid(i, event)
+
+	case *DropDown:
+		dd := p.(*DropDown)
+		if dd.valid == nil {
+			break
+		}
+		return dd.valid(dd, event)
+
+	case *Checkbox:
+		cb := p.(*Checkbox)
+		if cb.valid == nil {
+			break
+		}
+		return cb.valid(cb, event)
+
+	default:
+		b, ok := p.(*Box)
+		if !ok {
+			break
+		}
+		if b.valid == nil {
+			break
+		}
+		return b.valid(p, event)
+
+	}
+	return true
 }

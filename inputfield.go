@@ -96,6 +96,11 @@ type InputField struct {
 	// A callback function set by the Form class and called when the user leaves
 	// this form item.
 	finished func(tcell.Key)
+
+	// A callback function to be called when one of the field exit keys — Enter,
+	// Tab, Backtab, or Escape — is used. If this callback returns false it will
+	// bypass the input handler and leave the focus on the non-valid field.
+	valid func(*InputField, *tcell.EventKey) bool
 }
 
 // NewInputField returns a new input field.
@@ -298,6 +303,14 @@ func (i *InputField) SetDoneFunc(handler func(key tcell.Key)) *InputField {
 // SetFinishedFunc sets a callback invoked when the user leaves this form item.
 func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	i.finished = handler
+	return i
+}
+
+// SetValidateFunc sets a callback to be called when one of the field exit keys —
+// Enter, Tab, Backtab, or Escape — is used. If this callback returns false it
+// will stop the input handler from moving focus to a different field.
+func (i *InputField) SetValidateFunc(handler func(*InputField, *tcell.EventKey) bool) *InputField {
+	i.valid = handler
 	return i
 }
 
@@ -590,4 +603,133 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			}
 		}
 	})
+}
+
+// InputFieldArgs provides a concise and readable way to initialize
+// all the properties of the InputField struct by passing to the
+// <form>.AddFormItem(item,args).
+type InputFieldArgs struct {
+	baseFormItemArgs
+
+	// The text to be displayed before the input area.
+	Label string
+
+	// The text that was entered.
+	Text string
+
+	// The text to be displayed in the input area when "text" is empty.
+	Placeholder string
+
+	// The text color of the placeholder.
+	PlaceholderTextColor tcell.Color
+
+	// An optional function which may reject the last character that
+	// was entered.
+	AcceptanceFunc func(textToCheck string, lastChar rune) bool
+
+	// An optional function which is called when the input has changed.
+	ChangedFunc func(text string)
+
+	// The screen width of the input area. A value of 0 means extend
+	// as much as possible.
+	FieldWidth int
+
+	// The screen width of the label area. A value of 0 means use
+	// the width of the label text.
+	LabelWidth int
+
+	// The label color.
+	LabelColor tcell.Color
+
+	// The background color of the input area.
+	FieldBackgroundColor tcell.Color
+
+	// The text color of the input area.
+	FieldTextColor tcell.Color
+
+	// The background color of the input area.
+	BackgroundColor tcell.Color
+
+	// An optional function which is called when the user indicated
+	// that they are done entering text. The key which was pressed
+	// is provided (tab, shift-tab, enter, or escape).
+	DoneFunc func(key tcell.Key)
+
+	// A callback function set by the Form class and called when
+	// the user leaves this form item.
+	FinishedFunc func(key tcell.Key)
+
+	// An optional function which is called before the box is drawn.
+	DrawFunc func(screen tcell.Screen, x, y, width, height int) (int, int, int, int)
+
+	// An optional capture function which receives a key event and
+	// returns the event to be forwarded to the primitive's default
+	// input handler (nil if nothing should be forwarded).
+	InputCaptureFunc func(event *tcell.EventKey) *tcell.EventKey
+
+	// An optional function which is called before the box is drawn.
+	ValidateFunc func(*InputField, *tcell.EventKey) bool
+}
+
+// ApplyArgs applies the values from a InputFieldArgs{} or PasswordFieldArgs{}
+// struct to the associated properties of the PasswordField of its respective
+// field.
+func (i *InputField) ApplyArgs(args FormItemArgsImplementor) (item FormItem) {
+	switch args.(type) {
+	case *InputFieldArgs:
+		item = i.applyInputFieldArgs(args.(*InputFieldArgs))
+		break
+	case *PasswordFieldArgs:
+		item = i.applyPasswordFieldArgs(args.(*PasswordFieldArgs))
+		break
+	}
+	return item
+}
+
+// applyInputFieldArgs applies the values from a InputFieldArgs{}
+// struct to the associated properties of the InputField.
+func (i *InputField) applyInputFieldArgs(args *InputFieldArgs) *InputField {
+	i.SetLabel(args.Label)
+	i.SetText(args.Text)
+	i.SetFieldWidth(args.FieldWidth)
+	i.SetAcceptanceFunc(args.AcceptanceFunc)
+	i.SetChangedFunc(args.ChangedFunc)
+
+	if args.Placeholder != "" {
+		i.SetPlaceholder(args.Placeholder)
+	}
+	if args.LabelWidth > 0 {
+		i.SetLabelWidth(args.LabelWidth)
+	}
+	if args.LabelColor != 0 {
+		i.SetLabelColor(args.LabelColor)
+	}
+	if args.FieldBackgroundColor != 0 {
+		i.SetFieldBackgroundColor(args.FieldBackgroundColor)
+	}
+	if args.FieldTextColor != 0 {
+		i.SetFieldTextColor(args.FieldTextColor)
+	}
+	if args.BackgroundColor != 0 {
+		i.SetBackgroundColor(args.BackgroundColor)
+	}
+	if args.PlaceholderTextColor != 0 {
+		i.SetPlaceholderTextColor(args.PlaceholderTextColor)
+	}
+	if args.DoneFunc != nil {
+		i.SetDoneFunc(args.DoneFunc)
+	}
+	if args.DrawFunc != nil {
+		i.SetDrawFunc(args.DrawFunc)
+	}
+	if args.FinishedFunc != nil {
+		i.SetFinishedFunc(args.FinishedFunc)
+	}
+	if args.ValidateFunc != nil {
+		i.SetValidateFunc(args.ValidateFunc)
+	}
+	if args.InputCaptureFunc != nil {
+		i.SetInputCapture(args.InputCaptureFunc)
+	}
+	return i
 }
