@@ -247,7 +247,8 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 // printWithStyle works like Print() but it takes a style instead of just a
 // foreground color.
 func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int, style tcell.Style) (int, int) {
-	if maxWidth <= 0 || len(text) == 0 {
+	totalWidth, totalHeight := screen.Size()
+	if maxWidth <= 0 || len(text) == 0 || y < 0 || y >= totalHeight {
 		return 0, 0
 	}
 
@@ -365,7 +366,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 	)
 	iterateString(strippedText, func(main rune, comb []rune, textPos, length, screenPos, screenWidth int) bool {
 		// Only continue if there is still space.
-		if drawnWidth+screenWidth > maxWidth {
+		if drawnWidth+screenWidth > maxWidth || x+drawnWidth >= totalWidth {
 			return true
 		}
 

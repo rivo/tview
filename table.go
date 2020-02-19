@@ -563,6 +563,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 	t.Box.Draw(screen)
 
 	// What's our available screen space?
+	_, totalHeight := screen.Size()
 	x, y, width, height := t.GetInnerRect()
 	if t.borders {
 		t.visibleRows = height / 2
@@ -800,7 +801,7 @@ ColumnLoop:
 				}
 				drawBorder(columnX, rowY, ch)
 				rowY++
-				if rowY >= height {
+				if rowY >= height || y+rowY >= totalHeight {
 					break // No space for the text anymore.
 				}
 				drawBorder(columnX, rowY, Borders.Vertical)

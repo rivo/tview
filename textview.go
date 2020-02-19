@@ -752,6 +752,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	t.Lock()
 	defer t.Unlock()
 	t.Box.Draw(screen)
+	totalWidth, totalHeight := screen.Size()
 
 	// Get the available size.
 	x, y, width, height := t.GetInnerRect()
@@ -838,7 +839,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	defaultStyle := tcell.StyleDefault.Foreground(t.textColor)
 	for line := t.lineOffset; line < len(t.index); line++ {
 		// Are we done?
-		if line-t.lineOffset >= height {
+		if line-t.lineOffset >= height || y+line-t.lineOffset >= totalHeight {
 			break
 		}
 
@@ -868,82 +869,84 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		}
 
 		// Print the line.
-		var colorPos, regionPos, escapePos, tagOffset, skipped int
-		iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
-			// Process tags.
-			for {
-				if colorPos < len(colorTags) && textPos+tagOffset >= colorTagIndices[colorPos][0] && textPos+tagOffset < colorTagIndices[colorPos][1] {
-					// Get the color.
-					foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colorTags[colorPos])
-					tagOffset += colorTagIndices[colorPos][1] - colorTagIndices[colorPos][0]
-					colorPos++
-				} else if regionPos < len(regionIndices) && textPos+tagOffset >= regionIndices[regionPos][0] && textPos+tagOffset < regionIndices[regionPos][1] {
-					// Get the region.
-					regionID = regions[regionPos][1]
-					tagOffset += regionIndices[regionPos][1] - regionIndices[regionPos][0]
-					regionPos++
-				} else {
-					break
-				}
-			}
-
-			// Skip the second-to-last character of an escape tag.
-			if escapePos < len(escapeIndices) && textPos+tagOffset == escapeIndices[escapePos][1]-2 {
-				tagOffset++
-				escapePos++
-			}
-
-			// Mix the existing style with the new style.
-			_, _, existingStyle, _ := screen.GetContent(x+posX, y+line-t.lineOffset)
-			_, background, _ := existingStyle.Decompose()
-			style := overlayStyle(background, defaultStyle, foregroundColor, backgroundColor, attributes)
-
-			// Do we highlight this character?
-			var highlighted bool
-			if len(regionID) > 0 {
-				if _, ok := t.highlights[regionID]; ok {
-					highlighted = true
-				}
-			}
-			if highlighted {
-				fg, bg, _ := style.Decompose()
-				if bg == tcell.ColorDefault {
-					r, g, b := fg.RGB()
-					c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
-					_, _, li := c.Hcl()
-					if li < .5 {
-						bg = tcell.ColorWhite
+		if y+line-t.lineOffset >= 0 {
+			var colorPos, regionPos, escapePos, tagOffset, skipped int
+			iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+				// Process tags.
+				for {
+					if colorPos < len(colorTags) && textPos+tagOffset >= colorTagIndices[colorPos][0] && textPos+tagOffset < colorTagIndices[colorPos][1] {
+						// Get the color.
+						foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colorTags[colorPos])
+						tagOffset += colorTagIndices[colorPos][1] - colorTagIndices[colorPos][0]
+						colorPos++
+					} else if regionPos < len(regionIndices) && textPos+tagOffset >= regionIndices[regionPos][0] && textPos+tagOffset < regionIndices[regionPos][1] {
+						// Get the region.
+						regionID = regions[regionPos][1]
+						tagOffset += regionIndices[regionPos][1] - regionIndices[regionPos][0]
+						regionPos++
 					} else {
-						bg = tcell.ColorBlack
+						break
 					}
 				}
-				style = style.Background(fg).Foreground(bg)
-			}
 
-			// Skip to the right.
-			if !t.wrap && skipped < skip {
-				skipped += screenWidth
-				return false
-			}
-
-			// Stop at the right border.
-			if posX+screenWidth > width {
-				return true
-			}
-
-			// Draw the character.
-			for offset := screenWidth - 1; offset >= 0; offset-- {
-				if offset == 0 {
-					screen.SetContent(x+posX+offset, y+line-t.lineOffset, main, comb, style)
-				} else {
-					screen.SetContent(x+posX+offset, y+line-t.lineOffset, ' ', nil, style)
+				// Skip the second-to-last character of an escape tag.
+				if escapePos < len(escapeIndices) && textPos+tagOffset == escapeIndices[escapePos][1]-2 {
+					tagOffset++
+					escapePos++
 				}
-			}
 
-			// Advance.
-			posX += screenWidth
-			return false
-		})
+				// Mix the existing style with the new style.
+				_, _, existingStyle, _ := screen.GetContent(x+posX, y+line-t.lineOffset)
+				_, background, _ := existingStyle.Decompose()
+				style := overlayStyle(background, defaultStyle, foregroundColor, backgroundColor, attributes)
+
+				// Do we highlight this character?
+				var highlighted bool
+				if len(regionID) > 0 {
+					if _, ok := t.highlights[regionID]; ok {
+						highlighted = true
+					}
+				}
+				if highlighted {
+					fg, bg, _ := style.Decompose()
+					if bg == tcell.ColorDefault {
+						r, g, b := fg.RGB()
+						c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
+						_, _, li := c.Hcl()
+						if li < .5 {
+							bg = tcell.ColorWhite
+						} else {
+							bg = tcell.ColorBlack
+						}
+					}
+					style = style.Background(fg).Foreground(bg)
+				}
+
+				// Skip to the right.
+				if !t.wrap && skipped < skip {
+					skipped += screenWidth
+					return false
+				}
+
+				// Stop at the right border.
+				if posX+screenWidth > width || x+posX >= totalWidth {
+					return true
+				}
+
+				// Draw the character.
+				for offset := screenWidth - 1; offset >= 0; offset-- {
+					if offset == 0 {
+						screen.SetContent(x+posX+offset, y+line-t.lineOffset, main, comb, style)
+					} else {
+						screen.SetContent(x+posX+offset, y+line-t.lineOffset, ' ', nil, style)
+					}
+				}
+
+				// Advance.
+				posX += screenWidth
+				return false
+			})
+		}
 	}
 
 	// If this view is not scrollable, we'll purge the buffer of lines that have

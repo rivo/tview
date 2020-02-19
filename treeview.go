@@ -575,6 +575,7 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 	if t.root == nil {
 		return
 	}
+	_, totalHeight := screen.Size()
 
 	t.process()
 
@@ -609,7 +610,7 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 	lineStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.graphicsColor)
 	for index, node := range t.nodes {
 		// Skip invisible parts.
-		if posY >= y+height+1 {
+		if posY >= y+height+1 || posY >= totalHeight {
 			break
 		}
 		if index < t.offsetY {

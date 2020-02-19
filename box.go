@@ -314,29 +314,6 @@ func (b *Box) Draw(screen tcell.Screen) {
 		b.innerX = -1
 		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.GetInnerRect()
 	}
-
-	// Clamp inner rect to screen.
-	width, height := screen.Size()
-	if b.innerX < 0 {
-		b.innerWidth += b.innerX
-		b.innerX = 0
-	}
-	if b.innerX+b.innerWidth >= width {
-		b.innerWidth = width - b.innerX
-	}
-	if b.innerY+b.innerHeight >= height {
-		b.innerHeight = height - b.innerY
-	}
-	if b.innerY < 0 {
-		b.innerHeight += b.innerY
-		b.innerY = 0
-	}
-	if b.innerWidth < 0 {
-		b.innerWidth = 0
-	}
-	if b.innerHeight < 0 {
-		b.innerHeight = 0
-	}
 }
 
 // Focus is called when this primitive receives focus.

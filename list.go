@@ -394,6 +394,10 @@ func (l *List) Draw(screen tcell.Screen) {
 	// Determine the dimensions.
 	x, y, width, height := l.GetInnerRect()
 	bottomLimit := y + height
+	_, totalHeight := screen.Size()
+	if bottomLimit > totalHeight {
+		bottomLimit = totalHeight
+	}
 
 	// Do we show any shortcuts?
 	var showShortcuts bool
