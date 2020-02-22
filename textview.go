@@ -925,6 +925,9 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				// Skip to the right.
 				if !t.wrap && skipped < skip {
 					skipped += screenWidth
+					if skipped > skip {
+						posX += skipped - skip
+					}
 					return false
 				}
 
