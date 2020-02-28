@@ -209,7 +209,7 @@ func (c *Checkbox) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			return false, nil
 		}
 		// Process mouse event.
-		if action&MouseLeftClick != 0 {
+		if action == MouseLeftClick {
 			c.checked = !c.checked
 			if c.changed != nil {
 				c.changed(c.checked)

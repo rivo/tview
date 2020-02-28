@@ -143,7 +143,7 @@ func (b *Button) MouseHandler() func(action MouseAction, event *tcell.EventMouse
 			return false, nil
 		}
 		// Process mouse event.
-		if action&MouseLeftClick != 0 {
+		if action == MouseLeftClick {
 			if b.selected != nil {
 				b.selected()
 			}

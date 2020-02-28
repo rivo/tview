@@ -553,7 +553,7 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			return false, nil
 		}
 		// Process mouse event.
-		if action&MouseLeftClick != 0 {
+		if action == MouseLeftClick {
 			atX, atY := event.Position()
 			index := l.indexAtPoint(atX, atY)
 			if index != -1 {

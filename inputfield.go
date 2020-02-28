@@ -599,7 +599,7 @@ func (i *InputField) MouseHandler() func(action MouseAction, event *tcell.EventM
 			return false, nil
 		}
 		// Process mouse event.
-		if action&MouseLeftDown != 0 {
+		if action == MouseLeftDown {
 			setFocus(i)
 		}
 		return true, nil

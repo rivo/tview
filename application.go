@@ -77,7 +77,6 @@ type Application struct {
 
 	lastMouseX, lastMouseY int // track last mouse pos
 	mouseDownX, mouseDownY int // track last mouse down pos
-	lastMouseAct           MouseAction
 	lastClickTime          time.Time
 	lastMouseBtn           tcell.ButtonMask
 }
@@ -292,51 +291,47 @@ EventLoop:
 				screen.Clear()
 				a.draw()
 			case *tcell.EventMouse:
-				atX, atY := event.Position()
-				btn := event.Buttons()
-
-				// Calculate mouse actions.
-				var action MouseAction
-				if atX != int(a.lastMouseX) || atY != int(a.lastMouseY) {
-					action |= MouseMove
-					a.lastMouseX = atX
-					a.lastMouseY = atY
-				}
-				action = action.getMouseButtonAction(a.lastMouseBtn, btn)
-				if atX == int(a.mouseDownX) && atY == int(a.mouseDownY) {
-					action = action.getMouseClickAction(a.lastMouseAct, &a.lastClickTime)
-				}
-				a.lastMouseAct = action
-				a.lastMouseBtn = btn
-				if action&(MouseLeftDown|MouseMiddleDown|MouseRightDown) != 0 {
-					a.mouseDownX = atX
-					a.mouseDownY = atY
-				}
-
-				// Intercept event.
-				if mouseCapture != nil {
-					event, action = mouseCapture(event, action)
-					if event == nil {
-						a.draw()
-						continue // Don't forward event.
+				isMouseDownAct := false
+				// Fire a mouse action.
+				mouseEv := func(action MouseAction) {
+					switch action {
+					case MouseLeftDown, MouseMiddleDown, MouseRightDown:
+						isMouseDownAct = true
 					}
-				}
 
-				var newHandlerCapture Primitive = nil // Clear it by default.
-				if a.mouseHandlerCapture != nil {     // Check if already captured.
-					if handler := a.mouseHandlerCapture.MouseHandler(); handler != nil {
+					// Intercept event.
+					if mouseCapture != nil {
+						event, action = mouseCapture(event, action)
+						if event == nil {
+							a.draw()
+							return // Don't forward event.
+						}
+					}
+
+					var newHandlerCapture Primitive = nil // Clear it by default.
+					if a.mouseHandlerCapture != nil {     // Check if already captured.
+						if handler := a.mouseHandlerCapture.MouseHandler(); handler != nil {
+							_, newHandlerCapture = handler(action, event, func(p Primitive) {
+								a.SetFocus(p)
+							})
+							a.draw()
+						}
+					} else if handler := root.MouseHandler(); handler != nil {
 						_, newHandlerCapture = handler(action, event, func(p Primitive) {
 							a.SetFocus(p)
 						})
 						a.draw()
 					}
-				} else if handler := root.MouseHandler(); handler != nil {
-					_, newHandlerCapture = handler(action, event, func(p Primitive) {
-						a.SetFocus(p)
-					})
-					a.draw()
+					a.mouseHandlerCapture = newHandlerCapture
 				}
-				a.mouseHandlerCapture = newHandlerCapture
+
+				a.fireMouseActions(event, mouseEv)
+
+				// Keep state:
+				a.lastMouseBtn = event.Buttons()
+				if isMouseDownAct {
+					a.mouseDownX, a.mouseDownY = event.Position()
+				}
 			}
 
 		// If we have updates, now is the time to execute them.
@@ -350,6 +345,83 @@ EventLoop:
 	a.screen = nil
 
 	return nil
+}
+
+func (a *Application) fireMouseActions(event *tcell.EventMouse, mouseEv func(MouseAction)) {
+	atX, atY := event.Position()
+	btn := event.Buttons()
+	clickMoved := atX != int(a.mouseDownX) || atY != int(a.mouseDownY)
+	btnDiff := btn ^ a.lastMouseBtn
+
+	if atX != int(a.lastMouseX) || atY != int(a.lastMouseY) {
+		mouseEv(MouseMove)
+		a.lastMouseX = atX
+		a.lastMouseY = atY
+	}
+
+	if btnDiff&tcell.Button1 != 0 {
+		if btn&tcell.Button1 != 0 {
+			mouseEv(MouseLeftDown)
+		} else {
+			mouseEv(MouseLeftUp)
+			if !clickMoved {
+				if a.lastClickTime.Add(DoubleClickInterval).Before(time.Now()) {
+					mouseEv(MouseLeftClick)
+					a.lastClickTime = time.Now()
+				} else {
+					mouseEv(MouseLeftDoubleClick)
+					a.lastClickTime = time.Time{} // reset
+				}
+			}
+		}
+	}
+
+	if btnDiff&tcell.Button2 != 0 {
+		if btn&tcell.Button2 != 0 {
+			mouseEv(MouseMiddleDown)
+		} else {
+			mouseEv(MouseMiddleUp)
+			if !clickMoved {
+				if a.lastClickTime.Add(DoubleClickInterval).Before(time.Now()) {
+					mouseEv(MouseMiddleClick)
+					a.lastClickTime = time.Now()
+				} else {
+					mouseEv(MouseMiddleDoubleClick)
+					a.lastClickTime = time.Time{} // reset
+				}
+			}
+		}
+	}
+
+	if btnDiff&tcell.Button3 != 0 {
+		if btn&tcell.Button3 != 0 {
+			mouseEv(MouseRightDown)
+		} else {
+			mouseEv(MouseRightUp)
+			if !clickMoved {
+				if a.lastClickTime.Add(DoubleClickInterval).Before(time.Now()) {
+					mouseEv(MouseRightClick)
+					a.lastClickTime = time.Now()
+				} else {
+					mouseEv(MouseRightDoubleClick)
+					a.lastClickTime = time.Time{} // reset
+				}
+			}
+		}
+	}
+
+	if btn&tcell.WheelUp != 0 {
+		mouseEv(WheelUp)
+	}
+	if btn&tcell.WheelDown != 0 {
+		mouseEv(WheelDown)
+	}
+	if btn&tcell.WheelLeft != 0 {
+		mouseEv(WheelLeft)
+	}
+	if btn&tcell.WheelRight != 0 {
+		mouseEv(WheelRight)
+	}
 }
 
 // Stop stops the application, causing Run() to return.
