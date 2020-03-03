@@ -699,4 +699,6 @@ const (
 	WheelRight
 )
 
+// DoubleClickInterval specifies the maximum time between clicks
+// to register a double click rather than click.
 var DoubleClickInterval = 500 * time.Millisecond
