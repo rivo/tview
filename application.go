@@ -291,12 +291,12 @@ EventLoop:
 				screen.Clear()
 				a.draw()
 			case *tcell.EventMouse:
-				isMouseDownAct := false
+				isMouseDownAction := false
 				// Fire a mouse action.
 				mouseEv := func(action MouseAction) {
 					switch action {
 					case MouseLeftDown, MouseMiddleDown, MouseRightDown:
-						isMouseDownAct = true
+						isMouseDownAction = true
 					}
 
 					// Intercept event.
@@ -308,8 +308,8 @@ EventLoop:
 						}
 					}
 
-					var newHandlerCapture Primitive = nil // Clear it by default.
-					if a.mouseHandlerCapture != nil {     // Check if already captured.
+					var newHandlerCapture Primitive   // None by default.
+					if a.mouseHandlerCapture != nil { // Check if already captured.
 						if handler := a.mouseHandlerCapture.MouseHandler(); handler != nil {
 							_, newHandlerCapture = handler(action, event, func(p Primitive) {
 								a.SetFocus(p)
@@ -329,7 +329,7 @@ EventLoop:
 
 				// Keep state:
 				a.lastMouseBtn = event.Buttons()
-				if isMouseDownAct {
+				if isMouseDownAction {
 					a.mouseDownX, a.mouseDownY = event.Position()
 				}
 			}
@@ -347,13 +347,15 @@ EventLoop:
 	return nil
 }
 
+// fireMouseActions determines each mouse action from mouse events
+// and fires the appropriate mouse handlers and mouse captures.
 func (a *Application) fireMouseActions(event *tcell.EventMouse, mouseEv func(MouseAction)) {
 	atX, atY := event.Position()
 	btn := event.Buttons()
-	clickMoved := atX != int(a.mouseDownX) || atY != int(a.mouseDownY)
+	clickMoved := atX != a.mouseDownX || atY != a.mouseDownY
 	btnDiff := btn ^ a.lastMouseBtn
 
-	if atX != int(a.lastMouseX) || atY != int(a.lastMouseY) {
+	if atX != a.lastMouseX || atY != a.lastMouseY {
 		mouseEv(MouseMove)
 		a.lastMouseX = atX
 		a.lastMouseY = atY
@@ -666,3 +668,28 @@ func (a *Application) QueueEvent(event tcell.Event) *Application {
 	a.events <- event
 	return a
 }
+
+// MouseAction indicates one of the actions the mouse is logically doing.
+type MouseAction int16
+
+const (
+	MouseMove MouseAction = iota
+	MouseLeftDown
+	MouseLeftUp
+	MouseLeftClick
+	MouseLeftDoubleClick
+	MouseMiddleDown
+	MouseMiddleUp
+	MouseMiddleClick
+	MouseMiddleDoubleClick
+	MouseRightDown
+	MouseRightUp
+	MouseRightClick
+	MouseRightDoubleClick
+	WheelUp
+	WheelDown
+	WheelLeft
+	WheelRight
+)
+
+var DoubleClickInterval = 500 * time.Millisecond
