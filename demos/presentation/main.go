@@ -91,7 +91,7 @@ func main() {
 		return event
 	})
 
-	app.EnableMouse()
+	app.EnableMouse(true)
 
 	// Start the application.
 	if err := app.SetRoot(layout, true).Run(); err != nil {

@@ -155,10 +155,17 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 }
 
 // EnableMouse enables mouse events.
-func (a *Application) EnableMouse() *Application {
+func (a *Application) EnableMouse(enable bool) *Application {
 	a.Lock()
-	a.enableMouse = true
-	a.Unlock()
+	defer a.Unlock()
+	if enable != a.enableMouse && a.screen != nil {
+		if enable {
+			a.screen.EnableMouse()
+		} else {
+			a.screen.DisableMouse()
+		}
+	}
+	a.enableMouse = enable
 	return a
 }
 
