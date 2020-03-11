@@ -499,9 +499,11 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		case tcell.KeyEnd:
 			l.currentItem = len(l.items) - 1
 		case tcell.KeyPgDn:
-			l.currentItem += 5
+			_, _, _, height := l.GetInnerRect()
+			l.currentItem += height
 		case tcell.KeyPgUp:
-			l.currentItem -= 5
+			_, _, _, height := l.GetInnerRect()
+			l.currentItem -= height
 		case tcell.KeyEnter:
 			if l.currentItem >= 0 && l.currentItem < len(l.items) {
 				item := l.items[l.currentItem]
