@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"sync"
+
 	"github.com/gdamore/tcell"
 )
 
@@ -27,6 +29,8 @@ type Frame struct {
 
 	// Border spacing.
 	top, bottom, header, footer, left, right int
+
+	sync.Mutex
 }
 
 // NewFrame returns a new frame around the given primitive. The primitive's
@@ -57,6 +61,9 @@ func NewFrame(primitive Primitive) *Frame {
 // the footer are printed bottom to top. Note that long text can overlap as
 // different alignments will be placed on the same row.
 func (f *Frame) AddText(text string, header bool, align int, color tcell.Color) *Frame {
+	f.Lock()
+	defer f.Unlock()
+
 	f.text = append(f.text, &frameText{
 		Text:   text,
 		Header: header,
@@ -68,6 +75,9 @@ func (f *Frame) AddText(text string, header bool, align int, color tcell.Color) 
 
 // Clear removes all text from the frame.
 func (f *Frame) Clear() *Frame {
+	f.Lock()
+	defer f.Unlock()
+
 	f.text = nil
 	return f
 }
@@ -76,6 +86,9 @@ func (f *Frame) Clear() *Frame {
 // "footer", the vertical space between the header and footer text and the
 // contained primitive (does not apply if there is no text).
 func (f *Frame) SetBorders(top, bottom, header, footer, left, right int) *Frame {
+	f.Lock()
+	defer f.Unlock()
+
 	f.top, f.bottom, f.header, f.footer, f.left, f.right = top, bottom, header, footer, left, right
 	return f
 }
@@ -83,6 +96,9 @@ func (f *Frame) SetBorders(top, bottom, header, footer, left, right int) *Frame 
 // Draw draws this primitive onto the screen.
 func (f *Frame) Draw(screen tcell.Screen) {
 	f.Box.Draw(screen)
+
+	f.Lock()
+	defer f.Unlock()
 
 	// Calculate start positions.
 	x, top, width, height := f.GetInnerRect()
@@ -144,11 +160,18 @@ func (f *Frame) Draw(screen tcell.Screen) {
 
 // Focus is called when this primitive receives focus.
 func (f *Frame) Focus(delegate func(p Primitive)) {
-	delegate(f.primitive)
+	f.Lock()
+	primitive := f.primitive
+	defer f.Unlock()
+
+	delegate(primitive)
 }
 
 // HasFocus returns whether or not this primitive has focus.
 func (f *Frame) HasFocus() bool {
+	f.Lock()
+	defer f.Unlock()
+
 	focusable, ok := f.primitive.(Focusable)
 	if ok {
 		return focusable.HasFocus()

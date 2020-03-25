@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"sync"
+
 	"github.com/gdamore/tcell"
 )
 
@@ -28,6 +30,8 @@ type Button struct {
 	// An optional function which is called when the user leaves the button. A
 	// key is provided indicating which key was pressed to leave (tab or backtab).
 	blur func(tcell.Key)
+
+	sync.Mutex
 }
 
 // NewButton returns a new input field.
@@ -45,17 +49,26 @@ func NewButton(label string) *Button {
 
 // SetLabel sets the button text.
 func (b *Button) SetLabel(label string) *Button {
+	b.Lock()
+	defer b.Unlock()
+
 	b.label = label
 	return b
 }
 
 // GetLabel returns the button text.
 func (b *Button) GetLabel() string {
+	b.Lock()
+	defer b.Unlock()
+
 	return b.label
 }
 
 // SetLabelColor sets the color of the button text.
 func (b *Button) SetLabelColor(color tcell.Color) *Button {
+	b.Lock()
+	defer b.Unlock()
+
 	b.labelColor = color
 	return b
 }
@@ -63,6 +76,9 @@ func (b *Button) SetLabelColor(color tcell.Color) *Button {
 // SetLabelColorActivated sets the color of the button text when the button is
 // in focus.
 func (b *Button) SetLabelColorActivated(color tcell.Color) *Button {
+	b.Lock()
+	defer b.Unlock()
+
 	b.labelColorActivated = color
 	return b
 }
@@ -70,12 +86,18 @@ func (b *Button) SetLabelColorActivated(color tcell.Color) *Button {
 // SetBackgroundColorActivated sets the background color of the button text when
 // the button is in focus.
 func (b *Button) SetBackgroundColorActivated(color tcell.Color) *Button {
+	b.Lock()
+	defer b.Unlock()
+
 	b.backgroundColorActivated = color
 	return b
 }
 
 // SetSelectedFunc sets a handler which is called when the button was selected.
 func (b *Button) SetSelectedFunc(handler func()) *Button {
+	b.Lock()
+	defer b.Unlock()
+
 	b.selected = handler
 	return b
 }
@@ -88,12 +110,18 @@ func (b *Button) SetSelectedFunc(handler func()) *Button {
 //   - KeyTab: Move to the next field.
 //   - KeyBacktab: Move to the previous field.
 func (b *Button) SetBlurFunc(handler func(key tcell.Key)) *Button {
+	b.Lock()
+	defer b.Unlock()
+
 	b.blur = handler
 	return b
 }
 
 // Draw draws this primitive onto the screen.
 func (b *Button) Draw(screen tcell.Screen) {
+	b.Lock()
+	defer b.Unlock()
+
 	// Draw the box.
 	borderColor := b.borderColor
 	backgroundColor := b.backgroundColor
@@ -104,7 +132,9 @@ func (b *Button) Draw(screen tcell.Screen) {
 			b.borderColor = borderColor
 		}()
 	}
+	b.Unlock()
 	b.Box.Draw(screen)
+	b.Lock()
 	b.backgroundColor = backgroundColor
 
 	// Draw label.

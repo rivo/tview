@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"sync"
+
 	"github.com/gdamore/tcell"
 )
 
@@ -36,6 +38,8 @@ type Flex struct {
 	// If set to true, Flex will use the entire screen as its available space
 	// instead its box dimensions.
 	fullScreen bool
+
+	sync.Mutex
 }
 
 // NewFlex returns a new flexbox layout container with no primitives and its
@@ -60,6 +64,9 @@ func NewFlex() *Flex {
 // SetDirection sets the direction in which the contained primitives are
 // distributed. This can be either FlexColumn (default) or FlexRow.
 func (f *Flex) SetDirection(direction int) *Flex {
+	f.Lock()
+	defer f.Unlock()
+
 	f.direction = direction
 	return f
 }
@@ -67,6 +74,9 @@ func (f *Flex) SetDirection(direction int) *Flex {
 // SetFullScreen sets the flag which, when true, causes the flex layout to use
 // the entire screen space instead of whatever size it is currently assigned to.
 func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
+	f.Lock()
+	defer f.Unlock()
+
 	f.fullScreen = fullScreen
 	return f
 }
@@ -86,6 +96,9 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 // You can provide a nil value for the primitive. This will still consume screen
 // space but nothing will be drawn.
 func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *Flex {
+	f.Lock()
+	defer f.Unlock()
+
 	f.items = append(f.items, &flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus})
 	return f
 }
@@ -93,6 +106,9 @@ func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *F
 // RemoveItem removes all items for the given primitive from the container,
 // keeping the order of the remaining items intact.
 func (f *Flex) RemoveItem(p Primitive) *Flex {
+	f.Lock()
+	defer f.Unlock()
+
 	for index := len(f.items) - 1; index >= 0; index-- {
 		if f.items[index].Item == p {
 			f.items = append(f.items[:index], f.items[index+1:]...)
@@ -111,6 +127,9 @@ func (f *Flex) Clear() *Flex {
 // are multiple Flex items with the same primitive, they will all receive the
 // same size. For details regarding the size parameters, see AddItem().
 func (f *Flex) ResizeItem(p Primitive, fixedSize, proportion int) *Flex {
+	f.Lock()
+	defer f.Unlock()
+
 	for _, item := range f.items {
 		if item.Item == p {
 			item.FixedSize = fixedSize
@@ -123,6 +142,9 @@ func (f *Flex) ResizeItem(p Primitive, fixedSize, proportion int) *Flex {
 // Draw draws this primitive onto the screen.
 func (f *Flex) Draw(screen tcell.Screen) {
 	f.Box.Draw(screen)
+
+	f.Lock()
+	defer f.Unlock()
 
 	// Calculate size and position of the items.
 
@@ -184,16 +206,24 @@ func (f *Flex) Draw(screen tcell.Screen) {
 
 // Focus is called when this primitive receives focus.
 func (f *Flex) Focus(delegate func(p Primitive)) {
+	f.Lock()
+
 	for _, item := range f.items {
 		if item.Item != nil && item.Focus {
+			f.Unlock()
 			delegate(item.Item)
 			return
 		}
 	}
+
+	f.Unlock()
 }
 
 // HasFocus returns whether or not this primitive has focus.
 func (f *Flex) HasFocus() bool {
+	f.Lock()
+	defer f.Unlock()
+
 	for _, item := range f.items {
 		if item.Item != nil && item.Item.GetFocusable().HasFocus() {
 			return true
