@@ -201,3 +201,20 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		}
 	})
 }
+
+// MouseHandler returns the mouse handler for this primitive.
+func (c *Checkbox) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return c.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if !c.InRect(event.Position()) {
+			return false, nil
+		}
+		// Process mouse event.
+		if action == MouseLeftClick {
+			c.checked = !c.checked
+			if c.changed != nil {
+				c.changed(c.checked)
+			}
+		}
+		return true, nil
+	})
+}

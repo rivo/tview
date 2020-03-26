@@ -558,3 +558,49 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		}
 	})
 }
+
+// returns -1 if not found.
+func (l *List) indexAtPoint(atX, atY int) int {
+	_, y, _, h := l.GetInnerRect()
+	if atY < y || atY >= y+h {
+		return -1
+	}
+
+	n := atY - y
+	if l.showSecondaryText {
+		n /= 2
+	}
+
+	if n >= len(l.items) {
+		return -1
+	}
+	return n
+}
+
+// MouseHandler returns the mouse handler for this primitive.
+func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return l.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if !l.InRect(event.Position()) {
+			return false, nil
+		}
+		// Process mouse event.
+		if action == MouseLeftClick {
+			atX, atY := event.Position()
+			index := l.indexAtPoint(atX, atY)
+			if index != -1 {
+				item := l.items[index]
+				if item.Selected != nil {
+					item.Selected()
+				}
+				if l.selected != nil {
+					l.selected(index, item.MainText, item.SecondaryText, item.Shortcut)
+				}
+				if index != l.currentItem && l.changed != nil {
+					l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
+				}
+				l.currentItem = index
+			}
+		}
+		return true, nil
+	})
+}

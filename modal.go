@@ -175,3 +175,18 @@ func (m *Modal) Draw(screen tcell.Screen) {
 	m.frame.SetRect(x, y, width, height)
 	m.frame.Draw(screen)
 }
+
+// MouseHandler returns the mouse handler for this primitive.
+func (m *Modal) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return m.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if !m.InRect(event.Position()) {
+			return false, nil
+		}
+		// Process mouse event.
+		consumed, capture = m.frame.MouseHandler()(action, event, setFocus)
+		if consumed {
+			return consumed, capture
+		}
+		return true, nil
+	})
+}

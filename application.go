@@ -52,6 +52,9 @@ type Application struct {
 	// Whether or not the application resizes the root primitive.
 	rootFullscreen bool
 
+	// Enable mouse events?
+	enableMouse bool
+
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the default input handler (nil if nothing should
 	// be forwarded).
@@ -76,6 +79,19 @@ type Application struct {
 	// (screen.Init() and draw() will be called implicitly). A value of nil will
 	// stop the application.
 	screenReplacement chan tcell.Screen
+
+	// An optional capture function which receives a mouse event and returns the
+	// event to be forwarded to the default mouse handler (nil if nothing should
+	// be forwarded).
+	mouseCapture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)
+
+	// An optional mouse capture Primitive returned from the MouseHandler.
+	mouseHandlerCapture Primitive
+
+	lastMouseX, lastMouseY int // track last mouse pos
+	mouseDownX, mouseDownY int // track last mouse down pos
+	lastClickTime          time.Time
+	lastMouseBtn           tcell.ButtonMask
 }
 
 // NewApplication creates and returns a new application.
@@ -107,6 +123,22 @@ func (a *Application) GetInputCapture() func(event *tcell.EventKey) *tcell.Event
 	return a.inputCapture
 }
 
+// SetMouseCapture sets a function which captures mouse events before they are
+// forwarded to the appropriate mouse event handler.
+//  This function can then choose to forward that event (or a
+// different one) by returning it or stop the event processing by returning
+// nil.
+func (a *Application) SetMouseCapture(capture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)) *Application {
+	a.mouseCapture = capture
+	return a
+}
+
+// GetMouseCapture returns the function installed with SetMouseCapture() or nil
+// if no such function has been installed.
+func (a *Application) GetMouseCapture() func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction) {
+	return a.mouseCapture
+}
+
 // SetScreen allows you to provide your own tcell.Screen object. For most
 // applications, this is not needed and you should be familiar with
 // tcell.Screen when using this function.
@@ -135,6 +167,21 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 	return a
 }
 
+// EnableMouse enables mouse events.
+func (a *Application) EnableMouse(enable bool) *Application {
+	a.Lock()
+	defer a.Unlock()
+	if enable != a.enableMouse && a.screen != nil {
+		if enable {
+			a.screen.EnableMouse()
+		} else {
+			a.screen.DisableMouse()
+		}
+	}
+	a.enableMouse = enable
+	return a
+}
+
 // Run starts the application and thus the event loop. This function returns
 // when Stop() was called.
 func (a *Application) Run() error {
@@ -156,6 +203,9 @@ func (a *Application) Run() error {
 		if err = a.screen.Init(); err != nil {
 			a.Unlock()
 			return err
+		}
+		if a.enableMouse {
+			a.screen.EnableMouse()
 		}
 	}
 
@@ -279,6 +329,16 @@ EventLoop:
 				lastRedraw = time.Now()
 				screen.Clear()
 				a.draw()
+			case *tcell.EventMouse:
+				consumed, isMouseDownAction := a.fireMouseActions(event)
+				if consumed {
+					a.draw()
+				}
+				// Keep state:
+				a.lastMouseBtn = event.Buttons()
+				if isMouseDownAction {
+					a.mouseDownX, a.mouseDownY = event.Position()
+				}
 			}
 
 		// If we have updates, now is the time to execute them.
@@ -293,6 +353,103 @@ EventLoop:
 	a.screen = nil
 
 	return nil
+}
+
+// fireMouseActions determines each mouse action from mouse events
+// and fires the appropriate mouse handlers and mouse captures.
+func (a *Application) fireMouseActions(event *tcell.EventMouse) (consumed, isMouseDownAction bool) {
+	a.RLock()
+	root := a.root
+	mouseCapture := a.mouseCapture
+	a.RUnlock()
+
+	// Fire a mouse action.
+	mouseEv := func(action MouseAction) {
+		switch action {
+		case MouseLeftDown, MouseMiddleDown, MouseRightDown:
+			isMouseDownAction = true
+		}
+
+		// Intercept event.
+		if mouseCapture != nil {
+			event, action = mouseCapture(event, action)
+			if event == nil {
+				consumed = true
+				return // Don't forward event.
+			}
+		}
+
+		var handlerTarget Primitive
+		if a.mouseHandlerCapture != nil { // Check if already captured.
+			handlerTarget = a.mouseHandlerCapture
+		} else {
+			handlerTarget = root
+		}
+
+		var newHandlerCapture Primitive // None by default.
+		if handlerTarget != nil {
+			if handler := handlerTarget.MouseHandler(); handler != nil {
+				hconsumed := false
+				hconsumed, newHandlerCapture = handler(action, event, func(p Primitive) {
+					a.SetFocus(p)
+				})
+				if hconsumed {
+					consumed = true
+				}
+			}
+		}
+		a.mouseHandlerCapture = newHandlerCapture
+	}
+
+	atX, atY := event.Position()
+	ebuttons := event.Buttons()
+	clickMoved := atX != a.mouseDownX || atY != a.mouseDownY
+	btnDiff := ebuttons ^ a.lastMouseBtn
+
+	if atX != a.lastMouseX || atY != a.lastMouseY {
+		mouseEv(MouseMove)
+		a.lastMouseX = atX
+		a.lastMouseY = atY
+	}
+
+	for _, x := range []struct {
+		button                  tcell.ButtonMask
+		down, up, click, dclick MouseAction
+	}{
+		{tcell.Button1, MouseLeftDown, MouseLeftUp, MouseLeftClick, MouseLeftDoubleClick},
+		{tcell.Button2, MouseMiddleDown, MouseMiddleUp, MouseMiddleClick, MouseMiddleDoubleClick},
+		{tcell.Button3, MouseRightDown, MouseRightUp, MouseRightClick, MouseRightDoubleClick},
+	} {
+		if btnDiff&x.button != 0 {
+			if ebuttons&x.button != 0 {
+				mouseEv(x.down)
+			} else {
+				mouseEv(x.up)
+				if !clickMoved {
+					if a.lastClickTime.Add(DoubleClickInterval).Before(time.Now()) {
+						mouseEv(x.click)
+						a.lastClickTime = time.Now()
+					} else {
+						mouseEv(x.dclick)
+						a.lastClickTime = time.Time{} // reset
+					}
+				}
+			}
+		}
+	}
+
+	for _, x := range []struct {
+		button tcell.ButtonMask
+		action MouseAction
+	}{
+		{tcell.WheelUp, WheelUp}, {tcell.WheelDown, WheelDown},
+		{tcell.WheelLeft, WheelLeft}, {tcell.WheelRight, WheelRight}} {
+		if ebuttons&x.button != 0 {
+			mouseEv(x.action)
+		}
+	}
+
+	return consumed, isMouseDownAction
 }
 
 // Stop stops the application, causing Run() to return.
@@ -542,3 +699,30 @@ func (a *Application) QueueEvent(event tcell.Event) *Application {
 	a.events <- event
 	return a
 }
+
+// MouseAction indicates one of the actions the mouse is logically doing.
+type MouseAction int16
+
+const (
+	MouseMove MouseAction = iota
+	MouseLeftDown
+	MouseLeftUp
+	MouseLeftClick
+	MouseLeftDoubleClick
+	MouseMiddleDown
+	MouseMiddleUp
+	MouseMiddleClick
+	MouseMiddleDoubleClick
+	MouseRightDown
+	MouseRightUp
+	MouseRightClick
+	MouseRightDoubleClick
+	WheelUp
+	WheelDown
+	WheelLeft
+	WheelRight
+)
+
+// DoubleClickInterval specifies the maximum time between clicks
+// to register a double click rather than click.
+var DoubleClickInterval = 500 * time.Millisecond

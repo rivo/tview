@@ -59,6 +59,11 @@ type Box struct {
 
 	// An optional function which is called before the box is drawn.
 	draw func(screen tcell.Screen, x, y, width, height int) (int, int, int, int)
+
+	// An optional capture function which receives a mouse event and returns the
+	// event to be forwarded to the primitive's default mouse event handler (nil if
+	// nothing should be forwarded).
+	mouseCapture func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse)
 }
 
 // NewBox returns a Box without a border.
@@ -191,6 +196,52 @@ func (b *Box) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKe
 // if no such function has been installed.
 func (b *Box) GetInputCapture() func(event *tcell.EventKey) *tcell.EventKey {
 	return b.inputCapture
+}
+
+// WrapMouseHandler wraps a mouse event handler (see MouseHandler()) with the
+// functionality to capture input (see SetMouseCapture()) before passing it
+// on to the provided (default) event handler.
+//
+// This is only meant to be used by subclassing primitives.
+func (b *Box) WrapMouseHandler(mouseHandler func(MouseAction, *tcell.EventMouse, func(p Primitive)) (bool, Primitive)) func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if b.mouseCapture != nil {
+			action, event = b.mouseCapture(action, event)
+		}
+		if event != nil && mouseHandler != nil {
+			consumed, capture = mouseHandler(action, event, setFocus)
+		}
+		return
+	}
+}
+
+// MouseHandler returns nil.
+func (b *Box) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return b.WrapMouseHandler(nil)
+}
+
+// SetMouseCapture installs a function which captures events before they are
+// forwarded to the primitive's default event handler. This function can
+// then choose to forward that event (or a different one) to the default
+// handler by returning it. If nil is returned, the default handler will not
+// be called.
+//
+// Providing a nil handler will remove a previously existing handler.
+func (b *Box) SetMouseCapture(capture func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse)) *Box {
+	b.mouseCapture = capture
+	return b
+}
+
+func (b *Box) InRect(atX, atY int) bool {
+	x, y, w, h := b.GetRect()
+	return atX >= x && atX < x+w &&
+		atY >= y && atY < y+h
+}
+
+// GetMouseCapture returns the function installed with SetMouseCapture() or nil
+// if no such function has been installed.
+func (b *Box) GetMouseCapture() func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse) {
+	return b.mouseCapture
 }
 
 // SetBackgroundColor sets the box's background color.
