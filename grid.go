@@ -667,13 +667,15 @@ func (g *Grid) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		if !g.InRect(event.Position()) {
 			return false, nil
 		}
-		// Process mouse event.
+
+		// Pass mouse events along to the first child item that takes it.
 		for _, item := range g.items {
 			consumed, capture = item.Item.MouseHandler()(action, event, setFocus)
 			if consumed {
-				return consumed, capture
+				return
 			}
 		}
-		return true, nil
+
+		return
 	})
 }

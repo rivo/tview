@@ -16,7 +16,7 @@ func main() {
 		SetDoneFunc(func(key tcell.Key) {
 			app.Stop()
 		})
-	if err := app.SetRoot(inputField, true).Run(); err != nil {
+	if err := app.SetRoot(inputField, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 }

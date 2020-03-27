@@ -47,7 +47,8 @@ type Primitive interface {
 	// MouseHandler returns a handler which receives mouse events.
 	// It is called by the Application class.
 	//
-	// A value of nil may also be returned to stop propagation.
+	// A value of nil may also be returned to stop the downward propagation of
+	// mouse events.
 	//
 	// The Box class provides functionality to intercept mouse events. If you
 	// subclass from Box, it is recommended that you wrap your handler using

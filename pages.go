@@ -20,7 +20,7 @@ type page struct {
 type Pages struct {
 	*Box
 
-	// The contained pages.
+	// The contained pages. (Visible) pages are drawn from back to front.
 	pages []*page
 
 	// We keep a reference to the function which allows us to set the focus to
@@ -285,15 +285,18 @@ func (p *Pages) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 		if !p.InRect(event.Position()) {
 			return false, nil
 		}
-		// Process mouse event.
-		for _, page := range p.pages {
+
+		// Pass mouse events along to the last visible page item that takes it.
+		for index := len(p.pages) - 1; index >= 0; index-- {
+			page := p.pages[index]
 			if page.Visible {
 				consumed, capture = page.Item.MouseHandler()(action, event, setFocus)
 				if consumed {
-					return consumed, capture
+					return
 				}
 			}
 		}
-		return true, nil
+
+		return
 	})
 }

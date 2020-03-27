@@ -15,6 +15,34 @@ const (
 	redrawPause = 50 * time.Millisecond
 )
 
+// DoubleClickInterval specifies the maximum time between clicks to register a
+// double click rather than click.
+var DoubleClickInterval = 500 * time.Millisecond
+
+// MouseAction indicates one of the actions the mouse is logically doing.
+type MouseAction int16
+
+// Available mouse actions.
+const (
+	MouseMove MouseAction = iota
+	MouseLeftDown
+	MouseLeftUp
+	MouseLeftClick
+	MouseLeftDoubleClick
+	MouseMiddleDown
+	MouseMiddleUp
+	MouseMiddleClick
+	MouseMiddleDoubleClick
+	MouseRightDown
+	MouseRightUp
+	MouseRightClick
+	MouseRightDoubleClick
+	WheelUp
+	WheelDown
+	WheelLeft
+	WheelRight
+)
+
 // queuedUpdate represented the execution of f queued by
 // Application.QueueUpdate(). The "done" channel receives exactly one element
 // after f has executed.
@@ -52,7 +80,7 @@ type Application struct {
 	// Whether or not the application resizes the root primitive.
 	rootFullscreen bool
 
-	// Enable mouse events?
+	// Set to true if mouse events are enabled.
 	enableMouse bool
 
 	// An optional capture function which receives a key event and returns the
@@ -85,13 +113,11 @@ type Application struct {
 	// be forwarded).
 	mouseCapture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)
 
-	// An optional mouse capture Primitive returned from the MouseHandler.
-	mouseHandlerCapture Primitive
-
-	lastMouseX, lastMouseY int // track last mouse pos
-	mouseDownX, mouseDownY int // track last mouse down pos
-	lastClickTime          time.Time
-	lastMouseBtn           tcell.ButtonMask
+	mouseCapturingPrimitive Primitive        // A Primitive returned by a MouseHandler which will capture future mouse events.
+	lastMouseX, lastMouseY  int              // The last position of the mouse.
+	mouseDownX, mouseDownY  int              // The position of the mouse when its button was last pressed.
+	lastMouseClick          time.Time        // The time when a mouse button was last clicked.
+	lastMouseButtons        tcell.ButtonMask // The last mouse button state.
 }
 
 // NewApplication creates and returns a new application.
@@ -123,11 +149,11 @@ func (a *Application) GetInputCapture() func(event *tcell.EventKey) *tcell.Event
 	return a.inputCapture
 }
 
-// SetMouseCapture sets a function which captures mouse events before they are
-// forwarded to the appropriate mouse event handler.
-//  This function can then choose to forward that event (or a
-// different one) by returning it or stop the event processing by returning
-// nil.
+// SetMouseCapture sets a function which captures mouse events (consisting of
+// the original tcell mouse event and the semantic mouse action) before they are
+// forwarded to the appropriate mouse event handler. This function can then
+// choose to forward that event (or a different one) by returning it or stop
+// the event processing by returning a nil mouse event.
 func (a *Application) SetMouseCapture(capture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)) *Application {
 	a.mouseCapture = capture
 	return a
@@ -334,8 +360,7 @@ EventLoop:
 				if consumed {
 					a.draw()
 				}
-				// Keep state:
-				a.lastMouseBtn = event.Buttons()
+				a.lastMouseButtons = event.Buttons()
 				if isMouseDownAction {
 					a.mouseDownX, a.mouseDownY = event.Position()
 				}
@@ -355,64 +380,64 @@ EventLoop:
 	return nil
 }
 
-// fireMouseActions determines each mouse action from mouse events
-// and fires the appropriate mouse handlers and mouse captures.
+// fireMouseActions analyzes the provided mouse event, derives mouse actions
+// from it and then forwards them to the corresponding primitives.
 func (a *Application) fireMouseActions(event *tcell.EventMouse) (consumed, isMouseDownAction bool) {
-	a.RLock()
-	root := a.root
-	mouseCapture := a.mouseCapture
-	a.RUnlock()
+	// We want to relay follow-up events to the same target primitive.
+	var targetPrimitive Primitive
 
-	// Fire a mouse action.
-	mouseEv := func(action MouseAction) {
+	// Helper function to fire a mouse action.
+	fire := func(action MouseAction) {
 		switch action {
 		case MouseLeftDown, MouseMiddleDown, MouseRightDown:
 			isMouseDownAction = true
 		}
 
 		// Intercept event.
-		if mouseCapture != nil {
-			event, action = mouseCapture(event, action)
+		if a.mouseCapture != nil {
+			event, action = a.mouseCapture(event, action)
 			if event == nil {
 				consumed = true
 				return // Don't forward event.
 			}
 		}
 
-		var handlerTarget Primitive
-		if a.mouseHandlerCapture != nil { // Check if already captured.
-			handlerTarget = a.mouseHandlerCapture
+		// Determine the target primitive.
+		var primitive, capturingPrimitive Primitive
+		if a.mouseCapturingPrimitive != nil {
+			primitive = a.mouseCapturingPrimitive
+			targetPrimitive = a.mouseCapturingPrimitive
+		} else if targetPrimitive != nil {
+			primitive = targetPrimitive
 		} else {
-			handlerTarget = root
+			primitive = a.root
 		}
-
-		var newHandlerCapture Primitive // None by default.
-		if handlerTarget != nil {
-			if handler := handlerTarget.MouseHandler(); handler != nil {
-				hconsumed := false
-				hconsumed, newHandlerCapture = handler(action, event, func(p Primitive) {
+		if primitive != nil {
+			if handler := primitive.MouseHandler(); handler != nil {
+				var wasConsumed bool
+				wasConsumed, capturingPrimitive = handler(action, event, func(p Primitive) {
 					a.SetFocus(p)
 				})
-				if hconsumed {
+				if wasConsumed {
 					consumed = true
 				}
 			}
 		}
-		a.mouseHandlerCapture = newHandlerCapture
+		a.mouseCapturingPrimitive = capturingPrimitive
 	}
 
-	atX, atY := event.Position()
-	ebuttons := event.Buttons()
-	clickMoved := atX != a.mouseDownX || atY != a.mouseDownY
-	btnDiff := ebuttons ^ a.lastMouseBtn
+	x, y := event.Position()
+	buttons := event.Buttons()
+	clickMoved := x != a.mouseDownX || y != a.mouseDownY
+	buttonChanges := buttons ^ a.lastMouseButtons
 
-	if atX != a.lastMouseX || atY != a.lastMouseY {
-		mouseEv(MouseMove)
-		a.lastMouseX = atX
-		a.lastMouseY = atY
+	if x != a.lastMouseX || y != a.lastMouseY {
+		fire(MouseMove)
+		a.lastMouseX = x
+		a.lastMouseY = y
 	}
 
-	for _, x := range []struct {
+	for _, buttonEvent := range []struct {
 		button                  tcell.ButtonMask
 		down, up, click, dclick MouseAction
 	}{
@@ -420,32 +445,34 @@ func (a *Application) fireMouseActions(event *tcell.EventMouse) (consumed, isMou
 		{tcell.Button2, MouseMiddleDown, MouseMiddleUp, MouseMiddleClick, MouseMiddleDoubleClick},
 		{tcell.Button3, MouseRightDown, MouseRightUp, MouseRightClick, MouseRightDoubleClick},
 	} {
-		if btnDiff&x.button != 0 {
-			if ebuttons&x.button != 0 {
-				mouseEv(x.down)
+		if buttonChanges&buttonEvent.button != 0 {
+			if buttons&buttonEvent.button != 0 {
+				fire(buttonEvent.down)
 			} else {
-				mouseEv(x.up)
+				fire(buttonEvent.up)
 				if !clickMoved {
-					if a.lastClickTime.Add(DoubleClickInterval).Before(time.Now()) {
-						mouseEv(x.click)
-						a.lastClickTime = time.Now()
+					if a.lastMouseClick.Add(DoubleClickInterval).Before(time.Now()) {
+						fire(buttonEvent.click)
+						a.lastMouseClick = time.Now()
 					} else {
-						mouseEv(x.dclick)
-						a.lastClickTime = time.Time{} // reset
+						fire(buttonEvent.dclick)
+						a.lastMouseClick = time.Time{} // reset
 					}
 				}
 			}
 		}
 	}
 
-	for _, x := range []struct {
+	for _, wheelEvent := range []struct {
 		button tcell.ButtonMask
 		action MouseAction
 	}{
-		{tcell.WheelUp, WheelUp}, {tcell.WheelDown, WheelDown},
-		{tcell.WheelLeft, WheelLeft}, {tcell.WheelRight, WheelRight}} {
-		if ebuttons&x.button != 0 {
-			mouseEv(x.action)
+		{tcell.WheelUp, WheelUp},
+		{tcell.WheelDown, WheelDown},
+		{tcell.WheelLeft, WheelLeft},
+		{tcell.WheelRight, WheelRight}} {
+		if buttons&wheelEvent.button != 0 {
+			fire(wheelEvent.action)
 		}
 	}
 
@@ -699,30 +726,3 @@ func (a *Application) QueueEvent(event tcell.Event) *Application {
 	a.events <- event
 	return a
 }
-
-// MouseAction indicates one of the actions the mouse is logically doing.
-type MouseAction int16
-
-const (
-	MouseMove MouseAction = iota
-	MouseLeftDown
-	MouseLeftUp
-	MouseLeftClick
-	MouseLeftDoubleClick
-	MouseMiddleDown
-	MouseMiddleUp
-	MouseMiddleClick
-	MouseMiddleDoubleClick
-	MouseRightDown
-	MouseRightUp
-	MouseRightClick
-	MouseRightDoubleClick
-	WheelUp
-	WheelDown
-	WheelLeft
-	WheelRight
-)
-
-// DoubleClickInterval specifies the maximum time between clicks
-// to register a double click rather than click.
-var DoubleClickInterval = 500 * time.Millisecond

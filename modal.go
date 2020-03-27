@@ -12,7 +12,7 @@ import (
 type Modal struct {
 	*Box
 
-	// The framed embedded in the modal.
+	// The frame embedded in the modal.
 	frame *Frame
 
 	// The form embedded in the modal's frame.
@@ -179,14 +179,12 @@ func (m *Modal) Draw(screen tcell.Screen) {
 // MouseHandler returns the mouse handler for this primitive.
 func (m *Modal) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return m.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
-		if !m.InRect(event.Position()) {
-			return false, nil
+		// Pass mouse events on to the form.
+		consumed, capture = m.form.MouseHandler()(action, event, setFocus)
+		if !consumed && action == MouseLeftClick && m.InRect(event.Position()) {
+			setFocus(m)
+			consumed = true
 		}
-		// Process mouse event.
-		consumed, capture = m.frame.MouseHandler()(action, event, setFocus)
-		if consumed {
-			return consumed, capture
-		}
-		return true, nil
+		return
 	})
 }

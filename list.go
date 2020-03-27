@@ -559,22 +559,23 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 	})
 }
 
-// returns -1 if not found.
-func (l *List) indexAtPoint(atX, atY int) int {
-	_, y, _, h := l.GetInnerRect()
-	if atY < y || atY >= y+h {
+// indexAtPoint returns the index of the list item found at the given position
+// or -1 if there is no such list item.
+func (l *List) indexAtPoint(x, y int) int {
+	rectX, rectY, width, height := l.GetInnerRect()
+	if rectX < 0 || rectX >= rectX+width || y < rectY || y >= rectY+height {
 		return -1
 	}
 
-	n := atY - y
+	index := y - rectY
 	if l.showSecondaryText {
-		n /= 2
+		index /= 2
 	}
 
-	if n >= len(l.items) {
+	if index >= len(l.items) {
 		return -1
 	}
-	return n
+	return index
 }
 
 // MouseHandler returns the mouse handler for this primitive.
@@ -583,10 +584,11 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		if !l.InRect(event.Position()) {
 			return false, nil
 		}
+
 		// Process mouse event.
 		if action == MouseLeftClick {
-			atX, atY := event.Position()
-			index := l.indexAtPoint(atX, atY)
+			setFocus(l)
+			index := l.indexAtPoint(event.Position())
 			if index != -1 {
 				item := l.items[index]
 				if item.Selected != nil {
@@ -600,7 +602,9 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 				}
 				l.currentItem = index
 			}
+			consumed = true
 		}
-		return true, nil
+
+		return
 	})
 }

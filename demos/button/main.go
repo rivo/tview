@@ -9,7 +9,7 @@ func main() {
 		app.Stop()
 	})
 	button.SetBorder(true).SetRect(0, 0, 22, 3)
-	if err := app.SetRoot(button, false).Run(); err != nil {
+	if err := app.SetRoot(button, false).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 }

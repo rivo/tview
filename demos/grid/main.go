@@ -32,7 +32,7 @@ func main() {
 		AddItem(main, 1, 1, 1, 1, 0, 100, false).
 		AddItem(sideBar, 1, 2, 1, 1, 0, 100, false)
 
-	if err := tview.NewApplication().SetRoot(grid, true).Run(); err != nil {
+	if err := tview.NewApplication().SetRoot(grid, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 }

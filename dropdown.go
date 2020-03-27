@@ -79,6 +79,8 @@ type DropDown struct {
 	// A callback function which is called when the user changes the drop-down's
 	// selection.
 	selected func(text string, index int)
+
+	dragging bool // Set to true when mouse dragging is in progress.
 }
 
 // NewDropDown returns a new drop-down.
@@ -417,8 +419,8 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 	})
 }
 
-// A helper function which selects an item in the drop-down list based on
-// the current prefix.
+// evalPrefix is selects an item in the drop-down list based on the current
+// prefix.
 func (d *DropDown) evalPrefix() {
 	if len(d.prefix) > 0 {
 		for index, option := range d.options {
@@ -427,17 +429,23 @@ func (d *DropDown) evalPrefix() {
 				return
 			}
 		}
-		// Prefix does not match any item. Remove last rune.
+
+		// Prefix does not match any item. Remove last rune. TODO: Use uniseg here.
 		r := []rune(d.prefix)
 		d.prefix = string(r[:len(r)-1])
 	}
 }
 
-// Hand control over to the list.
+// openList hands control over to the embedded List primitive.
 func (d *DropDown) openList(setFocus func(Primitive)) {
 	d.open = true
 	optionBefore := d.currentOption
+
 	d.list.SetSelectedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
+		if d.dragging {
+			return // If we're dragging the mouse, we don't want to trigger any events.
+		}
+
 		// An option was selected. Close the list again.
 		d.currentOption = index
 		d.closeList(setFocus)
@@ -465,11 +473,15 @@ func (d *DropDown) openList(setFocus func(Primitive)) {
 		} else {
 			d.prefix = ""
 		}
+
 		return event
 	})
+
 	setFocus(d.list)
 }
 
+// closeList closes the embedded List element by hiding it and removing focus
+// from it.
 func (d *DropDown) closeList(setFocus func(Primitive)) {
 	d.open = false
 	if d.list.HasFocus() {
@@ -493,39 +505,44 @@ func (d *DropDown) HasFocus() bool {
 	return d.hasFocus
 }
 
-func (d *DropDown) listClick(event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool) {
-	if !d.list.InRect(event.Position()) {
-		return false
-	}
-	// Mouse is within the list.
-	if handler := d.list.MouseHandler(); handler != nil {
-		consumed, _ := handler(MouseLeftClick, event, setFocus)
-		return consumed
-	}
-	return false
-}
-
 // MouseHandler returns the mouse handler for this primitive.
 func (d *DropDown) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return d.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
-		inRect := d.InRect(event.Position()) // mouse in the dropdown box itself, not the list.
+		// Was the mouse event in the drop-down box itself (or on its label)?
+		x, y := event.Position()
+		_, rectY, _, _ := d.GetInnerRect()
+		inRect := y == rectY
 		if !d.open && !inRect {
-			return false, nil
+			return d.InRect(x, y), nil // No, and it's not expanded either. Ignore.
 		}
-		// Process mouse event.
-		if action == MouseLeftClick {
-			if !d.open { // not open
+
+		// Handle dragging. Clicks are implicitly handled by this logic.
+		switch action {
+		case MouseLeftDown:
+			consumed = d.open || inRect
+			capture = d
+			if !d.open {
 				d.openList(setFocus)
-			} else { // if d.open
-				if !inRect {
-					d.listClick(event, setFocus)
-				}
-				d.closeList(setFocus)
+				d.dragging = true
+			} else if consumed, _ := d.list.MouseHandler()(MouseLeftClick, event, setFocus); !consumed {
+				d.closeList(setFocus) // Close drop-down if clicked outside of it.
+			}
+		case MouseMove:
+			if d.dragging {
+				// We pretend it's a left click so we can see the selection during
+				// dragging. Because we don't act upon it, it's not a problem.
+				d.list.MouseHandler()(MouseLeftClick, event, setFocus)
+				consumed = true
+				capture = d
+			}
+		case MouseLeftUp:
+			if d.dragging {
+				d.dragging = false
+				d.list.MouseHandler()(MouseLeftClick, event, setFocus)
+				consumed = true
 			}
 		}
-		if d.open {
-			return true, d // capture
-		}
-		return inRect, nil
+
+		return
 	})
 }

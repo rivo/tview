@@ -208,13 +208,15 @@ func (f *Flex) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		if !f.InRect(event.Position()) {
 			return false, nil
 		}
-		// Process mouse event.
+
+		// Pass mouse events along to the first child item that takes it.
 		for _, item := range f.items {
 			consumed, capture = item.Item.MouseHandler()(action, event, setFocus)
 			if consumed {
-				return consumed, capture
+				return
 			}
 		}
-		return true, nil
+
+		return
 	})
 }
