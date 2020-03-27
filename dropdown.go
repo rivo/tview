@@ -419,8 +419,7 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 	})
 }
 
-// evalPrefix is selects an item in the drop-down list based on the current
-// prefix.
+// evalPrefix selects an item in the drop-down list based on the current prefix.
 func (d *DropDown) evalPrefix() {
 	if len(d.prefix) > 0 {
 		for index, option := range d.options {
@@ -430,7 +429,7 @@ func (d *DropDown) evalPrefix() {
 			}
 		}
 
-		// Prefix does not match any item. Remove last rune. TODO: Use uniseg here.
+		// Prefix does not match any item. Remove last rune.
 		r := []rune(d.prefix)
 		d.prefix = string(r[:len(r)-1])
 	}

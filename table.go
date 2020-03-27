@@ -251,6 +251,13 @@ type Table struct {
 	// The number of visible rows the last time the table was drawn.
 	visibleRows int
 
+	// The indices of the visible columns as of the last time the table was drawn.
+	visibleColumnIndices []int
+
+	// The net widths of the visible columns as of the last time the table was
+	// drawn.
+	visibleColumnWidths []int
+
 	// The style of the selected rows. If this value is 0, selected rows are
 	// simply inverted.
 	selectedStyle tcell.Style
@@ -360,8 +367,8 @@ func (t *Table) GetSelection() (row, column int) {
 // Select sets the selected cell. Depending on the selection settings
 // specified via SetSelectable(), this may be an entire row or column, or even
 // ignored completely. The "selection changed" event is fired if such a callback
-// is available (even if the selection ends up being the same as before, even if
-// cells are not selectable).
+// is available (even if the selection ends up being the same as before and even
+// if cells are not selectable).
 func (t *Table) Select(row, column int) *Table {
 	t.selectedRow, t.selectedColumn = row, column
 	if t.selectionChanged != nil {
@@ -535,6 +542,49 @@ func (t *Table) GetColumnCount() int {
 		return 0
 	}
 	return t.lastColumn + 1
+}
+
+// cellAt returns the row and column located at the given screen coordinates.
+// Each returned value may be negative if there is no row and/or cell. This
+// function will also process coordinates outside the table's inner rectangle so
+// callers will need to check for bounds themselves.
+func (t *Table) cellAt(x, y int) (row, column int) {
+	rectX, rectY, _, _ := t.GetInnerRect()
+
+	// Determine row as seen on screen.
+	if t.borders {
+		row = (y - rectY - 1) / 2
+	} else {
+		row = y - rectY
+	}
+
+	// Respect fixed rows and row offset.
+	if row >= 0 {
+		if row >= t.fixedRows {
+			row += t.rowOffset
+		}
+		if row >= len(t.cells) {
+			row = -1
+		}
+	}
+
+	// Saerch for the clicked column.
+	column = -1
+	if x >= rectX {
+		columnX := rectX
+		if t.borders {
+			columnX++
+		}
+		for index, width := range t.visibleColumnWidths {
+			columnX += width + 1
+			if x < columnX {
+				column = t.visibleColumnIndices[index]
+				break
+			}
+		}
+	}
+
+	return
 }
 
 // ScrollToBeginning scrolls the table to the beginning to that the top left
@@ -824,8 +874,8 @@ ColumnLoop:
 			cell.x, cell.y, cell.width = x+columnX+1, y+rowY, finalWidth
 			_, printed := printWithStyle(screen, cell.Text, x+columnX+1, y+rowY, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color)|tcell.Style(cell.Attributes))
 			if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
-				_, _, style, _ := screen.GetContent(x+columnX+1+finalWidth-1, y+rowY)
-				printWithStyle(screen, string(SemigraphicsHorizontalEllipsis), x+columnX+1+finalWidth-1, y+rowY, 1, AlignLeft, style)
+				_, _, style, _ := screen.GetContent(x+columnX+finalWidth, y+rowY)
+				printWithStyle(screen, string(SemigraphicsHorizontalEllipsis), x+columnX+finalWidth, y+rowY, 1, AlignLeft, style)
 			}
 		}
 
@@ -964,6 +1014,9 @@ ColumnLoop:
 			}
 		}
 	}
+
+	// Remember column infos.
+	t.visibleColumnIndices, t.visibleColumnWidths = columns, widths
 }
 
 // InputHandler returns the handler for this primitive.
@@ -1171,5 +1224,26 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				t.columnsSelectable && previouslySelectedColumn != t.selectedColumn) {
 			t.selectionChanged(t.selectedRow, t.selectedColumn)
 		}
+	})
+}
+
+// MouseHandler returns the mouse handler for this primitive.
+func (t *Table) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return t.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		x, y := event.Position()
+		if !t.InRect(x, y) {
+			return false, nil
+		}
+
+		switch action {
+		case MouseLeftClick:
+			if t.rowsSelectable || t.columnsSelectable {
+				t.Select(t.cellAt(x, y))
+			}
+			consumed = true
+			setFocus(t)
+		}
+
+		return
 	})
 }
