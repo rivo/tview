@@ -15,7 +15,7 @@ func main() {
 				app.Stop()
 			}
 		})
-	if err := app.SetRoot(modal, false).Run(); err != nil {
+	if err := app.SetRoot(modal, false).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 }

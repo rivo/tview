@@ -730,3 +730,41 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		t.process()
 	})
 }
+
+// MouseHandler returns the mouse handler for this primitive.
+func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return t.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		x, y := event.Position()
+		if !t.InRect(x, y) {
+			return false, nil
+		}
+
+		switch action {
+		case MouseLeftClick:
+			_, rectY, _, _ := t.GetInnerRect()
+			y -= rectY
+			if y >= 0 && y < len(t.nodes) {
+				node := t.nodes[y]
+				if node.selectable {
+					if t.currentNode != node && t.changed != nil {
+						t.changed(node)
+					}
+					if t.selected != nil {
+						t.selected(node)
+					}
+					t.currentNode = node
+				}
+			}
+			consumed = true
+			setFocus(t)
+		case MouseScrollUp:
+			t.movement = treeUp
+			consumed = true
+		case MouseScrollDown:
+			t.movement = treeDown
+			consumed = true
+		}
+
+		return
+	})
+}

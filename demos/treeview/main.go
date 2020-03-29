@@ -56,7 +56,7 @@ func main() {
 		}
 	})
 
-	if err := tview.NewApplication().SetRoot(tree, true).Run(); err != nil {
+	if err := tview.NewApplication().SetRoot(tree, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 }

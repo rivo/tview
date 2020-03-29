@@ -201,3 +201,22 @@ func (f *Flex) HasFocus() bool {
 	}
 	return false
 }
+
+// MouseHandler returns the mouse handler for this primitive.
+func (f *Flex) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return f.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if !f.InRect(event.Position()) {
+			return false, nil
+		}
+
+		// Pass mouse events along to the first child item that takes it.
+		for _, item := range f.items {
+			consumed, capture = item.Item.MouseHandler()(action, event, setFocus)
+			if consumed {
+				return
+			}
+		}
+
+		return
+	})
+}

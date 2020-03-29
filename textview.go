@@ -36,6 +36,16 @@ type textViewIndex struct {
 	Region          string // The starting region ID.
 }
 
+// textViewRegion contains information about a region.
+type textViewRegion struct {
+	// The region ID.
+	ID string
+
+	// The starting and end screen position of the region as determined the last
+	// time Draw() was called. A negative value indicates out-of-rect positions.
+	FromX, FromY, ToX, ToY int
+}
+
 // TextView is a box which displays text. It implements the io.Writer interface
 // so you can stream text to it. This does not trigger a redraw automatically
 // but if a handler is installed via SetChangedFunc(), you can cause it to be
@@ -106,6 +116,9 @@ type TextView struct {
 	// The text alignment, one of AlignLeft, AlignCenter, or AlignRight.
 	align int
 
+	// Information about visible regions as of the last call to Draw().
+	regionInfos []*textViewRegion
+
 	// Indices into the "index" slice which correspond to the first line of the
 	// first highlight and the last line of the last highlight. This is calculated
 	// during re-indexing. Set to -1 if there is no current highlight.
@@ -163,6 +176,10 @@ type TextView struct {
 	// highlight(s) into the visible screen.
 	scrollToHighlights bool
 
+	// If true, setting new highlights will be a XOR instead of an overwrite
+	// operation.
+	toggleHighlights bool
+
 	// An optional function which is called when the content of the text view has
 	// changed.
 	changed func()
@@ -170,6 +187,10 @@ type TextView struct {
 	// An optional function which is called when the user presses one of the
 	// following keys: Escape, Enter, Tab, Backtab.
 	done func(tcell.Key)
+
+	// An optional function which is called when one or more regions were
+	// highlighted.
+	highlighted func(added, removed, remaining []string)
 }
 
 // NewTextView returns a new text view.
@@ -325,6 +346,18 @@ func (t *TextView) SetDoneFunc(handler func(key tcell.Key)) *TextView {
 	return t
 }
 
+// SetHighlightedFunc sets a handler which is called when the list of currently
+// highlighted regions change. It receives a list of region IDs which were newly
+// highlighted, those that are not highlighted anymore, and those that remain
+// highlighted.
+//
+// Note that because regions are only determined during drawing, this function
+// can only fire for regions that have existed during the last call to Draw().
+func (t *TextView) SetHighlightedFunc(handler func(added, removed, remaining []string)) *TextView {
+	t.highlighted = handler
+	return t
+}
+
 // ScrollTo scrolls to the specified row and column (both starting with 0).
 func (t *TextView) ScrollTo(row, column int) *TextView {
 	if !t.scrollable {
@@ -374,15 +407,56 @@ func (t *TextView) Clear() *TextView {
 	return t
 }
 
-// Highlight specifies which regions should be highlighted. See class
-// description for details on regions. Empty region strings are ignored.
+// Highlight specifies which regions should be highlighted. If highlight
+// toggling is set to true (see SetToggleHighlights()), the highlight of the
+// provided regions is toggled (highlighted regions are un-highlighted and vice
+// versa). If toggling is set to false, the provided regions are highlighted and
+// all other regions will not be highlighted (you may also provide nil to turn
+// off all highlights).
+//
+// For more information on regions, see class description. Empty region strings
+// are ignored.
 //
 // Text in highlighted regions will be drawn inverted, i.e. with their
 // background and foreground colors swapped.
-//
-// Calling this function will remove any previous highlights. To remove all
-// highlights, call this function without any arguments.
 func (t *TextView) Highlight(regionIDs ...string) *TextView {
+	// Toggle highlights.
+	if t.toggleHighlights {
+		var newIDs []string
+	HighlightLoop:
+		for regionID := range t.highlights {
+			for _, id := range regionIDs {
+				if regionID == id {
+					continue HighlightLoop
+				}
+			}
+			newIDs = append(newIDs, regionID)
+		}
+		for _, regionID := range regionIDs {
+			if _, ok := t.highlights[regionID]; !ok {
+				newIDs = append(newIDs, regionID)
+			}
+		}
+		regionIDs = newIDs
+	} // Now we have a list of region IDs that end up being highlighted.
+
+	// Determine added and removed regions.
+	var added, removed, remaining []string
+	if t.highlighted != nil {
+		for _, regionID := range regionIDs {
+			if _, ok := t.highlights[regionID]; ok {
+				remaining = append(remaining, regionID)
+				delete(t.highlights, regionID)
+			} else {
+				added = append(added, regionID)
+			}
+		}
+		for regionID := range t.highlights {
+			removed = append(removed, regionID)
+		}
+	}
+
+	// Make new selection.
 	t.highlights = make(map[string]struct{})
 	for _, id := range regionIDs {
 		if id == "" {
@@ -391,6 +465,12 @@ func (t *TextView) Highlight(regionIDs ...string) *TextView {
 		t.highlights[id] = struct{}{}
 	}
 	t.index = nil
+
+	// Notify.
+	if t.highlighted != nil && len(added) > 0 || len(removed) > 0 {
+		t.highlighted(added, removed, remaining)
+	}
+
 	return t
 }
 
@@ -400,6 +480,15 @@ func (t *TextView) GetHighlights() (regionIDs []string) {
 		regionIDs = append(regionIDs, id)
 	}
 	return
+}
+
+// SetToggleHighlights sets a flag to determine how regions are highlighted.
+// When set to true, the Highlight() function (or a mouse click) will toggle the
+// provided/selected regions. When set to false, Highlight() (or a mouse click)
+// will simply highlight the provided regions.
+func (t *TextView) SetToggleHighlights(toggle bool) *TextView {
+	t.toggleHighlights = toggle
+	return t
 }
 
 // ScrollToHighlight will cause the visible area to be scrolled so that the
@@ -766,6 +855,9 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 	// Re-index.
 	t.reindexBuffer(width)
+	if t.regions {
+		t.regionInfos = nil
+	}
 
 	// If we don't have an index, there's nothing to draw.
 	if t.index == nil {
@@ -850,6 +942,15 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		backgroundColor := index.BackgroundColor
 		attributes := index.Attributes
 		regionID := index.Region
+		if t.regions && regionID != "" && (len(t.regionInfos) == 0 || t.regionInfos[len(t.regionInfos)-1].ID != regionID) {
+			t.regionInfos = append(t.regionInfos, &textViewRegion{
+				ID:    regionID,
+				FromX: x,
+				FromY: y + line - t.lineOffset,
+				ToX:   -1,
+				ToY:   -1,
+			})
+		}
 
 		// Process tags.
 		colorTagIndices, colorTags, regionIndices, regions, escapeIndices, strippedText, _ := decomposeString(text, t.dynamicColors, t.regions)
@@ -881,7 +982,22 @@ func (t *TextView) Draw(screen tcell.Screen) {
 						colorPos++
 					} else if regionPos < len(regionIndices) && textPos+tagOffset >= regionIndices[regionPos][0] && textPos+tagOffset < regionIndices[regionPos][1] {
 						// Get the region.
+						if regionID != "" && len(t.regionInfos) > 0 && t.regionInfos[len(t.regionInfos)-1].ID == regionID {
+							// End last region.
+							t.regionInfos[len(t.regionInfos)-1].ToX = x + posX
+							t.regionInfos[len(t.regionInfos)-1].ToY = y + line - t.lineOffset
+						}
 						regionID = regions[regionPos][1]
+						if regionID != "" {
+							// Start new region.
+							t.regionInfos = append(t.regionInfos, &textViewRegion{
+								ID:    regionID,
+								FromX: x + posX,
+								FromY: y + line - t.lineOffset,
+								ToX:   -1,
+								ToY:   -1,
+							})
+						}
 						tagOffset += regionIndices[regionPos][1] - regionIndices[regionPos][0]
 						regionPos++
 					} else {
@@ -902,7 +1018,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 				// Do we highlight this character?
 				var highlighted bool
-				if len(regionID) > 0 {
+				if regionID != "" {
 					if _, ok := t.highlights[regionID]; ok {
 						highlighted = true
 					}
@@ -1020,5 +1136,43 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.trackEnd = false
 			t.lineOffset -= t.pageSize
 		}
+	})
+}
+
+// MouseHandler returns the mouse handler for this primitive.
+func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return t.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		x, y := event.Position()
+		if !t.InRect(x, y) {
+			return false, nil
+		}
+
+		switch action {
+		case MouseLeftClick:
+			if t.regions {
+				// Find a region to highlight.
+				for _, region := range t.regionInfos {
+					if y == region.FromY && x < region.FromX ||
+						y == region.ToY && x >= region.ToX ||
+						region.FromY >= 0 && y < region.FromY ||
+						region.ToY >= 0 && y > region.ToY {
+						continue
+					}
+					t.Highlight(region.ID)
+					break
+				}
+			}
+			consumed = true
+			setFocus(t)
+		case MouseScrollUp:
+			t.trackEnd = false
+			t.lineOffset--
+			consumed = true
+		case MouseScrollDown:
+			t.lineOffset++
+			consumed = true
+		}
+
+		return
 	})
 }

@@ -59,6 +59,11 @@ type Box struct {
 
 	// An optional function which is called before the box is drawn.
 	draw func(screen tcell.Screen, x, y, width, height int) (int, int, int, int)
+
+	// An optional capture function which receives a mouse event and returns the
+	// event to be forwarded to the primitive's default mouse event handler (at
+	// least one nil if nothing should be forwarded).
+	mouseCapture func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse)
 }
 
 // NewBox returns a Box without a border.
@@ -191,6 +196,60 @@ func (b *Box) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKe
 // if no such function has been installed.
 func (b *Box) GetInputCapture() func(event *tcell.EventKey) *tcell.EventKey {
 	return b.inputCapture
+}
+
+// WrapMouseHandler wraps a mouse event handler (see MouseHandler()) with the
+// functionality to capture mouse events (see SetMouseCapture()) before passing
+// them on to the provided (default) event handler.
+//
+// This is only meant to be used by subclassing primitives.
+func (b *Box) WrapMouseHandler(mouseHandler func(MouseAction, *tcell.EventMouse, func(p Primitive)) (bool, Primitive)) func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if b.mouseCapture != nil {
+			action, event = b.mouseCapture(action, event)
+		}
+		if event != nil && mouseHandler != nil {
+			consumed, capture = mouseHandler(action, event, setFocus)
+		}
+		return
+	}
+}
+
+// MouseHandler returns nil.
+func (b *Box) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return b.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if action == MouseLeftClick && b.InRect(event.Position()) {
+			setFocus(b)
+			consumed = true
+		}
+		return
+	})
+}
+
+// SetMouseCapture sets a function which captures mouse events (consisting of
+// the original tcell mouse event and the semantic mouse action) before they are
+// forwarded to the primitive's default mouse event handler. This function can
+// then choose to forward that event (or a different one) by returning it or
+// returning a nil mouse event, in which case the default handler will not be
+// called.
+//
+// Providing a nil handler will remove a previously existing handler.
+func (b *Box) SetMouseCapture(capture func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse)) *Box {
+	b.mouseCapture = capture
+	return b
+}
+
+// InRect returns true if the given coordinate is within the bounds of the box's
+// rectangle.
+func (b *Box) InRect(x, y int) bool {
+	rectX, rectY, width, height := b.GetRect()
+	return x >= rectX && x < rectX+width && y >= rectY && y < rectY+height
+}
+
+// GetMouseCapture returns the function installed with SetMouseCapture() or nil
+// if no such function has been installed.
+func (b *Box) GetMouseCapture() func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse) {
+	return b.mouseCapture
 }
 
 // SetBackgroundColor sets the box's background color.

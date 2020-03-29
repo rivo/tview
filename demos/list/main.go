@@ -15,7 +15,7 @@ func main() {
 		AddItem("Quit", "Press to exit", 'q', func() {
 			app.Stop()
 		})
-	if err := app.SetRoot(list, true).Run(); err != nil {
+	if err := app.SetRoot(list, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 }

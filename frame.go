@@ -12,8 +12,8 @@ type frameText struct {
 	Color  tcell.Color // The text color.
 }
 
-// Frame is a wrapper which adds a border around another primitive. The top area
-// (header) and the bottom area (footer) may also contain text.
+// Frame is a wrapper which adds space around another primitive. In addition,
+// the top area (header) and the bottom area (footer) may also contain text.
 //
 // See https://github.com/rivo/tview/wiki/Frame for an example.
 type Frame struct {
@@ -154,4 +154,16 @@ func (f *Frame) HasFocus() bool {
 		return focusable.HasFocus()
 	}
 	return false
+}
+
+// MouseHandler returns the mouse handler for this primitive.
+func (f *Frame) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return f.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if !f.InRect(event.Position()) {
+			return false, nil
+		}
+
+		// Pass mouse events on to contained primitive.
+		return f.primitive.MouseHandler()(action, event, setFocus)
+	})
 }
