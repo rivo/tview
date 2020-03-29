@@ -757,6 +757,12 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			}
 			consumed = true
 			setFocus(t)
+		case MouseScrollUp:
+			t.movement = treeUp
+			consumed = true
+		case MouseScrollDown:
+			t.movement = treeDown
+			consumed = true
 		}
 
 		return

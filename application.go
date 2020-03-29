@@ -37,10 +37,10 @@ const (
 	MouseRightUp
 	MouseRightClick
 	MouseRightDoubleClick
-	WheelUp
-	WheelDown
-	WheelLeft
-	WheelRight
+	MouseScrollUp
+	MouseScrollDown
+	MouseScrollLeft
+	MouseScrollRight
 )
 
 // queuedUpdate represented the execution of f queued by
@@ -467,10 +467,10 @@ func (a *Application) fireMouseActions(event *tcell.EventMouse) (consumed, isMou
 		button tcell.ButtonMask
 		action MouseAction
 	}{
-		{tcell.WheelUp, WheelUp},
-		{tcell.WheelDown, WheelDown},
-		{tcell.WheelLeft, WheelLeft},
-		{tcell.WheelRight, WheelRight}} {
+		{tcell.WheelUp, MouseScrollUp},
+		{tcell.WheelDown, MouseScrollDown},
+		{tcell.WheelLeft, MouseScrollLeft},
+		{tcell.WheelRight, MouseScrollRight}} {
 		if buttons&wheelEvent.button != 0 {
 			fire(wheelEvent.action)
 		}

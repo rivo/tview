@@ -560,7 +560,7 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 }
 
 // indexAtPoint returns the index of the list item found at the given position
-// or -1 if there is no such list item.
+// or a negative value if there is no such list item.
 func (l *List) indexAtPoint(x, y int) int {
 	rectX, rectY, width, height := l.GetInnerRect()
 	if rectX < 0 || rectX >= rectX+width || y < rectY || y >= rectY+height {
@@ -571,6 +571,7 @@ func (l *List) indexAtPoint(x, y int) int {
 	if l.showSecondaryText {
 		index /= 2
 	}
+	index += l.offset
 
 	if index >= len(l.items) {
 		return -1
@@ -586,7 +587,8 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		}
 
 		// Process mouse event.
-		if action == MouseLeftClick {
+		switch action {
+		case MouseLeftClick:
 			setFocus(l)
 			index := l.indexAtPoint(event.Position())
 			if index != -1 {
@@ -601,6 +603,20 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 					l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
 				}
 				l.currentItem = index
+			}
+			consumed = true
+		case MouseScrollUp:
+			if l.offset > 0 {
+				l.offset--
+			}
+			consumed = true
+		case MouseScrollDown:
+			lines := len(l.items) - l.offset
+			if l.showSecondaryText {
+				lines *= 2
+			}
+			if _, _, _, height := l.GetInnerRect(); lines > height {
+				l.offset++
 			}
 			consumed = true
 		}

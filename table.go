@@ -1242,6 +1242,13 @@ func (t *Table) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 			}
 			consumed = true
 			setFocus(t)
+		case MouseScrollUp:
+			t.trackEnd = false
+			t.rowOffset--
+			consumed = true
+		case MouseScrollDown:
+			t.rowOffset++
+			consumed = true
 		}
 
 		return
