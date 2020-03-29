@@ -47,33 +47,36 @@ func main() {
 		End,
 	}
 
+	pages := tview.NewPages()
+
 	// The bottom row has some info on where we are.
 	info := tview.NewTextView().
 		SetDynamicColors(true).
 		SetRegions(true).
-		SetWrap(false)
+		SetWrap(false).
+		SetHighlightedFunc(func(added, removed, remaining []string) {
+			pages.SwitchToPage(added[0])
+		})
 
 	// Create the pages for all slides.
-	currentSlide := 0
-	info.Highlight(strconv.Itoa(currentSlide))
-	pages := tview.NewPages()
 	previousSlide := func() {
-		currentSlide = (currentSlide - 1 + len(slides)) % len(slides)
-		info.Highlight(strconv.Itoa(currentSlide)).
+		slide, _ := strconv.Atoi(info.GetHighlights()[0])
+		slide = (slide - 1 + len(slides)) % len(slides)
+		info.Highlight(strconv.Itoa(slide)).
 			ScrollToHighlight()
-		pages.SwitchToPage(strconv.Itoa(currentSlide))
 	}
 	nextSlide := func() {
-		currentSlide = (currentSlide + 1) % len(slides)
-		info.Highlight(strconv.Itoa(currentSlide)).
+		slide, _ := strconv.Atoi(info.GetHighlights()[0])
+		slide = (slide + 1) % len(slides)
+		info.Highlight(strconv.Itoa(slide)).
 			ScrollToHighlight()
-		pages.SwitchToPage(strconv.Itoa(currentSlide))
 	}
 	for index, slide := range slides {
 		title, primitive := slide(nextSlide)
-		pages.AddPage(strconv.Itoa(index), primitive, true, index == currentSlide)
+		pages.AddPage(strconv.Itoa(index), primitive, true, index == 0)
 		fmt.Fprintf(info, `%d ["%d"][darkcyan]%s[white][""]  `, index+1, index, title)
 	}
+	info.Highlight("0")
 
 	// Create the main layout.
 	layout := tview.NewFlex().

@@ -190,7 +190,7 @@ type TextView struct {
 
 	// An optional function which is called when one or more regions were
 	// highlighted.
-	highlighted func([]string, []string)
+	highlighted func(added, removed, remaining []string)
 }
 
 // NewTextView returns a new text view.
@@ -348,8 +348,12 @@ func (t *TextView) SetDoneFunc(handler func(key tcell.Key)) *TextView {
 
 // SetHighlightedFunc sets a handler which is called when the list of currently
 // highlighted regions change. It receives a list of region IDs which were newly
-// highlighted as well as those that are not highlighted anymore.
-func (t *TextView) SetHighlightedFunc(handler func(addedRegionIDs, removedRedionIDs []string)) *TextView {
+// highlighted, those that are not highlighted anymore, and those that remain
+// highlighted.
+//
+// Note that because regions are only determined during drawing, this function
+// can only fire for regions that have existed during the last call to Draw().
+func (t *TextView) SetHighlightedFunc(handler func(added, removed, remaining []string)) *TextView {
 	t.highlighted = handler
 	return t
 }
@@ -416,50 +420,55 @@ func (t *TextView) Clear() *TextView {
 // Text in highlighted regions will be drawn inverted, i.e. with their
 // background and foreground colors swapped.
 func (t *TextView) Highlight(regionIDs ...string) *TextView {
-	// Determine added and removed regions.
-	var added, removed []string
-	if t.highlighted != nil {
-		highlights := make(map[string]struct{})
-		for regionID, highlight := range t.highlights {
-			highlights[regionID] = highlight
+	// Toggle highlights.
+	if t.toggleHighlights {
+		var newIDs []string
+	HighlightLoop:
+		for regionID := range t.highlights {
+			for _, id := range regionIDs {
+				if regionID == id {
+					continue HighlightLoop
+				}
+			}
+			newIDs = append(newIDs, regionID)
 		}
 		for _, regionID := range regionIDs {
-			if _, ok := highlights[regionID]; ok {
-				added = append(added, regionID)
-				delete(highlights, regionID)
+			if _, ok := t.highlights[regionID]; !ok {
+				newIDs = append(newIDs, regionID)
 			}
 		}
-		for regionID := range highlights {
+		regionIDs = newIDs
+	} // Now we have a list of region IDs that end up being highlighted.
+
+	// Determine added and removed regions.
+	var added, removed, remaining []string
+	if t.highlighted != nil {
+		for _, regionID := range regionIDs {
+			if _, ok := t.highlights[regionID]; ok {
+				remaining = append(remaining, regionID)
+				delete(t.highlights, regionID)
+			} else {
+				added = append(added, regionID)
+			}
+		}
+		for regionID := range t.highlights {
 			removed = append(removed, regionID)
 		}
 	}
 
 	// Make new selection.
-	if t.toggleHighlights {
-		for _, id := range regionIDs {
-			if id == "" {
-				continue
-			}
-			if _, ok := t.highlights[id]; ok {
-				delete(t.highlights, id)
-			} else {
-				t.highlights[id] = struct{}{}
-			}
+	t.highlights = make(map[string]struct{})
+	for _, id := range regionIDs {
+		if id == "" {
+			continue
 		}
-	} else {
-		t.highlights = make(map[string]struct{})
-		for _, id := range regionIDs {
-			if id == "" {
-				continue
-			}
-			t.highlights[id] = struct{}{}
-		}
-		t.index = nil
+		t.highlights[id] = struct{}{}
 	}
+	t.index = nil
 
 	// Notify.
-	if t.highlighted != nil {
-		t.highlighted(added, removed)
+	if t.highlighted != nil && len(added) > 0 || len(removed) > 0 {
+		t.highlighted(added, removed, remaining)
 	}
 
 	return t
