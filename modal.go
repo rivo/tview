@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"sync"
+
 	"github.com/gdamore/tcell"
 )
 
@@ -27,6 +29,8 @@ type Modal struct {
 	// The optional callback for when the user clicked one of the buttons. It
 	// receives the index of the clicked button and the button's label.
 	done func(buttonIndex int, buttonLabel string)
+
+	sync.Mutex
 }
 
 // NewModal returns a new modal message window.
@@ -55,6 +59,9 @@ func NewModal() *Modal {
 
 // SetBackgroundColor sets the color of the modal frame background.
 func (m *Modal) SetBackgroundColor(color tcell.Color) *Modal {
+	m.Lock()
+	defer m.Unlock()
+
 	m.form.SetBackgroundColor(color)
 	m.frame.SetBackgroundColor(color)
 	return m
@@ -62,18 +69,27 @@ func (m *Modal) SetBackgroundColor(color tcell.Color) *Modal {
 
 // SetTextColor sets the color of the message text.
 func (m *Modal) SetTextColor(color tcell.Color) *Modal {
+	m.Lock()
+	defer m.Unlock()
+
 	m.textColor = color
 	return m
 }
 
 // SetButtonBackgroundColor sets the background color of the buttons.
 func (m *Modal) SetButtonBackgroundColor(color tcell.Color) *Modal {
+	m.Lock()
+	defer m.Unlock()
+
 	m.form.SetButtonBackgroundColor(color)
 	return m
 }
 
 // SetButtonTextColor sets the color of the button texts.
 func (m *Modal) SetButtonTextColor(color tcell.Color) *Modal {
+	m.Lock()
+	defer m.Unlock()
+
 	m.form.SetButtonTextColor(color)
 	return m
 }
@@ -83,6 +99,9 @@ func (m *Modal) SetButtonTextColor(color tcell.Color) *Modal {
 // handler is also called when the user presses the Escape key. The index will
 // then be negative and the label text an emptry string.
 func (m *Modal) SetDoneFunc(handler func(buttonIndex int, buttonLabel string)) *Modal {
+	m.Lock()
+	defer m.Unlock()
+
 	m.done = handler
 	return m
 }
@@ -91,6 +110,9 @@ func (m *Modal) SetDoneFunc(handler func(buttonIndex int, buttonLabel string)) *
 // breaks. Note that words are wrapped, too, based on the final size of the
 // window.
 func (m *Modal) SetText(text string) *Modal {
+	m.Lock()
+	defer m.Unlock()
+
 	m.text = text
 	return m
 }
@@ -98,6 +120,9 @@ func (m *Modal) SetText(text string) *Modal {
 // AddButtons adds buttons to the window. There must be at least one button and
 // a "done" handler so the window can be closed again.
 func (m *Modal) AddButtons(labels []string) *Modal {
+	m.Lock()
+	defer m.Unlock()
+
 	for index, label := range labels {
 		func(i int, l string) {
 			m.form.AddButton(label, func() {
@@ -122,12 +147,18 @@ func (m *Modal) AddButtons(labels []string) *Modal {
 
 // ClearButtons removes all buttons from the window.
 func (m *Modal) ClearButtons() *Modal {
+	m.Lock()
+	defer m.Unlock()
+
 	m.form.ClearButtons()
 	return m
 }
 
 // SetFocus shifts the focus to the button with the given index.
 func (m *Modal) SetFocus(index int) *Modal {
+	m.Lock()
+	defer m.Unlock()
+
 	m.form.SetFocus(index)
 	return m
 }
@@ -139,11 +170,17 @@ func (m *Modal) Focus(delegate func(p Primitive)) {
 
 // HasFocus returns whether or not this primitive has focus.
 func (m *Modal) HasFocus() bool {
+	m.Lock()
+	defer m.Unlock()
+
 	return m.form.HasFocus()
 }
 
 // Draw draws this primitive onto the screen.
 func (m *Modal) Draw(screen tcell.Screen) {
+	m.Lock()
+	defer m.Unlock()
+
 	// Calculate the width of this modal.
 	buttonsWidth := 0
 	for _, button := range m.form.buttons {

@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"sync"
+
 	"github.com/gdamore/tcell"
 )
 
@@ -42,6 +44,8 @@ type Checkbox struct {
 	// A callback function set by the Form class and called when the user leaves
 	// this form item.
 	finished func(tcell.Key)
+
+	sync.Mutex
 }
 
 // NewCheckbox returns a new input field.
@@ -56,53 +60,80 @@ func NewCheckbox() *Checkbox {
 
 // SetChecked sets the state of the checkbox.
 func (c *Checkbox) SetChecked(checked bool) *Checkbox {
+	c.Lock()
+	defer c.Unlock()
+
 	c.checked = checked
 	return c
 }
 
 // IsChecked returns whether or not the box is checked.
 func (c *Checkbox) IsChecked() bool {
+	c.Lock()
+	defer c.Unlock()
+
 	return c.checked
 }
 
 // SetLabel sets the text to be displayed before the input area.
 func (c *Checkbox) SetLabel(label string) *Checkbox {
+	c.Lock()
+	defer c.Unlock()
+
 	c.label = label
 	return c
 }
 
 // GetLabel returns the text to be displayed before the input area.
 func (c *Checkbox) GetLabel() string {
+	c.Lock()
+	defer c.Unlock()
+
 	return c.label
 }
 
 // SetLabelWidth sets the screen width of the label. A value of 0 will cause the
 // primitive to use the width of the label string.
 func (c *Checkbox) SetLabelWidth(width int) *Checkbox {
+	c.Lock()
+	defer c.Unlock()
+
 	c.labelWidth = width
 	return c
 }
 
 // SetLabelColor sets the color of the label.
 func (c *Checkbox) SetLabelColor(color tcell.Color) *Checkbox {
+	c.Lock()
+	defer c.Unlock()
+
 	c.labelColor = color
 	return c
 }
 
 // SetFieldBackgroundColor sets the background color of the input area.
 func (c *Checkbox) SetFieldBackgroundColor(color tcell.Color) *Checkbox {
+	c.Lock()
+	defer c.Unlock()
+
 	c.fieldBackgroundColor = color
 	return c
 }
 
 // SetFieldTextColor sets the text color of the input area.
 func (c *Checkbox) SetFieldTextColor(color tcell.Color) *Checkbox {
+	c.Lock()
+	defer c.Unlock()
+
 	c.fieldTextColor = color
 	return c
 }
 
 // SetFormAttributes sets attributes shared by all form items.
 func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	c.Lock()
+	defer c.Unlock()
+
 	c.labelWidth = labelWidth
 	c.labelColor = labelColor
 	c.backgroundColor = bgColor
@@ -120,6 +151,9 @@ func (c *Checkbox) GetFieldWidth() int {
 // checkbox was changed by the user. The handler function receives the new
 // state.
 func (c *Checkbox) SetChangedFunc(handler func(checked bool)) *Checkbox {
+	c.Lock()
+	defer c.Unlock()
+
 	c.changed = handler
 	return c
 }
@@ -132,12 +166,18 @@ func (c *Checkbox) SetChangedFunc(handler func(checked bool)) *Checkbox {
 //   - KeyTab: Move to the next field.
 //   - KeyBacktab: Move to the previous field.
 func (c *Checkbox) SetDoneFunc(handler func(key tcell.Key)) *Checkbox {
+	c.Lock()
+	defer c.Unlock()
+
 	c.done = handler
 	return c
 }
 
 // SetFinishedFunc sets a callback invoked when the user leaves this form item.
 func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
+	c.Lock()
+	defer c.Unlock()
+
 	c.finished = handler
 	return c
 }
@@ -145,6 +185,9 @@ func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 // Draw draws this primitive onto the screen.
 func (c *Checkbox) Draw(screen tcell.Screen) {
 	c.Box.Draw(screen)
+
+	c.Lock()
+	defer c.Unlock()
 
 	// Prepare
 	x, y, width, height := c.GetInnerRect()
@@ -187,7 +230,9 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			if key == tcell.KeyRune && event.Rune() != ' ' {
 				break
 			}
+			c.Lock()
 			c.checked = !c.checked
+			c.Unlock()
 			if c.changed != nil {
 				c.changed(c.checked)
 			}
@@ -214,7 +259,9 @@ func (c *Checkbox) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		// Process mouse event.
 		if action == MouseLeftClick && y == rectY {
 			setFocus(c)
+			c.Lock()
 			c.checked = !c.checked
+			c.Unlock()
 			if c.changed != nil {
 				c.changed(c.checked)
 			}
