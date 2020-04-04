@@ -51,7 +51,7 @@ For a presentation highlighting this package, compile and run the program found 
 
 ## Documentation
 
-Refer to https://godoc.org/github.com/rivo/tview for the package's documentation.
+Refer to https://pkg.go.dev/github.com/rivo/tview for the package's documentation.
 
 ## Dependencies
 

@@ -670,6 +670,9 @@ func (g *Grid) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 
 		// Pass mouse events along to the first child item that takes it.
 		for _, item := range g.items {
+			if item.Item == nil {
+				continue
+			}
 			consumed, capture = item.Item.MouseHandler()(action, event, setFocus)
 			if consumed {
 				return
