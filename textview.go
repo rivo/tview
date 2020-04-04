@@ -329,7 +329,7 @@ func (t *TextView) SetRegions(regions bool) *TextView {
 //   - You can call Application.Draw() from this handler.
 //   - You can call TextView.HasFocus() from this handler.
 //   - During the execution of this handler, access to any other variables from
-//     this primitive or any other primitive should be queued using
+//     this primitive or any other primitive must be queued using
 //     Application.QueueUpdate().
 //
 // See package description for details on dealing with concurrency.
@@ -607,7 +607,11 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 	changed := t.changed
 	t.Unlock()
 	if changed != nil {
-		defer changed() // Deadlocks may occur if we lock here.
+		defer func() {
+			// We always call the "changed" function in a separate goroutine to avoid
+			// deadlocks.
+			go changed()
+		}()
 	}
 
 	t.Lock()
