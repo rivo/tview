@@ -280,6 +280,21 @@ func (b *Box) SetBorderAttributes(attr tcell.AttrMask) *Box {
 	return b
 }
 
+// GetBorderAttributes returns the border's style attributes.
+func (b *Box) GetBorderAttributes() tcell.AttrMask {
+	return b.borderAttributes
+}
+
+// GetBorderColor returns the box's border color.
+func (b *Box) GetBorderColor() tcell.Color {
+	return b.borderColor
+}
+
+// GetBackgroundColor returns the box's background color.
+func (b *Box) GetBackgroundColor() tcell.Color {
+	return b.backgroundColor
+}
+
 // SetTitle sets the box's title.
 func (b *Box) SetTitle(title string) *Box {
 	b.title = title
