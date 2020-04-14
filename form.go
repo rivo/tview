@@ -627,6 +627,17 @@ func (f *Form) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			return false, nil
 		}
 
+		// At the end, update f.focusedElement and prepare current item/button.
+		defer func() {
+			if consumed {
+				index := f.focusIndex()
+				if index >= 0 {
+					f.focusedElement = index
+				}
+				f.Focus(setFocus)
+			}
+		}()
+
 		// Determine items to pass mouse events to.
 		for _, item := range f.items {
 			consumed, capture = item.MouseHandler()(action, event, setFocus)
@@ -644,11 +655,6 @@ func (f *Form) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		// A mouse click anywhere else will return the focus to the last selected
 		// element.
 		if action == MouseLeftClick {
-			if f.focusedElement < len(f.items) {
-				setFocus(f.items[f.focusedElement])
-			} else if f.focusedElement < len(f.items)+len(f.buttons) {
-				setFocus(f.buttons[f.focusedElement-len(f.items)])
-			}
 			consumed = true
 		}
 
