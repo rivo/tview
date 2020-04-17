@@ -681,12 +681,13 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		selectNode := func() {
-			if t.currentNode != nil {
+			node := t.currentNode
+			if node != nil {
 				if t.selected != nil {
-					t.selected(t.currentNode)
+					t.selected(node)
 				}
-				if t.currentNode.selected != nil {
-					t.currentNode.selected()
+				if node.selected != nil {
+					node.selected()
 				}
 			}
 		}
