@@ -747,13 +747,14 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			if y >= 0 && y < len(t.nodes) {
 				node := t.nodes[y]
 				if node.selectable {
-					if t.currentNode != node && t.changed != nil {
+					previousNode := t.currentNode
+					t.currentNode = node
+					if previousNode != node && t.changed != nil {
 						t.changed(node)
 					}
 					if t.selected != nil {
 						t.selected(node)
 					}
-					t.currentNode = node
 				}
 			}
 			consumed = true
