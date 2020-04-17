@@ -742,6 +742,7 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 
 		switch action {
 		case MouseLeftClick:
+			setFocus(t)
 			_, rectY, _, _ := t.GetInnerRect()
 			y -= rectY
 			if y >= 0 && y < len(t.nodes) {
@@ -758,7 +759,6 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 				}
 			}
 			consumed = true
-			setFocus(t)
 		case MouseScrollUp:
 			t.movement = treeUp
 			consumed = true
