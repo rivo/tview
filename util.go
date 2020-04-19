@@ -50,6 +50,19 @@ var (
 	InputFieldMaxLength func(maxLength int) func(text string, ch rune) bool
 )
 
+// Transformation describes a widget modification.
+type Transformation int
+
+// Widget transformations.
+const (
+	TransformFirstItem    Transformation = 1
+	TransformLastItem     Transformation = 2
+	TransformPreviousItem Transformation = 3
+	TransformNextItem     Transformation = 4
+	TransformPreviousPage Transformation = 5
+	TransformNextPage     Transformation = 6
+)
+
 // Package initialization.
 func init() {
 	// We'll use zero width joiners.

@@ -401,6 +401,26 @@ func (t *TreeView) GetRowCount() int {
 	return len(t.nodes)
 }
 
+// Transform modifies the current selection.
+func (t *TreeView) Transform(tr Transformation) {
+	switch tr {
+	case TransformFirstItem:
+		t.movement = treeHome
+	case TransformLastItem:
+		t.movement = treeEnd
+	case TransformPreviousItem:
+		t.movement = treeUp
+	case TransformNextItem:
+		t.movement = treeDown
+	case TransformPreviousPage:
+		t.movement = treePageUp
+	case TransformNextPage:
+		t.movement = treePageDown
+	}
+
+	t.process()
+}
+
 // process builds the visible tree, populates the "nodes" slice, and processes
 // pending selection actions.
 func (t *TreeView) process() {

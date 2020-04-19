@@ -387,6 +387,42 @@ func (l *List) Clear() *List {
 	return l
 }
 
+// Transform modifies the current selection.
+func (l *List) Transform(tr Transformation) {
+	l.transform(tr)
+}
+
+func (l *List) transform(tr Transformation) {
+	switch tr {
+	case TransformFirstItem:
+		l.currentItem = 0
+	case TransformLastItem:
+		l.currentItem = len(l.items) - 1
+	case TransformPreviousItem:
+		l.currentItem -= 1
+	case TransformNextItem:
+		l.currentItem += 1
+	case TransformPreviousPage:
+		l.currentItem -= 5
+	case TransformNextPage:
+		l.currentItem += 5
+	}
+
+	if l.currentItem < 0 {
+		if l.wrapAround {
+			l.currentItem = len(l.items) - 1
+		} else {
+			l.currentItem = 0
+		}
+	} else if l.currentItem >= len(l.items) {
+		if l.wrapAround {
+			l.currentItem = 0
+		} else {
+			l.currentItem = len(l.items) - 1
+		}
+	}
+}
+
 // Draw draws this primitive onto the screen.
 func (l *List) Draw(screen tcell.Screen) {
 	l.Box.Draw(screen)
@@ -490,20 +526,18 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		previousItem := l.currentItem
 
 		switch key := event.Key(); key {
-		case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
-			l.currentItem++
-		case tcell.KeyBacktab, tcell.KeyUp, tcell.KeyLeft:
-			l.currentItem--
 		case tcell.KeyHome:
-			l.currentItem = 0
+			l.transform(TransformFirstItem)
 		case tcell.KeyEnd:
-			l.currentItem = len(l.items) - 1
-		case tcell.KeyPgDn:
-			_, _, _, height := l.GetInnerRect()
-			l.currentItem += height
+			l.transform(TransformLastItem)
+		case tcell.KeyBacktab, tcell.KeyUp, tcell.KeyLeft:
+			l.transform(TransformPreviousItem)
+		case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
+			l.transform(TransformNextItem)
 		case tcell.KeyPgUp:
-			_, _, _, height := l.GetInnerRect()
-			l.currentItem -= height
+			l.transform(TransformPreviousPage)
+		case tcell.KeyPgDn:
+			l.transform(TransformNextPage)
 		case tcell.KeyEnter:
 			if l.currentItem >= 0 && l.currentItem < len(l.items) {
 				item := l.items[l.currentItem]
