@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/gdamore/tcell"
@@ -821,10 +822,11 @@ func (t *TextView) reindexBuffer(width int) {
 		if t.wrap && t.wordWrap {
 			for _, line := range t.index {
 				str := t.buffer[line.Line][line.Pos:line.NextPos]
-				spaces := spacePattern.FindAllStringIndex(str, -1)
-				if spaces != nil && spaces[len(spaces)-1][1] == len(str) {
+				trimmed := strings.TrimRightFunc(str, unicode.IsSpace)
+
+				if len(trimmed) != len(str) {
 					oldNextPos := line.NextPos
-					line.NextPos -= spaces[len(spaces)-1][1] - spaces[len(spaces)-1][0]
+					line.NextPos -= len(str) - len(trimmed)
 					line.Width -= stringWidth(t.buffer[line.Line][line.NextPos:oldNextPos])
 				}
 			}
