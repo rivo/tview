@@ -756,6 +756,9 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 					if t.selected != nil {
 						t.selected(node)
 					}
+					if node.selected != nil {
+						node.selected()
+					}
 				}
 			}
 			consumed = true
