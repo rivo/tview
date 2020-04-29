@@ -100,12 +100,13 @@ func (l *List) SetCurrentItem(index int) *List {
 		index = 0
 	}
 
-	if index != l.currentItem && l.changed != nil {
+	previousItem := l.currentItem
+	l.currentItem = index
+
+	if index != previousItem && l.changed != nil {
 		item := l.items[index]
 		l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
 	}
-
-	l.currentItem = index
 
 	return l
 }
@@ -149,13 +150,13 @@ func (l *List) RemoveItem(index int) *List {
 	}
 
 	// Shift current item.
-	previousCurrentItem := l.currentItem
+	previousItem := l.currentItem
 	if l.currentItem >= index {
 		l.currentItem--
 	}
 
 	// Fire "changed" event for removed items.
-	if previousCurrentItem == index && l.changed != nil {
+	if previousItem == index && l.changed != nil {
 		item := l.items[l.currentItem]
 		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 	}
@@ -594,6 +595,7 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			setFocus(l)
 			index := l.indexAtPoint(event.Position())
 			if index != -1 {
+				l.currentItem = index
 				item := l.items[index]
 				if item.Selected != nil {
 					item.Selected()
@@ -604,7 +606,6 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 				if index != l.currentItem && l.changed != nil {
 					l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
 				}
-				l.currentItem = index
 			}
 			consumed = true
 		case MouseScrollUp:
