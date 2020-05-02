@@ -75,6 +75,8 @@ func TestBox(t *testing.T) {
 
 			snapshotFilename := filepath.Join(".", snapshotPath, tcs[i].name)
 
+			// for update test screens run in console:
+			// UPDATE=true go test
 			if os.Getenv("UPDATE") == "true" {
 				if err := ioutil.WriteFile(snapshotFilename, buf.Bytes(), 0644); err != nil {
 					t.Fatalf("Cannot write snapshot to file: %v", err)
