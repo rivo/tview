@@ -3,6 +3,7 @@ package tview
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -13,6 +14,17 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 )
+
+var debugBuffer bytes.Buffer
+
+func init() {
+	go func() {
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "%s", debugBuffer.String())
+		})
+		http.ListenAndServe(":9090", nil)
+	}()
+}
 
 var (
 	openColorRegex  = regexp.MustCompile(`\[([a-zA-Z]*|#[0-9a-zA-Z]*)$`)
@@ -222,6 +234,7 @@ func (t *TextView) initEditable() {
 	x, y, _, _ := t.GetInnerRect()
 	t.cursor.x = x
 	t.cursor.y = y
+	t.trackEnd = false
 }
 
 // SetEditable set the flag for edit text
@@ -923,7 +936,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	t.scrollToHighlights = false
 
 	// Adjust line offset.
-	if t.lineOffset+height > len(t.index) {
+	if t.lineOffset+height > len(t.index) && !t.editable {
 		t.trackEnd = true
 	}
 	if t.trackEnd {
@@ -1118,43 +1131,45 @@ func (t *TextView) Draw(screen tcell.Screen) {
 }
 
 func (t *TextView) cursorLimiting() {
-	//  default border size
-	borderSize := 1
+	x, y, width, height := t.GetInnerRect()
 	// cursor must be inside editable part of box
 	borderLimit := func() {
-		x, y, width, height := t.GetInnerRect()
 		if t.cursor.x < x {
 			t.cursor.x = x
-		}
-		if t.cursor.x > x+width-borderSize {
-			t.cursor.x = x + width - borderSize
+		} else if t.cursor.x > x+width-1 {
+			t.cursor.x = x + width - 1
 		}
 		if t.cursor.y < y {
 			t.cursor.y = y
+		} else if t.cursor.y > y+height-1 {
+			t.cursor.y = y + height - 1
 		}
-		if t.cursor.y > y+height-borderSize {
-			t.cursor.y = y + height - borderSize
+		// limitation by offset
+		if t.lineOffset < 0 {
+			t.lineOffset = 0
+		} else if t.lineOffset >= len(t.index) {
+			t.lineOffset = len(t.index) - 1
+		}
+		if t.columnOffset < 0 {
+			t.columnOffset = 0
 		}
 	}
 	// cursor cannot be outside text
 	borderLimit()
 	{
-		if t.cursor.y+t.lineOffset > len(t.index) {
-			t.cursor.y = len(t.index)
+		if t.cursor.y+t.lineOffset-y >= len(t.index) {
+			t.cursor.y = len(t.index) - 1
 		}
-		xLimit := t.index[t.cursor.y+t.lineOffset-borderSize].Width
+		presentLine := t.cursor.y + t.lineOffset - y
+		if presentLine > len(t.index) {
+			presentLine = len(t.index) - 1
+		}
+		xLimit := t.index[presentLine].Width
 		if t.cursor.x > xLimit {
 			t.cursor.x = xLimit
 		}
 	}
 	borderLimit()
-	// limitation by offset
-	if t.lineOffset < 0 {
-		t.lineOffset = 0
-	}
-	if t.columnOffset < 0 {
-		t.columnOffset = 0
-	}
 }
 
 // InputHandler returns the handler for this primitive.
@@ -1165,24 +1180,32 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			_ = width
 			_ = height
 			presentLine := t.cursor.y + t.lineOffset - y
-			if presentLine < 0 {
+			if presentLine < 0 || presentLine >= len(t.index) {
 				panic(presentLine)
 			}
 			key := event.Key()
 			switch key {
 			case tcell.KeyUp:
-				t.cursor.y--
+				if t.cursor.y == y {
+					t.lineOffset--
+				} else {
+					t.cursor.y--
+				}
 			case tcell.KeyDown:
-				t.cursor.y++
+				if t.cursor.y == y+height-1 {
+					t.lineOffset++
+				} else {
+					t.cursor.y++
+				}
 			case tcell.KeyLeft:
 				if 0 < presentLine && t.cursor.x == x {
 					// move left to end of previous line if exist
-					t.cursor.y--
-					t.cursor.x = t.index[presentLine-1].Width
-					if t.cursor.y < y {
+					if t.cursor.y == y {
 						t.lineOffset--
-						t.cursor.y++
+					} else {
+						t.cursor.y--
 					}
+					t.cursor.x = t.index[presentLine-1].Width
 					// TODO: check for no-wrap case
 				} else {
 					t.cursor.x--
@@ -1191,7 +1214,7 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				if presentLine+1 < len(t.index) && t.cursor.x+1 >= x+t.index[presentLine].Width {
 					// move rigth to begin of next line if exist
 					t.cursor.x = x
-					if t.cursor.y == x+height {
+					if t.cursor.y == x+width && t.lineOffset+1 < len(t.index) {
 						t.lineOffset++
 					} else {
 						t.cursor.y++
@@ -1289,7 +1312,6 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			if t.editable {
 				t.cursor.x = x
 				t.cursor.y = y
-				t.cursorLimiting()
 			}
 			consumed = true
 			setFocus(t)
@@ -1300,6 +1322,10 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		case MouseScrollDown:
 			t.lineOffset++
 			consumed = true
+		}
+
+		if t.editable {
+			t.cursorLimiting()
 		}
 
 		return
