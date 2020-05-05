@@ -1186,7 +1186,10 @@ func (t *TextView) insertRune(bufferIndex, bufferPos int, r rune) {
 	b = append(b[:bufferPos], append([]byte(str), b[bufferPos:]...)...)
 	t.buffer[bufferIndex] = string(b)
 
-	panic("need implementation for update buffers, index")
+	text := e.GetText(false)
+	fmt.Fprint(t, text)
+
+	// panic("need implementation for update buffers, index")
 	// reindex buffers
 	//_, _, width, _ := t.GetInnerRect()
 	//t.reindexBuffer(width)
