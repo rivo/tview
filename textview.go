@@ -205,7 +205,6 @@ func NewTextView() *TextView {
 	return &TextView{
 		Box:           NewBox(),
 		highlights:    make(map[string]struct{}),
-		lineOffset:    -1,
 		scrollable:    true,
 		align:         AlignLeft,
 		wrap:          true,
@@ -1149,12 +1148,26 @@ func (t *TextView) cursorLimiting() {
 		}
 	}
 	borderLimit()
+	// limitation by offset
+	if t.lineOffset < 0 {
+		t.lineOffset = 0
+	}
+	if t.columnOffset < 0 {
+		t.columnOffset = 0
+	}
 }
 
 // InputHandler returns the handler for this primitive.
 func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	if t.editable {
 		return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+			x, y, width, height := t.GetInnerRect()
+			_ = width
+			_ = height
+			presentLine := t.cursor.y + t.lineOffset - y
+			if presentLine < 0 {
+				panic(presentLine)
+			}
 			key := event.Key()
 			switch key {
 			case tcell.KeyUp:
@@ -1162,9 +1175,30 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			case tcell.KeyDown:
 				t.cursor.y++
 			case tcell.KeyLeft:
-				t.cursor.x--
+				if 0 < presentLine && t.cursor.x == x {
+					// move left to end of previous line if exist
+					t.cursor.y--
+					t.cursor.x = t.index[presentLine-1].Width
+					if t.cursor.y < y {
+						t.lineOffset--
+						t.cursor.y++
+					}
+					// TODO: check for no-wrap case
+				} else {
+					t.cursor.x--
+				}
 			case tcell.KeyRight:
-				t.cursor.x++
+				if presentLine+1 < len(t.index) && t.cursor.x+1 >= x+t.index[presentLine].Width {
+					// move rigth to begin of next line if exist
+					t.cursor.x = x
+					if t.cursor.y == x+height {
+						t.lineOffset++
+					} else {
+						t.cursor.y++
+					}
+				} else {
+					t.cursor.x++
+				}
 			}
 			t.cursorLimiting()
 		})
@@ -1252,7 +1286,7 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 					break
 				}
 			}
-			if t.editable{
+			if t.editable {
 				t.cursor.x = x
 				t.cursor.y = y
 				t.cursorLimiting()
