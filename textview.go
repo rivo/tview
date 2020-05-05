@@ -17,6 +17,10 @@ import (
 
 var debugBuffer bytes.Buffer
 
+func log(args ...interface{}) {
+	fmt.Fprintln(&debugBuffer, args...)
+}
+
 func init() {
 	go func() {
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -1157,8 +1161,8 @@ func (t *TextView) cursorLimiting() {
 	// cursor cannot be outside text
 	borderLimit()
 	{
-		if t.cursor.y+t.lineOffset-y >= len(t.index) {
-			t.cursor.y = len(t.index) - 1
+		if diff := (t.cursor.y + t.lineOffset - y) - (len(t.index) - 1); diff > 0 {
+			t.cursor.y -= diff
 		}
 		presentLine := t.cursor.y + t.lineOffset - y
 		if presentLine > len(t.index) {
@@ -1177,7 +1181,7 @@ func (t *TextView) insertRune(bufferIndex, bufferPos int, r rune) {
 	b := []byte(t.buffer[bufferIndex])
 	str := string(r)
 	if str == "\t" {
-		str = strings.Repeat(" " , TabSize)
+		str = strings.Repeat(" ", TabSize)
 	}
 	b = append(b[:bufferPos], append([]byte(str), b[bufferPos:]...)...)
 	t.buffer[bufferIndex] = string(b)
@@ -1250,7 +1254,7 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				bufferIndex := t.index[presentLine].Line
 				bufferPos := t.index[presentLine].Pos + t.cursor.x - x
 				r := event.Rune()
-				t.insertRune(bufferIndex, bufferPos,  r)
+				t.insertRune(bufferIndex, bufferPos, r)
 			}
 			t.cursorLimiting()
 		})
