@@ -1118,6 +1118,39 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	}
 }
 
+func (t *TextView) cursorLimiting() {
+	//  default border size
+	borderSize := 1
+	// cursor must be inside editable part of box
+	borderLimit := func() {
+		x, y, width, height := t.GetInnerRect()
+		if t.cursor.x < x {
+			t.cursor.x = x
+		}
+		if t.cursor.x > x+width-borderSize {
+			t.cursor.x = x + width - borderSize
+		}
+		if t.cursor.y < y {
+			t.cursor.y = y
+		}
+		if t.cursor.y > y+height-borderSize {
+			t.cursor.y = y + height - borderSize
+		}
+	}
+	// cursor cannot be outside text
+	borderLimit()
+	{
+		if t.cursor.y+t.lineOffset > len(t.index) {
+			t.cursor.y = len(t.index)
+		}
+		xLimit := t.index[t.cursor.y+t.lineOffset-borderSize].Width
+		if t.cursor.x > xLimit {
+			t.cursor.x = xLimit
+		}
+	}
+	borderLimit()
+}
+
 // InputHandler returns the handler for this primitive.
 func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	if t.editable {
@@ -1133,36 +1166,7 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			case tcell.KeyRight:
 				t.cursor.x++
 			}
-			//  default border size
-				borderSize := 1
-			// cursor must be inside editable part of box
-			borderLimit := func(){
-				x, y, width, height := t.GetInnerRect()
-				if t.cursor.x < x {
-					t.cursor.x = x
-				}
-				if t.cursor.x > x+width-borderSize {
-					t.cursor.x = x + width - borderSize
-				}
-				if t.cursor.y < y {
-					t.cursor.y = y
-				}
-				if t.cursor.y > y+height-borderSize {
-					t.cursor.y = y + height - borderSize
-				}
-			}
-			// cursor cannot be outside text
-			borderLimit()
-			{
-				if t.cursor.y + t.lineOffset > len(t.index) {
-					t.cursor.y = len(t.index)
-				}
-				xLimit := t.index[t.cursor.y-borderSize].Width
-				if t.cursor.x > xLimit {
-					t.cursor.x = xLimit
-				}
-			}
-			borderLimit()
+			t.cursorLimiting()
 		})
 	}
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
@@ -1247,6 +1251,11 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 					t.Highlight(region.ID)
 					break
 				}
+			}
+			if t.editable{
+				t.cursor.x = x
+				t.cursor.y = y
+				t.cursorLimiting()
 			}
 			consumed = true
 			setFocus(t)
