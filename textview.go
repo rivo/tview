@@ -191,6 +191,13 @@ type TextView struct {
 	// An optional function which is called when one or more regions were
 	// highlighted.
 	highlighted func(added, removed, remaining []string)
+
+	// Option for edit text.
+	editable bool
+
+	// Position of cursor in editable option.
+	// Coordinates are absolute value of screen.
+	cursor struct{ x, y int }
 }
 
 // NewTextView returns a new text view.
@@ -206,6 +213,31 @@ func NewTextView() *TextView {
 		regions:       false,
 		dynamicColors: false,
 	}
+}
+
+func (t *TextView) initEditable() {
+	if !t.editable {
+		return
+	}
+	// update default settings for edit text
+	x, y, _, _ := t.GetInnerRect()
+	t.cursor.x = x
+	t.cursor.y = y
+}
+
+// SetEditable set the flag for edit text
+func (t *TextView) SetEditable(editable bool) *TextView {
+	t.editable = editable
+	t.initEditable()
+	return t
+}
+
+// SetBorder sets the flag indicating whether or not the box should have a
+// border.
+func (t *TextView) SetBorder(show bool) *TextView {
+	t.Box.SetBorder(show)
+	t.initEditable()
+	return t
 }
 
 // SetScrollable sets the flag that decides whether or not the text view is
@@ -1080,10 +1112,46 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		t.index = nil
 		t.lineOffset = 0
 	}
+
+	if t.editable {
+		screen.ShowCursor(t.cursor.x, t.cursor.y)
+	}
 }
 
 // InputHandler returns the handler for this primitive.
 func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	if t.editable {
+		return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+			key := event.Key()
+			switch key {
+			case tcell.KeyUp:
+				t.cursor.y--
+			case tcell.KeyDown:
+				t.cursor.y++
+			case tcell.KeyLeft:
+				t.cursor.x--
+			case tcell.KeyRight:
+				t.cursor.x++
+			}
+			// cursor must be inside editable part of box
+			{
+				borderSize := 1
+				x, y, width, height := t.GetInnerRect()
+				if t.cursor.x < x {
+					t.cursor.x = x
+				}
+				if t.cursor.x > x+width-borderSize {
+					t.cursor.x = x + width - borderSize
+				}
+				if t.cursor.y < y {
+					t.cursor.y = y
+				}
+				if t.cursor.y > y+height-borderSize {
+					t.cursor.y = y + height - borderSize
+				}
+			}
+		})
+	}
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		key := event.Key()
 
@@ -1145,6 +1213,7 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 // MouseHandler returns the mouse handler for this primitive.
 func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	// TODO: move by mouse
 	return t.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		x, y := event.Position()
 		if !t.InRect(x, y) {
