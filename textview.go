@@ -137,8 +137,10 @@ type TextView struct {
 	// The screen width of the longest line in the index (not the buffer).
 	longestLine int
 
-	// The index of the first line shown in the text view.
-	lineOffset int
+	offset struct {
+		row int // The index of the first line shown in the text view.
+		col int // The index of the first column line shown in the text view.
+	}
 
 	// If set to true, the text view will always remain at the end of the content.
 	trackEnd bool
@@ -202,10 +204,9 @@ type TextView struct {
 
 // NewTextView returns a new text view.
 func NewTextView() *TextView {
-	return &TextView{
+	t := &TextView{
 		Box:           NewBox(),
 		highlights:    make(map[string]struct{}),
-		lineOffset:    -1,
 		scrollable:    true,
 		align:         AlignLeft,
 		wrap:          true,
@@ -213,6 +214,7 @@ func NewTextView() *TextView {
 		regions:       false,
 		dynamicColors: false,
 	}
+	return t
 }
 
 func (t *TextView) initEditable() {
@@ -395,7 +397,7 @@ func (t *TextView) ScrollTo(row, column int) *TextView {
 	if !t.scrollable {
 		return t
 	}
-	t.lineOffset = row
+	t.offset.row = row
 	t.columnOffset = column
 	t.trackEnd = false
 	return t
@@ -408,7 +410,7 @@ func (t *TextView) ScrollToBeginning() *TextView {
 		return t
 	}
 	t.trackEnd = false
-	t.lineOffset = 0
+	t.offset.row = 0
 	t.columnOffset = 0
 	return t
 }
@@ -428,7 +430,7 @@ func (t *TextView) ScrollToEnd() *TextView {
 // GetScrollOffset returns the number of rows and columns that are skipped at
 // the top left corner when the text view has been scrolled.
 func (t *TextView) GetScrollOffset() (row, column int) {
-	return t.lineOffset, t.columnOffset
+	return t.offset.row, t.columnOffset
 }
 
 // Clear removes all text from the buffer.
@@ -905,10 +907,10 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		// Do we fit the entire height?
 		if t.toHighlight-t.fromHighlight+1 < height {
 			// Yes, let's center the highlights.
-			t.lineOffset = (t.fromHighlight + t.toHighlight - height) / 2
+			t.offset.row = (t.fromHighlight + t.toHighlight - height) / 2
 		} else {
 			// No, let's move to the start of the highlights.
-			t.lineOffset = t.fromHighlight
+			t.offset.row = t.fromHighlight
 		}
 
 		// If the highlight is too far to the right, move it to the middle.
@@ -924,14 +926,14 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	t.scrollToHighlights = false
 
 	// Adjust line offset.
-	if t.lineOffset+height > len(t.index) {
+	if t.offset.row+height > len(t.index) {
 		t.trackEnd = true
 	}
 	if t.trackEnd {
-		t.lineOffset = len(t.index) - height
+		t.offset.row = len(t.index) - height
 	}
-	if t.lineOffset < 0 {
-		t.lineOffset = 0
+	if t.offset.row < 0 {
+		t.offset.row = 0
 	}
 
 	// Adjust column offset.
@@ -965,9 +967,9 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 	// Draw the buffer.
 	defaultStyle := tcell.StyleDefault.Foreground(t.textColor)
-	for line := t.lineOffset; line < len(t.index); line++ {
+	for line := t.offset.row; line < len(t.index); line++ {
 		// Are we done?
-		if line-t.lineOffset >= height || y+line-t.lineOffset >= totalHeight {
+		if line-t.offset.row >= height || y+line-t.offset.row >= totalHeight {
 			break
 		}
 
@@ -982,7 +984,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 			t.regionInfos = append(t.regionInfos, &textViewRegion{
 				ID:    regionID,
 				FromX: x,
-				FromY: y + line - t.lineOffset,
+				FromY: y + line - t.offset.row,
 				ToX:   -1,
 				ToY:   -1,
 			})
@@ -1006,7 +1008,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		}
 
 		// Print the line.
-		if y+line-t.lineOffset >= 0 {
+		if y+line-t.offset.row >= 0 {
 			var colorPos, regionPos, escapePos, tagOffset, skipped int
 			iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
 				// Process tags.
@@ -1021,7 +1023,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 						if regionID != "" && len(t.regionInfos) > 0 && t.regionInfos[len(t.regionInfos)-1].ID == regionID {
 							// End last region.
 							t.regionInfos[len(t.regionInfos)-1].ToX = x + posX
-							t.regionInfos[len(t.regionInfos)-1].ToY = y + line - t.lineOffset
+							t.regionInfos[len(t.regionInfos)-1].ToY = y + line - t.offset.row
 						}
 						regionID = regions[regionPos][1]
 						if regionID != "" {
@@ -1029,7 +1031,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 							t.regionInfos = append(t.regionInfos, &textViewRegion{
 								ID:    regionID,
 								FromX: x + posX,
-								FromY: y + line - t.lineOffset,
+								FromY: y + line - t.offset.row,
 								ToX:   -1,
 								ToY:   -1,
 							})
@@ -1048,7 +1050,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				}
 
 				// Mix the existing style with the new style.
-				_, _, existingStyle, _ := screen.GetContent(x+posX, y+line-t.lineOffset)
+				_, _, existingStyle, _ := screen.GetContent(x+posX, y+line-t.offset.row)
 				_, background, _ := existingStyle.Decompose()
 				style := overlayStyle(background, defaultStyle, foregroundColor, backgroundColor, attributes)
 
@@ -1088,9 +1090,9 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				// Draw the character.
 				for offset := screenWidth - 1; offset >= 0; offset-- {
 					if offset == 0 {
-						screen.SetContent(x+posX+offset, y+line-t.lineOffset, main, comb, style)
+						screen.SetContent(x+posX+offset, y+line-t.offset.row, main, comb, style)
 					} else {
-						screen.SetContent(x+posX+offset, y+line-t.lineOffset, ' ', nil, style)
+						screen.SetContent(x+posX+offset, y+line-t.offset.row, ' ', nil, style)
 					}
 				}
 
@@ -1103,14 +1105,14 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 	// If this view is not scrollable, we'll purge the buffer of lines that have
 	// scrolled out of view.
-	if !t.scrollable && t.lineOffset > 0 {
-		if t.lineOffset >= len(t.index) {
+	if !t.scrollable && t.offset.row > 0 {
+		if t.offset.row >= len(t.index) {
 			t.buffer = nil
 		} else {
-			t.buffer = t.buffer[t.index[t.lineOffset].Line:]
+			t.buffer = t.buffer[t.index[t.offset.row].Line:]
 		}
 		t.index = nil
-		t.lineOffset = 0
+		t.offset.row = 0
 	}
 
 	if t.editable {
@@ -1171,16 +1173,16 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			switch event.Rune() {
 			case 'g': // Home.
 				t.trackEnd = false
-				t.lineOffset = 0
+				t.offset.row = 0
 				t.columnOffset = 0
 			case 'G': // End.
 				t.trackEnd = true
 				t.columnOffset = 0
 			case 'j': // Down.
-				t.lineOffset++
+				t.offset.row++
 			case 'k': // Up.
 				t.trackEnd = false
-				t.lineOffset--
+				t.offset.row--
 			case 'h': // Left.
 				t.columnOffset--
 			case 'l': // Right.
@@ -1188,25 +1190,25 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			}
 		case tcell.KeyHome:
 			t.trackEnd = false
-			t.lineOffset = 0
+			t.offset.row = 0
 			t.columnOffset = 0
 		case tcell.KeyEnd:
 			t.trackEnd = true
 			t.columnOffset = 0
 		case tcell.KeyUp:
 			t.trackEnd = false
-			t.lineOffset--
+			t.offset.row--
 		case tcell.KeyDown:
-			t.lineOffset++
+			t.offset.row++
 		case tcell.KeyLeft:
 			t.columnOffset--
 		case tcell.KeyRight:
 			t.columnOffset++
 		case tcell.KeyPgDn, tcell.KeyCtrlF:
-			t.lineOffset += t.pageSize
+			t.offset.row += t.pageSize
 		case tcell.KeyPgUp, tcell.KeyCtrlB:
 			t.trackEnd = false
-			t.lineOffset -= t.pageSize
+			t.offset.row -= t.pageSize
 		}
 	})
 }
@@ -1239,10 +1241,10 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			setFocus(t)
 		case MouseScrollUp:
 			t.trackEnd = false
-			t.lineOffset--
+			t.offset.row--
 			consumed = true
 		case MouseScrollDown:
-			t.lineOffset++
+			t.offset.row++
 			consumed = true
 		}
 
