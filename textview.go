@@ -1222,6 +1222,13 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				} else {
 					t.cursor.x++
 				}
+			case tcell.KeyHome:
+				t.lineOffset = 0
+				t.columnOffset = 0
+			case tcell.KeyPgDn, tcell.KeyCtrlF:
+				t.lineOffset += height
+			case tcell.KeyPgUp, tcell.KeyCtrlB:
+				t.lineOffset -= height
 			}
 			t.cursorLimiting()
 		})
