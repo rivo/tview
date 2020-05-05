@@ -1133,9 +1133,10 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			case tcell.KeyRight:
 				t.cursor.x++
 			}
-			// cursor must be inside editable part of box
-			{
+			//  default border size
 				borderSize := 1
+			// cursor must be inside editable part of box
+			borderLimit := func(){
 				x, y, width, height := t.GetInnerRect()
 				if t.cursor.x < x {
 					t.cursor.x = x
@@ -1150,6 +1151,18 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 					t.cursor.y = y + height - borderSize
 				}
 			}
+			// cursor cannot be outside text
+			borderLimit()
+			{
+				if t.cursor.y + t.lineOffset > len(t.index) {
+					t.cursor.y = len(t.index)
+				}
+				xLimit := t.index[t.cursor.y-borderSize].Width
+				if t.cursor.x > xLimit {
+					t.cursor.x = xLimit
+				}
+			}
+			borderLimit()
 		})
 	}
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
