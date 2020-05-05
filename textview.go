@@ -1172,6 +1172,23 @@ func (t *TextView) cursorLimiting() {
 	borderLimit()
 }
 
+func (t *TextView) insertRune(bufferIndex, bufferPos int, r rune) {
+	// TODO: new line
+	b := []byte(t.buffer[bufferIndex])
+	str := string(r)
+	if str == "\t" {
+		str = strings.Repeat(" " , TabSize)
+	}
+	b = append(b[:bufferPos], append([]byte(str), b[bufferPos:]...)...)
+	t.buffer[bufferIndex] = string(b)
+
+	panic("need implementation for update buffers, index")
+	// reindex buffers
+	//_, _, width, _ := t.GetInnerRect()
+	//t.reindexBuffer(width)
+	// t.index = nil
+}
+
 // InputHandler returns the handler for this primitive.
 func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	if t.editable {
@@ -1229,6 +1246,11 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.lineOffset += height
 			case tcell.KeyPgUp, tcell.KeyCtrlB:
 				t.lineOffset -= height
+			default:
+				bufferIndex := t.index[presentLine].Line
+				bufferPos := t.index[presentLine].Pos + t.cursor.x - x
+				r := event.Rune()
+				t.insertRune(bufferIndex, bufferPos,  r)
 			}
 			t.cursorLimiting()
 		})
