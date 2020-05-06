@@ -239,6 +239,7 @@ func (t *TextView) initEditable() {
 	t.cursor.x = x
 	t.cursor.y = y
 	t.trackEnd = false
+	t.dynamicColors = false
 }
 
 // SetEditable set the flag for edit text
@@ -322,7 +323,7 @@ func (t *TextView) SetText(text string) *TextView {
 func (t *TextView) GetText(stripTags bool) string {
 	// Get the buffer.
 	buffer := t.buffer
-	if !stripTags {
+	if !stripTags && len(t.recentBytes) > 0 {
 		buffer = append(buffer, string(t.recentBytes))
 	}
 
@@ -1168,13 +1169,18 @@ func (t *TextView) cursorLimiting() {
 		if presentLine > len(t.index) {
 			presentLine = len(t.index) - 1
 		}
-		xLimit := t.index[presentLine].Width
+		xLimit := t.index[presentLine].Width + icel
 		if t.cursor.x > xLimit {
 			t.cursor.x = xLimit
 		}
 	}
 	borderLimit()
 }
+
+const (
+	// for insert char at the end of line
+	icel int = 1
+)
 
 func (t *TextView) insertRune(bufferIndex, bufferPos int, r rune) {
 	// TODO: new line
@@ -1185,15 +1191,17 @@ func (t *TextView) insertRune(bufferIndex, bufferPos int, r rune) {
 	}
 	b = append(b[:bufferPos], append([]byte(str), b[bufferPos:]...)...)
 	t.buffer[bufferIndex] = string(b)
+}
 
-	text := e.GetText(false)
+func (t *TextView) updateBuffers() {
+	_, _, width, _ := t.GetInnerRect()
+	text := t.GetText(false)
+	t.Clear()
+	t.lastWidth = -1
 	fmt.Fprint(t, text)
-
-	// panic("need implementation for update buffers, index")
-	// reindex buffers
-	//_, _, width, _ := t.GetInnerRect()
-	//t.reindexBuffer(width)
-	// t.index = nil
+	t.reindexBuffer(width)
+	t.cursor.x++
+	text = t.GetText(false)
 }
 
 // InputHandler returns the handler for this primitive.
@@ -1229,7 +1237,7 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 					} else {
 						t.cursor.y--
 					}
-					t.cursor.x = t.index[presentLine-1].Width
+					t.cursor.x = t.index[presentLine-1].Width + icel
 					// TODO: check for no-wrap case
 				} else {
 					t.cursor.x--
@@ -1253,6 +1261,8 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.lineOffset += height
 			case tcell.KeyPgUp, tcell.KeyCtrlB:
 				t.lineOffset -= height
+			case tcell.KeyEnd:
+				t.cursor.x = x + width
 			default:
 				bufferIndex := t.index[presentLine].Line
 				bufferPos := t.index[presentLine].Pos + t.cursor.x - x
