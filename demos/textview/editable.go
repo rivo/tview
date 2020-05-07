@@ -5,13 +5,19 @@ import (
 	"github.com/rivo/tview"
 )
 
-const corporate = `			Leverage agile frameworks to provide a robust synopsis for high level overviews. Iterative approaches to corporate strategy foster collaborative thinking to further the overall value proposition. Organically grow the holistic world view of disruptive innovation via workplace diversity and empowerment.
-	В лесу	родилась 	ёлочка	.
-\tBring to the table win-win survival strategies to ensure proactive domination. At the end of the day, going forward, a new normal that has evolved from generation X is on the runway heading towards a streamlined cloud solution. User generated content in real-time will have multiple touchpoints for offshoring.
+const corporate = `See: https://ru.wikipedia.org/wiki/Go
+	Go (часто также Golang) — компилируемый многопоточный язык программирования, разработанный внутри компании Google[4]. Разработка Go началась в сентябре 2007 года, его непосредственным проектированием занимались Роберт Гризмер, Роб Пайк и Кен Томпсон[5], занимавшиеся до этого проектом разработки операционной системы Inferno. Официально язык был представлен в ноябре 2009 года.
+	На данный момент поддержка официального компилятора, разрабатываемого создателями языка, осуществляется для операционных систем FreeBSD, OpenBSD, Linux, macOS, Windows, DragonFly BSD, Plan 9, Solaris, Android, AIX.[6].
+	
+See: https://golang.org/
 
-	Capitalize on low hanging fruit to identify a ballpark value added activity to beta test. Override the digital divide with additional clickthroughs from DevOps. Nanotechnology immersion along the information highway will close the loop on focusing solely on the bottom line.
-
-[yellow]Press Enter, then Tab/Backtab for word selections`
+// You can edit this code!
+// Click here and start typing.
+package main
+import "fmt"
+func main() {
+	fmt.Println("Hello, 世界")
+}`
 
 func main() {
 	app := tview.NewApplication()

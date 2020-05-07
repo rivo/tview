@@ -1191,6 +1191,9 @@ func (t *TextView) insertRune(bufferIndex, bufferPos int, r rune) {
 	}
 	b = append(b[:bufferPos], append([]byte(str), b[bufferPos:]...)...)
 	t.buffer[bufferIndex] = string(b)
+	t.cursor.x++
+	updateBuffers()
+	t.cursorLimiting()
 }
 
 func (t *TextView) updateBuffers() {
@@ -1200,8 +1203,6 @@ func (t *TextView) updateBuffers() {
 	t.lastWidth = -1
 	fmt.Fprint(t, text)
 	t.reindexBuffer(width)
-	t.cursor.x++
-	text = t.GetText(false)
 }
 
 // InputHandler returns the handler for this primitive.
