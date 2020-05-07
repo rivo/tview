@@ -681,12 +681,13 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		selectNode := func() {
-			if t.currentNode != nil {
+			node := t.currentNode
+			if node != nil {
 				if t.selected != nil {
-					t.selected(t.currentNode)
+					t.selected(node)
 				}
-				if t.currentNode.selected != nil {
-					t.currentNode.selected()
+				if node.selected != nil {
+					node.selected()
 				}
 			}
 		}
@@ -741,22 +742,26 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 
 		switch action {
 		case MouseLeftClick:
+			setFocus(t)
 			_, rectY, _, _ := t.GetInnerRect()
 			y -= rectY
 			if y >= 0 && y < len(t.nodes) {
 				node := t.nodes[y]
 				if node.selectable {
-					if t.currentNode != node && t.changed != nil {
+					previousNode := t.currentNode
+					t.currentNode = node
+					if previousNode != node && t.changed != nil {
 						t.changed(node)
 					}
 					if t.selected != nil {
 						t.selected(node)
 					}
-					t.currentNode = node
+					if node.selected != nil {
+						node.selected()
+					}
 				}
 			}
 			consumed = true
-			setFocus(t)
 		case MouseScrollUp:
 			t.movement = treeUp
 			consumed = true
