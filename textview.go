@@ -198,7 +198,7 @@ func NewTextView() *TextView {
 	return &TextView{
 		Box:           NewBox(),
 		highlights:    make(map[string]struct{}),
-lineOffset:    -1,
+		lineOffset:    -1,
 		scrollable:    true,
 		align:         AlignLeft,
 		wrap:          true,
