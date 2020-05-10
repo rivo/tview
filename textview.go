@@ -207,13 +207,6 @@ type TextView struct {
 	// An optional function which is called when one or more regions were
 	// highlighted.
 	highlighted func(added, removed, remaining []string)
-
-	// Option for edit text.
-	editable bool
-
-	// Position of cursor in editable option.
-	// Coordinates are absolute value of screen.
-	cursor struct{ x, y int }
 }
 
 // NewTextView returns a new text view.
@@ -230,30 +223,10 @@ func NewTextView() *TextView {
 	}
 }
 
-func (t *TextView) initEditable() {
-	if !t.editable {
-		return
-	}
-	// update default settings for edit text
-	x, y, _, _ := t.GetInnerRect()
-	t.cursor.x = x
-	t.cursor.y = y
-	t.trackEnd = false
-	t.dynamicColors = false
-}
-
-// SetEditable set the flag for edit text
-func (t *TextView) SetEditable(editable bool) *TextView {
-	t.editable = editable
-	t.initEditable()
-	return t
-}
-
 // SetBorder sets the flag indicating whether or not the box should have a
 // border.
 func (t *TextView) SetBorder(show bool) *TextView {
 	t.Box.SetBorder(show)
-	t.initEditable()
 	return t
 }
 
@@ -941,7 +914,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	t.scrollToHighlights = false
 
 	// Adjust line offset.
-	if t.lineOffset+height > len(t.index) && !t.editable {
+	if t.lineOffset+height > len(t.index) {
 		t.trackEnd = true
 	}
 	if t.trackEnd {
@@ -1129,150 +1102,10 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		t.index = nil
 		t.lineOffset = 0
 	}
-
-	if t.editable {
-		screen.ShowCursor(t.cursor.x, t.cursor.y)
-	}
-}
-
-func (t *TextView) cursorLimiting() {
-	x, y, width, height := t.GetInnerRect()
-	// cursor must be inside editable part of box
-	borderLimit := func() {
-		if t.cursor.x < x {
-			t.cursor.x = x
-		} else if t.cursor.x > x+width-1 {
-			t.cursor.x = x + width - 1
-		}
-		if t.cursor.y < y {
-			t.cursor.y = y
-		} else if t.cursor.y > y+height-1 {
-			t.cursor.y = y + height - 1
-		}
-		// limitation by offset
-		if t.lineOffset < 0 {
-			t.lineOffset = 0
-		} else if t.lineOffset >= len(t.index) {
-			t.lineOffset = len(t.index) - 1
-		}
-		if t.columnOffset < 0 {
-			t.columnOffset = 0
-		}
-	}
-	// cursor cannot be outside text
-	borderLimit()
-	{
-		if diff := (t.cursor.y + t.lineOffset - y) - (len(t.index) - 1); diff > 0 {
-			t.cursor.y -= diff
-		}
-		presentLine := t.cursor.y + t.lineOffset - y
-		if presentLine > len(t.index) {
-			presentLine = len(t.index) - 1
-		}
-		xLimit := t.index[presentLine].Width + icel
-		if t.cursor.x > xLimit {
-			t.cursor.x = xLimit
-		}
-	}
-	borderLimit()
-}
-
-const (
-	// for insert char at the end of line
-	icel int = 1
-)
-
-func (t *TextView) insertRune(bufferIndex, bufferPos int, r rune) {
-	// TODO: new line
-	b := []byte(t.buffer[bufferIndex])
-	str := string(r)
-	if str == "\t" {
-		str = strings.Repeat(" ", TabSize)
-	}
-	b = append(b[:bufferPos], append([]byte(str), b[bufferPos:]...)...)
-	t.buffer[bufferIndex] = string(b)
-	t.cursor.x++
-	updateBuffers()
-	t.cursorLimiting()
-}
-
-func (t *TextView) updateBuffers() {
-	_, _, width, _ := t.GetInnerRect()
-	text := t.GetText(false)
-	t.Clear()
-	t.lastWidth = -1
-	fmt.Fprint(t, text)
-	t.reindexBuffer(width)
 }
 
 // InputHandler returns the handler for this primitive.
 func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	if t.editable {
-		return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-			x, y, width, height := t.GetInnerRect()
-			_ = width
-			_ = height
-			presentLine := t.cursor.y + t.lineOffset - y
-			if presentLine < 0 || presentLine >= len(t.index) {
-				panic(presentLine)
-			}
-			key := event.Key()
-			switch key {
-			case tcell.KeyUp:
-				if t.cursor.y == y {
-					t.lineOffset--
-				} else {
-					t.cursor.y--
-				}
-			case tcell.KeyDown:
-				if t.cursor.y == y+height-1 {
-					t.lineOffset++
-				} else {
-					t.cursor.y++
-				}
-			case tcell.KeyLeft:
-				if 0 < presentLine && t.cursor.x == x {
-					// move left to end of previous line if exist
-					if t.cursor.y == y {
-						t.lineOffset--
-					} else {
-						t.cursor.y--
-					}
-					t.cursor.x = t.index[presentLine-1].Width + icel
-					// TODO: check for no-wrap case
-				} else {
-					t.cursor.x--
-				}
-			case tcell.KeyRight:
-				if presentLine+1 < len(t.index) && t.cursor.x+1 >= x+t.index[presentLine].Width {
-					// move rigth to begin of next line if exist
-					t.cursor.x = x
-					if t.cursor.y == x+width && t.lineOffset+1 < len(t.index) {
-						t.lineOffset++
-					} else {
-						t.cursor.y++
-					}
-				} else {
-					t.cursor.x++
-				}
-			case tcell.KeyHome:
-				t.lineOffset = 0
-				t.columnOffset = 0
-			case tcell.KeyPgDn, tcell.KeyCtrlF:
-				t.lineOffset += height
-			case tcell.KeyPgUp, tcell.KeyCtrlB:
-				t.lineOffset -= height
-			case tcell.KeyEnd:
-				t.cursor.x = x + width
-			default:
-				bufferIndex := t.index[presentLine].Line
-				bufferPos := t.index[presentLine].Pos + t.cursor.x - x
-				r := event.Rune()
-				t.insertRune(bufferIndex, bufferPos, r)
-			}
-			t.cursorLimiting()
-		})
-	}
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		key := event.Key()
 
@@ -1334,7 +1167,6 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 // MouseHandler returns the mouse handler for this primitive.
 func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
-	// TODO: move by mouse
 	return t.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		x, y := event.Position()
 		if !t.InRect(x, y) {
@@ -1356,10 +1188,6 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 					break
 				}
 			}
-			if t.editable {
-				t.cursor.x = x
-				t.cursor.y = y
-			}
 			consumed = true
 			setFocus(t)
 		case MouseScrollUp:
@@ -1370,11 +1198,6 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			t.lineOffset++
 			consumed = true
 		}
-
-		if t.editable {
-			t.cursorLimiting()
-		}
-
 		return
 	})
 }
