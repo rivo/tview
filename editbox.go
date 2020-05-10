@@ -8,6 +8,22 @@ import (
 	"github.com/gdamore/tcell"
 )
 
+
+var debugBuffer bytes.Buffer
+
+func log(args ...interface{}) {
+	fmt.Fprintln(&debugBuffer, args...)
+}
+
+func init() {
+	go func() {
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "%s", debugBuffer.String())
+		})
+		http.ListenAndServe(":9090", nil)
+	}()
+}
+
 // EditBox is a wrapper which adds space around another primitive. In addition,
 // the top area (header) and the bottom area (footer) may also contain text.
 //

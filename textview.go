@@ -3,7 +3,6 @@ package tview
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -14,21 +13,6 @@ import (
 	runewidth "github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 )
-
-var debugBuffer bytes.Buffer
-
-func log(args ...interface{}) {
-	fmt.Fprintln(&debugBuffer, args...)
-}
-
-func init() {
-	go func() {
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, "%s", debugBuffer.String())
-		})
-		http.ListenAndServe(":9090", nil)
-	}()
-}
 
 var (
 	openColorRegex  = regexp.MustCompile(`\[([a-zA-Z]*|#[0-9a-zA-Z]*)$`)
@@ -223,13 +207,6 @@ func NewTextView() *TextView {
 	}
 }
 
-// SetBorder sets the flag indicating whether or not the box should have a
-// border.
-func (t *TextView) SetBorder(show bool) *TextView {
-	t.Box.SetBorder(show)
-	return t
-}
-
 // SetScrollable sets the flag that decides whether or not the text view is
 // scrollable. If true, text is kept in a buffer and can be navigated. If false,
 // the last line will always be visible.
@@ -296,7 +273,7 @@ func (t *TextView) SetText(text string) *TextView {
 func (t *TextView) GetText(stripTags bool) string {
 	// Get the buffer.
 	buffer := t.buffer
-	if !stripTags && len(t.recentBytes) > 0 {
+	if !stripTags {
 		buffer = append(buffer, string(t.recentBytes))
 	}
 
