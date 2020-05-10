@@ -198,6 +198,7 @@ func NewTextView() *TextView {
 	return &TextView{
 		Box:           NewBox(),
 		highlights:    make(map[string]struct{}),
+lineOffset:    -1,
 		scrollable:    true,
 		align:         AlignLeft,
 		wrap:          true,
@@ -1175,6 +1176,7 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			t.lineOffset++
 			consumed = true
 		}
+
 		return
 	})
 }
