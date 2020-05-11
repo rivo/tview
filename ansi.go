@@ -110,21 +110,21 @@ func (a *ansi) Write(text []byte) (int, error) {
 						}
 						return [...]string{
 							"black",
-							"red",
+							"maroon",
 							"green",
+							"olive",
+							"navy",
+							"purple",
+							"teal",
+							"silver",
+							"gray",
+							"red",
+							"lime",
 							"yellow",
 							"blue",
-							"darkmagenta",
-							"darkcyan",
+							"fuchsia",
+							"aqua",
 							"white",
-							"#7f7f7f",
-							"#ff0000",
-							"#00ff00",
-							"#ffff00",
-							"#5c5cff",
-							"#ff00ff",
-							"#00ffff",
-							"#ffffff",
 						}[colorNumber]
 					}
 				FieldLoop:
