@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gdamore/tcell"
 )
@@ -20,44 +22,83 @@ func TestEditBox(t *testing.T) {
 		border           bool
 		screenX, screenY int
 		text             string
-		inp              []tcell.KeyEvent
+		inp              []*tcell.EventKey
 	}
 
-	ch := make(chan testCase, 0)
+	ch := make(chan testCase, 100)
 
-	Repeat := func(ks []tcell.Key, n int) (keys []tcell.Key) {
+	Repeat := func(ks []*tcell.EventKey, n int) (keys []*tcell.EventKey) {
 		for i := 0; i < n; i++ {
 			keys = append(keys, ks...)
 		}
 		return
 	}
 
+	var (
+		up      = tcell.NewEventKey(tcell.KeyUp, ' ', tcell.ModNone)
+		down    = tcell.NewEventKey(tcell.KeyDown, ' ', tcell.ModNone)
+		left    = tcell.NewEventKey(tcell.KeyLeft, ' ', tcell.ModNone)
+		right   = tcell.NewEventKey(tcell.KeyRight, ' ', tcell.ModNone)
+		char    = tcell.NewEventKey(0, 'й', tcell.ModNone)
+		newline = tcell.NewEventKey(0, '\n', tcell.ModNone)
+		delete  = tcell.NewEventKey(tcell.KeyDelete, '\n', tcell.ModNone)
+
+		screenMin = 5
+		screenMax = 10 // 5 // todo: do 10
+	)
+
+	_ = up
+	_ = down
+	_ = left
+	_ = right
+	_ = char
+	_ = newline
+	_ = delete
+
 	go func() {
 		for _, border := range []bool{false, true} {
-			for screenX := 5; screenX <= 10; screenX++ {
-				for screenY := 5; screenY <= 10; screenY++ {
+			for screenX := screenMin; screenX <= screenMax; screenX++ {
+				for screenY := screenMin; screenY <= screenMax; screenY++ {
 					for _, text := range []string{
 						"",
+						" ",
+						"\n",
+						"\n\n",
+						"\n \n",
+						strings.Repeat(" ", 30),
+						strings.Repeat("\n", 30),
 						strings.Repeat("世界世界世界d世界\n", 5),
 						"golang",
 						strings.Repeat("golang\n", 20),
 						strings.Repeat("golang\n\n", 10),
 					} {
-						for _, inp := range [][]tcell.Key{
-							//  []tcell.Key{},
-							Repeat([]tcell.Key{tcell.KeyDown}, 40),
-							// 	Repeat(append(append(append(
-							// 		Repeat([]tcell.Key{tcell.KeyRight}, 10),
-							// 		Repeat([]tcell.Key{tcell.KeyLeft}, 2)...),
-							// 		tcell.KeyDown,
-							// 		tcell.KeyUp,
-							// 		tcell.KeyDown)), 40),
-							// 	Repeat(append(append(append(
-							// 		Repeat([]tcell.Key{tcell.KeyRight}, 40),
-							// 		Repeat([]tcell.Key{tcell.KeyLeft}, 40)...),
-							// 		tcell.KeyDown,
-							// 		tcell.KeyUp,
-							// 		tcell.KeyDown)), 40),
+						for _, inp := range [][]*tcell.EventKey{
+							// -
+							[]*tcell.EventKey{},
+							// -
+							Repeat([]*tcell.EventKey{down}, 40),
+							// -
+							Repeat(append(append(append(
+								Repeat([]*tcell.EventKey{right}, 10),
+								Repeat([]*tcell.EventKey{left}, 2)...),
+								down,
+								up,
+								down)), 40),
+							// -
+							Repeat(append(append(append(
+								Repeat([]*tcell.EventKey{right}, 40),
+								Repeat([]*tcell.EventKey{left}, 40)...),
+								down,
+								up,
+								down)), 40),
+							// -
+						//	Repeat(append(Repeat([]*tcell.EventKey{right, char}, 40), left, down, up, down), 40),
+						//	// -
+						//	Repeat([]*tcell.EventKey{right, newline}, 40),
+							// -
+							Repeat([]*tcell.EventKey{delete}, 40),
+							// -
+							Repeat([]*tcell.EventKey{delete, right, up, down}, 40),
 						} {
 							ch <- testCase{border, screenX, screenY, text, inp}
 						}
@@ -72,7 +113,13 @@ func TestEditBox(t *testing.T) {
 	for tc := range ch {
 		count++
 		t.Run(fmt.Sprintf("%d", count), func(t *testing.T) {
-			t.Parallel()
+			defer func() {
+				if r := recover(); r != nil {
+					t.Logf("%#v", tc)
+					str := debug.Stack()
+					t.Fatalf("%v\n%v", r, string(str))
+				}
+			}()
 			simScreen := tcell.NewSimulationScreen("UTF-8")
 			simScreen.Init()
 			simScreen.SetSize(tc.screenX, tc.screenY)
@@ -93,18 +140,11 @@ func TestEditBox(t *testing.T) {
 				}
 			}()
 
-			// 			defer func() {
-			// 				if r := recover(); r!=nil{
-			// 					app.Stop()
-			// 					t.Fatalf("%v", r)
-			// 				}
-			// 			}()
-
-			for _, k := range tc.inp {
-				event := tcell.NewEventKey(k, ' ', tcell.ModNone)
-				eb.InputHandler()(event, nil)
+			for _, ek := range tc.inp {
+				eb.InputHandler()(ek, nil)
 				app.Draw()
 			}
+			time.Sleep(time.Millisecond) // for avoid terminal: too many tty
 
 			cells, width, height := simScreen.GetContents()
 			var buf bytes.Buffer

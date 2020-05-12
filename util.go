@@ -439,28 +439,6 @@ func stringWidth(text string) (width int) {
 	return
 }
 
-// runeWidth return amount runes 
-func runeWidth(text string, widthMax int) (amountRune int){
-	// TODO: add in EditBox
-	var width, count int
-	g := uniseg.NewGraphemes(text)
-	for g.Next() {
-		var chWidth int
-		for _, r := range g.Runes() {
-			chWidth = runewidth.RuneWidth(r)
-			count++
-			if chWidth > 0 {
-				break // Our best guess at this point is to use the width of the first non-zero-width rune.
-			}
-		}
-		width += chWidth
-		if widthMax <= width {
-			break
-		}
-	}
-	return count
-}
-
 // WordWrap splits a text such that each resulting line does not exceed the
 // given screen width. Possible split points are after any punctuation or
 // whitespace. Whitespace after split points will be dropped.

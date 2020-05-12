@@ -48,7 +48,10 @@ func NewEditBox() *EditBox {
 	// WordWrap is not acceptable, because cursor movement is valid for that case
 	f.view.SetWordWrap(false)
 	f.view.SetWrap(true)
-	f.view.SetScrollable(true)
+	f.view.SetScrollable( true)
+	f.view.SetRegions(false)
+	f.view.lineOffset = 0
+	f.view.trackOff = true
 	return f
 }
 
@@ -71,14 +74,18 @@ func (f *EditBox) SetText(text string) *EditBox {
 
 // Draw draws this primitive onto the screen.
 func (f *EditBox) Draw(screen tcell.Screen) {
+	log("DRAW 1 lineOffset", f.view.lineOffset)
 	// draw textview
 	f.view.Draw(screen)
+	log("DRAW 2 lineOffset", f.view.lineOffset)
 
 	// correct position of cursor
 	f.cursorPositionCorrection()
+	log("DRAW 3 lineOffset", f.view.lineOffset)
 
 	// show cursor
 	screen.ShowCursor(f.cursor.x, f.cursor.y)
+	log("DRAW 4 lineOffset", f.view.lineOffset)
 }
 
 // // Focus is called when this primitive receives focus.
@@ -203,8 +210,13 @@ func (f *EditBox) insertNewLine() {
 }
 
 func (f *EditBox) insertRune(r rune) {
+	log("	insertRune")
+	log("		lineOffset ", f.view.lineOffset)
 	// get position cursor in buffer
 	line, pos := f.cursorByScreen()
+	if len(f.view.buffer) == 0 {
+		f.view.buffer = []string{""}
+	}
 	// prepare new line
 	runes := []rune(f.view.buffer[line])
 	str := string(r)
@@ -219,12 +231,16 @@ func (f *EditBox) insertRune(r rune) {
 	// change buffer
 	f.view.buffer[line] = string(runes)
 	// update a view
+	log("		lineOffset ", f.view.lineOffset)
 	f.updateBuffers()
+	log("		lineOffset ", f.view.lineOffset)
+	log("	end of insertRune")
 }
 
 func (f *EditBox) updateBuffers() {
 	_, _, width, _ := f.GetInnerRect()
-	text := f.view.GetText(false)
+	// text := f.view.GetText(false)
+	text := strings.Join(f.view.buffer, "\n")
 	f.view.Clear()
 	f.view.lastWidth = -1
 	f.view.SetText(text)
@@ -232,34 +248,91 @@ func (f *EditBox) updateBuffers() {
 }
 
 func (f EditBox) cursorIndexLine() int {
+	log("	cursorIndexLine : ")
 	_, y, _, _ := f.GetInnerRect()
 	indexLine := f.cursor.y - y + f.view.lineOffset
+	log("	cursorIndexLine : ",indexLine)
 	if indexLine < 0 {
 		indexLine = 0
 	}
 	if size := len(f.view.index) - 1; size <= indexLine {
 		indexLine = size
 	}
+
+	log("	cursorIndexLine : ",indexLine)
+	log("			cursor : ", f.cursor, y, f.view.lineOffset)
 	return indexLine
 }
 
 // cursorByScreen return position cursor in TextView.buffer coordinate.
-// TODO : unit: grapheme ??? rune ??
+// unit: rune
 func (f EditBox) cursorByScreen() (bufferLine, bufferPosition int) {
+	log("--------------------------------")
+	log("cursorByScreen")
+	log("	lineOffset: ",f.view.lineOffset)
 	if len(f.view.index) == 0 {
 		return
 	}
+	log("	lineOffset: ",f.view.lineOffset)
 	x, _, _, _ := f.GetInnerRect()
+	log("	lineOffset: ",f.view.lineOffset)
 	indexLine := f.cursorIndexLine()
+	log("	lineOffset: ",f.view.lineOffset)
 	bufferLine = f.view.index[indexLine].Line
+	log("	lineOffset: ",f.view.lineOffset)
 	bytePos := f.view.index[indexLine].Pos
-	runePos := stringWidth(f.view.buffer[bufferLine][:bytePos])
 
-	bufferPosition = runePos + f.view.columnOffset + f.cursor.x - x
-	// TODO: check
-	// widthOnScreen := f.view.columnOffset + f.cursor.x - x
-	// amountRunes := runeWidth(f.view.buffer[bufferLine][bytePos:], widthOnScreen)
-	// bufferPosition = runePos + amountRunes
+	// convert from screen grapheme to buffer position in rune
+
+	buf := f.view.buffer[bufferLine]
+	runePos := len([]rune(buf[:bytePos]))
+	buf = buf[bytePos:]
+
+	// bufferPosition = runePos + f.view.columnOffset + f.cursor.x - x
+	// TODO: check for 2symbol grapheme
+	widthOnScreen := f.view.columnOffset + f.cursor.x - x
+	amountRunes := 0
+	for ; ; amountRunes++ {
+		log(" - ", amountRunes)
+		if len([]rune(buf)) <= amountRunes {
+			log(" break 1 ")
+			break
+			// bufferPosition = run
+		}
+		width := stringWidth(string(([]rune(buf))[:amountRunes]))
+		log(" -- widths ", widthOnScreen, width)
+		if widthOnScreen == width {
+			log(" break 3 ", widthOnScreen, width)
+			break
+		}
+		if widthOnScreen < width {
+			amountRunes--
+			log(" break 2 ", widthOnScreen, width)
+			break
+		}
+	}
+	bufferPosition = runePos + amountRunes
+	// amountRunes := runeWidth(part, widthOnScreen)
+	// if amountRunes-1 > widthOnScreen {
+	// 	panic(fmt.Errorf("not valid calculation %v %v on line \"%s\"", amountRunes, widthOnScreen, part))
+	// }
+	// amountGraphemes := uniseg.GraphemeClusterCount(part)
+	// if amountGraphemes == 0 && amountRunes != widthOnScreen {
+	// 	panic(fmt.Errorf("cannot calculate amount runes %d on \"%s\"",
+	// 		amountRunes, part))
+	// }
+	log("cursor", f.cursor)
+	log("index line", indexLine)
+	log("buffer line", bufferLine)
+	log("buffer pos ", bufferPosition)
+	//log("part ", part)
+	log("amountRunes = ", amountRunes)
+	log("--")
+	log("widthOnScreen ", widthOnScreen)
+	log("f.view.columnOffset ", f.view.columnOffset)
+	log("x ", x)
+	log("--------------------------------")
+	log("\n")
 	return
 }
 
@@ -269,6 +342,11 @@ func (f EditBox) cursorByScreen() (bufferLine, bufferPosition int) {
 //	* bufferLine must be inside size of buffers
 //	* bufferPosition can be more then len(buffer[bufferLine])
 func (f *EditBox) cursorByBuffer(bufferLine, bufferPosition int) {
+	log("cursorByBuffer")
+	log("cursor ", f.cursor)
+	log("buffer line", bufferLine)
+	log("buffer pos ", bufferPosition)
+
 	lastIndexLine := f.cursorIndexLine()
 
 	buffers := f.view.buffer
@@ -286,56 +364,89 @@ func (f *EditBox) cursorByBuffer(bufferLine, bufferPosition int) {
 	// correction bufferPosition
 	if bufferPosition < 0 {
 		bufferPosition = 0
-	} else if size := stringWidth(buffers[bufferLine]); size < bufferPosition {
-		bufferPosition = size
+		// 	} else if size := stringWidth(buffers[bufferLine]); size < bufferPosition {
+		// 		bufferPosition = size
 	}
 	// find index
 	indexes := f.view.index
-	indexLine := -1
-	indexPos := -1
+	indexLine := -1 // position in slice indexes
+	indexPos := -1  // amount rune from indexes[i].Pos
+	isOutsideBuffer := false
 	for i := len(indexes) - 1; i >= 0; i-- {
 		if indexes[i].Line != bufferLine {
 			continue
 		}
-		pos := stringWidth(buffers[bufferLine][:indexes[i].Pos])
+		pos := len([]rune(buffers[bufferLine][:indexes[i].Pos]))
+		log("- pos ", pos, " - ", bufferPosition)
 		if pos <= bufferPosition {
 			indexLine = i
-			indexPos = bufferPosition - pos // TODO: need to use stringWidth
+			if size := len([]rune(buffers[bufferLine])); size < bufferPosition {
+				bufferPosition = size
+				isOutsideBuffer = true
+			}
+			indexPos = bufferPosition - pos
 			break
 		}
 	}
-	if indexLine < 0 {
-		indexLine = len(indexes) - 1
+	log("indexLine ", indexLine)
+	log("indexPos ", indexPos)
+	//if indexLine < 0 {
+	//	indexLine = len(indexes) - 1
+	//}
+	//if indexPos < 0 {
+	//	indexPos = 0
+	//}
+
+	// convert position from indexes to grapheme for cursor
+	var posInGrapheme int
+	{
+		buf := buffers[indexes[indexLine].Line]
+		partBuf := buf[indexes[indexLine].Pos:]
+		part2 := string(([]rune(partBuf))[:indexPos])
+		posInGrapheme = stringWidth(part2)
 	}
-	if indexPos < 0 {
-		indexPos = 0
-	}
-	if indexPos == indexes[indexLine].Width+1 {
-		indexPos = indexes[indexLine].Width + 1
-	} else if indexes[indexLine].Width+1 < indexPos && bufferLine < len(buffers)-1 {
-		f.cursorByBuffer(bufferLine+1, 0)
-	}
+	log("> posInGrapheme", posInGrapheme)
+
+	// if indexes[indexLine].Width+1 < indexPos {
+	//     isOutsideBuffer = true
+	// }
+	// if indexes[indexLine].Width < indexPos {
+	// if inde
+	// 	indexPos = indexes[indexLine].Width + 1
+	// } else if indexes[indexLine].Width+1 < indexPos && bufferLine < len(buffers)-1 {
+	// 	f.cursorByBuffer(bufferLine+1, 0)
+	// }
 	// store last cursor position
 	// lastCx := f.cursor.x
 	lastCy := f.cursor.y
+	log("lineOffset ", f.view.lineOffset)
 
 	// cursor must be inside screen
 	x, y, width, height := f.GetInnerRect()
 	_ = width
-	f.cursor.x = indexPos + x - f.view.columnOffset
+	f.cursor.x = posInGrapheme + x - f.view.columnOffset
 	f.cursor.y = indexLine + y - f.view.lineOffset
+	if isOutsideBuffer {
+		f.cursor.x++
+	}
 	// 	if x+width <= f.cursor.x {
 	// 		x = 0
 	// 	}
 	if y+height <= f.cursor.y {
 		diff := (indexLine - lastIndexLine) - (y + height - lastCy) + 1
 		f.view.lineOffset += diff
+		log("offset 1 ", diff)
 	}
 	if f.cursor.y < y {
 		diff := -((lastIndexLine - indexLine) - lastCy) - 1
 		f.view.lineOffset += diff
+		log("offset 2 ", diff)
 	}
 	// TODO other cases
+	log("cursor", f.cursor)
+	log("isOutsideBuffer ", isOutsideBuffer)
+	log("lineOffset ", f.view.lineOffset)
+	log("\n")
 }
 
 // InputHandler returns the handler for this primitive.
@@ -349,8 +460,10 @@ func (f *EditBox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pri
 		//	* Move up/down - moving by buffer lines
 		//	* Move left/right - moving by buffer runes
 		//
+		log("BEFORE PUTH THE BUTTON\n")
 		line, pos := f.cursorByScreen()
 		key := event.Key()
+		log("PUTH THE BUTTON\n")
 		switch key {
 		case tcell.KeyUp:
 			if line <= 0 {
@@ -404,6 +517,7 @@ func (f *EditBox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pri
 				pos++
 			}
 		}
+		log("PUTH THE BUTTON CORRECT BY BUFFER\n")
 		f.cursorByBuffer(line, pos)
 	})
 }
