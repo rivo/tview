@@ -141,20 +141,20 @@ func (a *ansi) Write(text []byte) (int, error) {
 							clearAttributes = true
 						case "30", "31", "32", "33", "34", "35", "36", "37":
 							colorNumber, _ := strconv.Atoi(field)
-							foreground = lookupColor(colorNumber-30)
+							foreground = lookupColor(colorNumber - 30)
 						case "39":
 							foreground = "-"
 						case "40", "41", "42", "43", "44", "45", "46", "47":
 							colorNumber, _ := strconv.Atoi(field)
-							background = lookupColor(colorNumber-40)
+							background = lookupColor(colorNumber - 40)
 						case "49":
 							background = "-"
 						case "90", "91", "92", "93", "94", "95", "96", "97":
 							colorNumber, _ := strconv.Atoi(field)
-							foreground = lookupColor(colorNumber-82)
+							foreground = lookupColor(colorNumber - 82)
 						case "100", "101", "102", "103", "104", "105", "106", "107":
 							colorNumber, _ := strconv.Atoi(field)
-							background = lookupColor(colorNumber-92)
+							background = lookupColor(colorNumber - 92)
 						case "38", "48":
 							var color string
 							if len(fields) > index+1 {
