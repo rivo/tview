@@ -168,30 +168,35 @@ func (f *EditBox) deleteRune() {
 func (f *EditBox) insertNewLine() {
 	// get position cursor in buffer
 	line, pos := f.cursorByScreen()
-	// prepare split into new lines
-	runes := []rune(f.view.buffer[line])
-	var runeLineBefore []rune
-	if pos < len(runes) {
-		runeLineBefore = make([]rune, pos)
-		copy(runeLineBefore, runes[:pos])
+	if len(f.view.buffer) == 0 {
+		f.view.buffer = []string{"\n"}
+		return
 	} else {
-		runeLineBefore = make([]rune, len(runes))
-		copy(runeLineBefore, runes)
-	}
-	var runeLineAfter []rune
-	if l := len(runes) - pos; 0 < l {
-		runeLineAfter = make([]rune, l)
-		copy(runeLineAfter, runes[pos:])
-	}
-	// change buffer
-	f.view.buffer[line] = string(runeLineBefore)
-	if line == len(f.view.buffer)-1 {
-		f.view.buffer = append(f.view.buffer, string(runeLineAfter))
-	} else {
-		f.view.buffer = append(
-			f.view.buffer[:line+1],
-			append([]string{string(runeLineAfter)},
-				f.view.buffer[line+1:]...)...)
+		// prepare split into new lines
+		runes := []rune(f.view.buffer[line])
+		var runeLineBefore []rune
+		if pos < len(runes) {
+			runeLineBefore = make([]rune, pos)
+			copy(runeLineBefore, runes[:pos])
+		} else {
+			runeLineBefore = make([]rune, len(runes))
+			copy(runeLineBefore, runes)
+		}
+		var runeLineAfter []rune
+		if l := len(runes) - pos; 0 < l {
+			runeLineAfter = make([]rune, l)
+			copy(runeLineAfter, runes[pos:])
+		}
+		// change buffer
+		f.view.buffer[line] = string(runeLineBefore)
+		if line == len(f.view.buffer)-1 {
+			f.view.buffer = append(f.view.buffer, string(runeLineAfter))
+		} else {
+			f.view.buffer = append(
+				f.view.buffer[:line+1],
+				append([]string{string(runeLineAfter)},
+					f.view.buffer[line+1:]...)...)
+		}
 	}
 	// update a view
 	f.updateBuffers()
@@ -241,6 +246,9 @@ func (f EditBox) cursorIndexLine() int {
 // cursorByScreen return position cursor in TextView.buffer coordinate.
 // TODO : unit: grapheme ??? rune ??
 func (f EditBox) cursorByScreen() (bufferLine, bufferPosition int) {
+	if len(f.view.index) == 0 {
+		return
+	}
 	x, _, _, _ := f.GetInnerRect()
 	indexLine := f.cursorIndexLine()
 	bufferLine = f.view.index[indexLine].Line
@@ -261,13 +269,10 @@ func (f EditBox) cursorByScreen() (bufferLine, bufferPosition int) {
 //	* bufferLine must be inside size of buffers
 //	* bufferPosition can be more then len(buffer[bufferLine])
 func (f *EditBox) cursorByBuffer(bufferLine, bufferPosition int) {
-
 	lastIndexLine := f.cursorIndexLine()
 
-	defer log("\n\n")
-	log("cursorByBuffer : ", bufferLine, bufferPosition)
 	buffers := f.view.buffer
-	if len(buffers) == 0 {
+	if len(buffers) == 0 || len(f.view.index) == 0 {
 		f.cursor.x = 0
 		f.cursor.y = 0
 		return
@@ -293,16 +298,12 @@ func (f *EditBox) cursorByBuffer(bufferLine, bufferPosition int) {
 			continue
 		}
 		pos := stringWidth(buffers[bufferLine][:indexes[i].Pos])
-		// log("---- ", i, indexes[i].Line == bufferLine, pos, fmt.Sprintf("%#v", indexes[i]))
-		log("= ", i, pos, bufferPosition)
 		if pos <= bufferPosition {
-			log("FOUND")
 			indexLine = i
 			indexPos = bufferPosition - pos // TODO: need to use stringWidth
 			break
 		}
 	}
-	log("cursorByBuffer ", indexLine, indexPos)
 	if indexLine < 0 {
 		indexLine = len(indexes) - 1
 	}
@@ -320,30 +321,20 @@ func (f *EditBox) cursorByBuffer(bufferLine, bufferPosition int) {
 
 	// cursor must be inside screen
 	x, y, width, height := f.GetInnerRect()
-	log("cursorByBuffer 1 : --- : ", f.cursor.x, indexPos, x, f.view.columnOffset)
+	_ = width
 	f.cursor.x = indexPos + x - f.view.columnOffset
-	log("cursorByBuffer 2 : --- : ", f.cursor.y, indexLine, y, f.view.lineOffset)
 	f.cursor.y = indexLine + y - f.view.lineOffset
-	log("cursorByBuffer 3 : --- : ", f.cursor)
-	log("cursor position ", f.cursor)
-	log("limits ", x, y, width, height)
 	// 	if x+width <= f.cursor.x {
 	// 		x = 0
-	// 		log("x = 0")
 	// 	}
 	if y+height <= f.cursor.y {
-		log("*1*", f.cursor.y, y, f.view.lineOffset, indexLine)
 		diff := (indexLine - lastIndexLine) - (y + height - lastCy) + 1
 		f.view.lineOffset += diff
-		log("y diff = ", diff)
 	}
 	if f.cursor.y < y {
-		log("*2*", f.cursor.y, y, f.view.lineOffset, indexLine)
 		diff := -((lastIndexLine - indexLine) - lastCy) - 1
 		f.view.lineOffset += diff
-		log("y diff = ", diff)
 	}
-	log("cursor position after correction", f.cursor)
 	// TODO other cases
 }
 
@@ -359,7 +350,6 @@ func (f *EditBox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pri
 		//	* Move left/right - moving by buffer runes
 		//
 		line, pos := f.cursorByScreen()
-		log("IN inpit", line, pos)
 		key := event.Key()
 		switch key {
 		case tcell.KeyUp:
@@ -381,6 +371,9 @@ func (f *EditBox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pri
 				pos--
 			}
 		case tcell.KeyRight:
+			if len(f.view.buffer) == 0 {
+				break
+			}
 			if stringWidth(f.view.buffer[line]) <= pos {
 				// do nothing
 			} else {
@@ -411,9 +404,7 @@ func (f *EditBox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pri
 				pos++
 			}
 		}
-		log("PRE inpt", line, pos)
 		f.cursorByBuffer(line, pos)
-		log("OUT inpt", line, pos)
 	})
 }
 
