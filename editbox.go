@@ -141,7 +141,7 @@ const (
 	icel int = 1
 )
 
-func (f *EditBox) deleteRune() (newLine, newPos int){
+func (f *EditBox) deleteRune() (newLine, newPos int) {
 	// get position cursor in buffer
 	line, pos := f.cursorByScreen()
 	if pos == 0 && line == 0 {
@@ -161,7 +161,7 @@ func (f *EditBox) deleteRune() (newLine, newPos int){
 		f.view.buffer[line] = string(runes)
 		// move cursor
 		newLine = line
-		newPos = pos-1
+		newPos = pos - 1
 	} else if 0 < line {
 		// delete newline
 		size := len([]rune(f.view.buffer[line-1]))
@@ -173,7 +173,7 @@ func (f *EditBox) deleteRune() (newLine, newPos int){
 		}
 		// move cursor
 		newPos = size
-		newLine = line-1
+		newLine = line - 1
 	}
 	// update a view
 	f.updateBuffers()
@@ -519,7 +519,10 @@ func (f *EditBox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pri
 			line, pos = f.deleteRune()
 		default:
 			r := event.Rune()
-			if unicode.IsLetter(r) || r == ' ' {
+			if unicode.IsLetter(r) ||
+				unicode.IsNumber(r) ||
+				unicode.IsMark(r) ||
+				unicode.IsSpace(r) {
 				f.insertRune(r)
 				pos++
 			}

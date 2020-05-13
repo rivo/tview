@@ -1,9 +1,7 @@
 package tview
 
 import (
-	"bytes"
 	"fmt"
-	"os"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -25,7 +23,7 @@ func TestEditBox(t *testing.T) {
 		inp              []*tcell.EventKey
 	}
 
-	ch := make(chan testCase, 100)
+	ch := make(chan testCase, 0)
 
 	Repeat := func(ks []*tcell.EventKey, n int) (keys []*tcell.EventKey) {
 		for i := 0; i < n; i++ {
@@ -92,9 +90,9 @@ func TestEditBox(t *testing.T) {
 								up,
 								down)), 40),
 							// -
-						//	Repeat(append(Repeat([]*tcell.EventKey{right, char}, 40), left, down, up, down), 40),
-						//	// -
-						//	Repeat([]*tcell.EventKey{right, newline}, 40),
+							//	Repeat(append(Repeat([]*tcell.EventKey{right, char}, 40), left, down, up, down), 40),
+							//	// -
+							//	Repeat([]*tcell.EventKey{right, newline}, 40),
 							// -
 							Repeat([]*tcell.EventKey{delete}, 40),
 							// -
@@ -111,8 +109,10 @@ func TestEditBox(t *testing.T) {
 
 	count := 0
 	for tc := range ch {
+		tc := tc
 		count++
 		t.Run(fmt.Sprintf("%d", count), func(t *testing.T) {
+			// t.Parallel()
 			defer func() {
 				if r := recover(); r != nil {
 					t.Logf("%#v", tc)
@@ -146,17 +146,16 @@ func TestEditBox(t *testing.T) {
 			}
 			time.Sleep(time.Millisecond) // for avoid terminal: too many tty
 
-			cells, width, height := simScreen.GetContents()
-			var buf bytes.Buffer
-			for row := 0; row < height; row++ {
-				for col := 0; col < width; col++ {
-					position := row*width + col
-					fmt.Fprintf(&buf, "%s", string(cells[position].Runes))
-				}
-				fmt.Fprintf(&buf, "\n")
-			}
-
-			fmt.Fprintf(os.Stdout, buf.String())
+			// cells, width, height := simScreen.GetContents()
+			// var buf bytes.Buffer
+			// for row := 0; row < height; row++ {
+			// 	for col := 0; col < width; col++ {
+			// 		position := row*width + col
+			// 		fmt.Fprintf(&buf, "%s", string(cells[position].Runes))
+			// 	}
+			// 	fmt.Fprintf(&buf, "\n")
+			// }
+			// fmt.Fprintf(os.Stdout, buf.String())
 
 		})
 	}
