@@ -7,23 +7,6 @@ import (
 	"github.com/gdamore/tcell"
 )
 
-// Uncomment only for debugging
-//
-// var debugBuffer bytes.Buffer
-//
-// func log(args ...interface{}) {
-// 	fmt.Fprintln(&debugBuffer, args...)
-// }
-//
-// func init() {
-// 	go func() {
-// 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-// 			fmt.Fprintf(w, "%s", debugBuffer.String())
-// 		})
-// 		http.ListenAndServe(":9090", nil)
-// 	}()
-// }
-
 // TextArea is a wrapper which adds space around another primitive. In addition,
 // the top area (header) and the bottom area (footer) may also contain text.
 //
@@ -336,6 +319,11 @@ func (f *TextArea) cursorByBuffer(bufferLine, bufferPosition int) {
 		// TODO: find that situation
 		indexLine = 0
 	}
+	if indexPos < 0 {
+		// TODO: find that situation
+		indexPos = 0
+	}
+
 	// convert position from indexes to grapheme for cursor
 	var posInGrapheme int
 	{

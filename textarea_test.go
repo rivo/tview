@@ -3,13 +3,33 @@ package tview
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gdamore/tcell"
 )
+
+// Uncomment only for dtaugging
+var debugBuffer bytes.Buffer
+
+func log(args ...interface{}) {
+	fmt.Fprintln(&debugBuffer, args...)
+}
+
+func init() {
+	go func() {
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "%s", debugBuffer.String())
+		})
+		http.ListenAndServe(":9090", nil)
+	}()
+}
 
 const (
 	snapshotPath string = "screen"
@@ -31,14 +51,18 @@ var (
 func screenShot(s tcell.SimulationScreen) string {
 	cells, width, height := s.GetContents()
 	var buf bytes.Buffer
+	x, y, visible := s.GetCursor()
 	for row := 0; row < height; row++ {
 		for col := 0; col < width; col++ {
 			position := row*width + col
-			fmt.Fprintf(&buf, "%s", string(cells[position].Runes))
+			if col == x && row == y && visible {
+				fmt.Fprintf(&buf, "█")
+			} else {
+				fmt.Fprintf(&buf, "%s", string(cells[position].Runes))
+			}
 		}
 		fmt.Fprintf(&buf, "\n")
 	}
-	x, y, visible := s.GetCursor()
 	fmt.Fprintf(&buf, "Cursor {x:%d,y:%d} %v\n", x, y, visible)
 	return buf.String()
 }
@@ -56,6 +80,34 @@ type testCase struct {
 	screenY int
 	text    string
 	keys    []*tcell.EventKey
+}
+
+func (tc testCase) Run(t *testing.T, simScreen tcell.SimulationScreen) (
+	app *Application,
+	ta *TextArea,
+) {
+	if simScreen == nil {
+		t.Fatalf("simScreen is nil")
+	}
+	simScreen.Clear()
+	if err := simScreen.Init(); err != nil {
+		t.Fatalf("%v", err)
+	}
+	simScreen.SetSize(tc.screenX, tc.screenY)
+
+	app = NewApplication()
+	ta = NewTextArea().SetText(tc.text)
+	b := ta.GetBox()
+	b.SetBorder(tc.border)
+	app.SetRoot(ta, false)
+
+	go func() {
+		app.SetScreen(simScreen)
+		if err := app.Run(); err != nil {
+			panic(err)
+		}
+	}()
+	return
 }
 
 var tcs []testCase
@@ -118,7 +170,10 @@ func init() {
 	}
 }
 
-func TestTextArea(t *testing.T) {
+func TestTextAreaCrash(t *testing.T) {
+	if testing.Short() {
+		t.Skip("run this test only for finding the crash")
+	}
 	count := 0
 	for _, tc := range tcs {
 		tc := tc
@@ -132,24 +187,11 @@ func TestTextArea(t *testing.T) {
 					t.Fatalf("%v\n%v", r, string(str))
 				}
 			}()
-			simScreen := tcell.NewSimulationScreen("UTF-8")
-			simScreen.Init()
-			simScreen.SetSize(tc.screenX, tc.screenY)
 
-			app := NewApplication()
+			simScreen := tcell.NewSimulationScreen("UTF-8")
+			app, ta := tc.Run(t, simScreen)
 			defer func() {
 				app.Stop()
-			}()
-			app.SetScreen(simScreen)
-			eb := NewTextArea().SetText(tc.text)
-			b := eb.GetBox()
-			b.SetBorder(true)
-			app.SetRoot(eb, true)
-
-			go func() {
-				if err := app.Run(); err != nil {
-					panic(err)
-				}
 			}()
 
 			isChanged := false
@@ -160,44 +202,96 @@ func TestTextArea(t *testing.T) {
 					ek.Key() == tcell.KeyBackspace {
 					isChanged = true
 				}
-				eb.InputHandler()(ek, nil)
+				ta.InputHandler()(ek, nil)
 				app.Draw()
 			}
 
 			for i := range mouseMove {
-				eb.MouseHandler()(
+				ta.MouseHandler()(
 					MouseLeftClick,
 					tcell.NewEventMouse(mouseMove[i].x, mouseMove[i].y, tcell.Button1, tcell.ModNone),
 					func(p Primitive) {})
 			}
 
-			time.Sleep(time.Millisecond) // for avoid terminal: too many tty
-
-			if !isChanged || (isChanged && len(eb.GetText()) == len(tc.text)) {
-				if eb.GetText() != tc.text {
+			if !isChanged || (isChanged && len(ta.GetText()) == len(tc.text)) {
+				if ta.GetText() != tc.text {
 					t.Errorf("text is not same")
 				}
 			}
-
-			// TODO: add screenshot comparing
-			// snapshotFilename := filepath.Join(".", snapshotPath, tcs[i].name)
-			//
-			// // for update test screens run in console:
-			// // UPDATE=true go test
-			// if os.Getenv("UPDATE") == "true" {
-			// 	if err := ioutil.WriteFile(snapshotFilename, buf.Bytes(), 0644); err != nil {
-			// 		t.Fatalf("Cannot write snapshot to file: %v", err)
-			// 	}
-			// }
-			//
-			// content, err := ioutil.ReadFile(snapshotFilename)
-			// if err != nil {
-			// 	t.Fatalf("Cannot read snapshot file: %v", err)
-			// }
-			//
-			// if !bytes.Equal(buf.Bytes(), content) {
-			// 	t.Errorf("Snapshots is not same")
-			// }
 		})
 	}
+}
+
+func TestTextArea(t *testing.T) {
+	tcs := []testCase{
+		{
+			border:  true,
+			screenX: 19,
+			screenY: 20,
+			text: `// You can edit this code!
+// Click here and start typing.
+package main
+
+import "fmt"
+
+func main() {
+fmt.Println("Hello, 世界")
+}`,
+
+			keys: []tkey{
+				KeyRight, KeyLeft,
+				KeyDown, KeyUp,
+				KeyEnd, KeyHome,
+				KeyUp, KeyLeft,
+				KeyDown, KeyDown, KeyDown, KeyDown, KeyDown, KeyDown, KeyDown, KeyDown, KeyDown, KeyDown,
+				KeyRight,
+				KeyUp, KeyEnd, KeyRight,
+				KeyEnter, KeyChar, KeyDelete, KeyDelete,
+			},
+		},
+	}
+
+	for index, tc := range tcs {
+		t.Run(fmt.Sprintf("%d", index), func(t *testing.T) {
+			simScreen := tcell.NewSimulationScreen("UTF-8")
+			app, ta := tc.Run(t, simScreen)
+			defer func() {
+				app.Stop()
+			}()
+
+			// filename
+			prefix := strings.Replace(t.Name(), string(filepath.Separator), "_", -1)
+
+			for step, ek := range tc.keys {
+				ta.InputHandler()(ek, nil)
+				app.Draw()
+
+				// screenshot comparing
+				ss := screenShot(simScreen)
+				snapshotFilename := filepath.Join(".", snapshotPath, prefix +"_"+ strconv.Itoa(step))
+
+				// for update test screens run in console:
+				// UPDATE=true go test
+				if os.Getenv("UPDATE") == "true" {
+					if err := ioutil.WriteFile(snapshotFilename, []byte(ss), 0644); err != nil {
+						t.Fatalf("Cannot write snapshot to file: %v", err)
+					}
+				}
+
+				content, err := ioutil.ReadFile(snapshotFilename)
+				if err != nil {
+					t.Fatalf("Cannot read snapshot file: %v", err)
+				}
+
+				if !bytes.Equal([]byte(ss), content) {
+					t.Errorf("Snapshots is not same:\n%s\n%s", ss, string(content))
+				}
+			}
+
+			if b := ta.GetText(); b != tc.text {
+				t.Errorf("text is not same:\n%s\n%s",b,tc.text)
+			}
+		})
+	}
+
 }
