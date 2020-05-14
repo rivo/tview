@@ -35,6 +35,8 @@ type TextArea struct {
 
 	// absolute screen coordinate of cursor
 	cursor struct{ x, y int }
+	// TODO : add colors in edit area
+	// TODO : implement Primitive interface
 }
 
 // NewTextArea returns a new textArea around the given primitive. The primitive's
