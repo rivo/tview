@@ -14,7 +14,7 @@ const (
 	snapshotPath string = "screen"
 )
 
-func TestEditBox(t *testing.T) {
+func TestTextArea(t *testing.T) {
 
 	type testCase struct {
 		border           bool
@@ -54,6 +54,7 @@ func TestEditBox(t *testing.T) {
 	_ = delete
 
 	go func() {
+		count, maxCount := 0, 40
 		for _, border := range []bool{false, true} {
 			for screenX := screenMin; screenX <= screenMax; screenX++ {
 				for screenY := screenMin; screenY <= screenMax; screenY++ {
@@ -90,14 +91,18 @@ func TestEditBox(t *testing.T) {
 								up,
 								down)), 40),
 							// -
-							//	Repeat(append(Repeat([]*tcell.EventKey{right, char}, 40), left, down, up, down), 40),
-							//	// -
-							//	Repeat([]*tcell.EventKey{right, newline}, 40),
+							Repeat(append(Repeat([]*tcell.EventKey{right, char}, 40), left, down, up, down), 40),
+							// -
+							Repeat([]*tcell.EventKey{right, newline}, 40),
 							// -
 							Repeat([]*tcell.EventKey{delete}, 40),
 							// -
 							Repeat([]*tcell.EventKey{delete, right, up, down}, 40),
 						} {
+							count++
+							if count > maxCount {
+								break
+							}
 							ch <- testCase{border, screenX, screenY, text, inp}
 						}
 					}
@@ -109,10 +114,10 @@ func TestEditBox(t *testing.T) {
 
 	count := 0
 	for tc := range ch {
-		tc := tc
 		count++
 		t.Run(fmt.Sprintf("%d", count), func(t *testing.T) {
-			// t.Parallel()
+			tc := tc
+			//t.Parallel()
 			defer func() {
 				if r := recover(); r != nil {
 					t.Logf("%#v", tc)
@@ -129,7 +134,7 @@ func TestEditBox(t *testing.T) {
 				app.Stop()
 			}()
 			app.SetScreen(simScreen)
-			eb := NewEditBox().SetText(tc.text)
+			eb := NewTextArea().SetText(tc.text)
 			b := eb.GetBox()
 			b.SetBorder(true)
 			app.SetRoot(eb, true)

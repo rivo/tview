@@ -144,7 +144,7 @@ type TextView struct {
 	trackEnd bool
 
 	// If set to true, the text view do not use trackEnd.
-	// Used in EditBox.
+	// Used in TextArea.
 	trackOff bool
 
 	// The number of characters to be skipped on each line (not in wrap mode).

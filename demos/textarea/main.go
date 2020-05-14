@@ -27,11 +27,11 @@ You will see:
 
 func main() {
 	app := tview.NewApplication()
-	editBox := tview.NewEditBox().
+	textArea := tview.NewTextArea().
 		SetText(corporate)
-	b := editBox.GetBox()
+	b := textArea.GetBox()
 	b.SetBorder(true)
-	if err := app.SetRoot(editBox, true).EnableMouse(true).Run(); err != nil {
+	if err := app.SetRoot(textArea, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 }
