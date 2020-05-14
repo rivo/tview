@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"bytes"
 	"fmt"
 	"runtime/debug"
 	"strings"
@@ -14,110 +15,116 @@ const (
 	snapshotPath string = "screen"
 )
 
-func TestTextArea(t *testing.T) {
+var (
+	// typical keys
+	KeyUp     = tcell.NewEventKey(tcell.KeyUp, ' ', tcell.ModNone)
+	KeyDown   = tcell.NewEventKey(tcell.KeyDown, ' ', tcell.ModNone)
+	KeyLeft   = tcell.NewEventKey(tcell.KeyLeft, ' ', tcell.ModNone)
+	KeyRight  = tcell.NewEventKey(tcell.KeyRight, ' ', tcell.ModNone)
+	KeyHome   = tcell.NewEventKey(tcell.KeyHome, ' ', tcell.ModNone)
+	KeyEnd    = tcell.NewEventKey(tcell.KeyEnd, ' ', tcell.ModNone)
+	KeyEnter  = tcell.NewEventKey(tcell.KeyEnter, ' ', tcell.ModNone)
+	KeyChar   = tcell.NewEventKey(0, 'Ъ', tcell.ModNone)
+	KeyDelete = tcell.NewEventKey(tcell.KeyDelete, ' ', tcell.ModNone)
+)
 
-	type testCase struct {
-		border           bool
-		screenX, screenY int
-		text             string
-		inp              []*tcell.EventKey
-	}
-
-	ch := make(chan testCase, 0)
-
-	Repeat := func(ks []*tcell.EventKey, n int) (keys []*tcell.EventKey) {
-		for i := 0; i < n; i++ {
-			keys = append(keys, ks...)
+func screenShot(s tcell.SimulationScreen) string {
+	cells, width, height := s.GetContents()
+	var buf bytes.Buffer
+	for row := 0; row < height; row++ {
+		for col := 0; col < width; col++ {
+			position := row*width + col
+			fmt.Fprintf(&buf, "%s", string(cells[position].Runes))
 		}
-		return
+		fmt.Fprintf(&buf, "\n")
 	}
+	x, y, visible := s.GetCursor()
+	fmt.Fprintf(&buf, "Cursor {x:%d,y:%d} %v\n", x, y, visible)
+	return buf.String()
+}
 
-	var (
-		up      = tcell.NewEventKey(tcell.KeyUp, ' ', tcell.ModNone)
-		down    = tcell.NewEventKey(tcell.KeyDown, ' ', tcell.ModNone)
-		left    = tcell.NewEventKey(tcell.KeyLeft, ' ', tcell.ModNone)
-		right   = tcell.NewEventKey(tcell.KeyRight, ' ', tcell.ModNone)
-		char    = tcell.NewEventKey(0, 'й', tcell.ModNone)
-		newline = tcell.NewEventKey(0, '\n', tcell.ModNone)
-		delete  = tcell.NewEventKey(tcell.KeyDelete, '\n', tcell.ModNone)
+func repearKeys(ks []*tcell.EventKey, n int) (keys []*tcell.EventKey) {
+	for i := 0; i < n; i++ {
+		keys = append(keys, ks...)
+	}
+	return
+}
 
-		screenMin = 5
-		screenMax = 10 // 5 // todo: do 10
-	)
+type testCase struct {
+	border  bool
+	screenX int
+	screenY int
+	text    string
+	keys    []*tcell.EventKey
+}
 
-	_ = up
-	_ = down
-	_ = left
-	_ = right
-	_ = char
-	_ = newline
-	_ = delete
+var tcs []testCase
 
-	go func() {
-		count, maxCount := 0, 40
-		for _, border := range []bool{false, true} {
-			for screenX := screenMin; screenX <= screenMax; screenX++ {
-				for screenY := screenMin; screenY <= screenMax; screenY++ {
-					for _, text := range []string{
-						"",
-						" ",
-						"\n",
-						"\n\n",
-						"\n \n",
-						strings.Repeat(" ", 30),
-						strings.Repeat("\n", 30),
-						strings.Repeat("世界世界世界d世界\n", 5),
-						"golang",
-						strings.Repeat("golang\n", 20),
-						strings.Repeat("golang\n\n", 10),
-					} {
-						for _, inp := range [][]*tcell.EventKey{
-							// -
-							[]*tcell.EventKey{},
-							// -
-							Repeat([]*tcell.EventKey{down}, 40),
-							// -
-							Repeat(append(append(append(
-								Repeat([]*tcell.EventKey{right}, 10),
-								Repeat([]*tcell.EventKey{left}, 2)...),
-								down,
-								up,
-								down)), 40),
-							// -
-							Repeat(append(append(append(
-								Repeat([]*tcell.EventKey{right}, 40),
-								Repeat([]*tcell.EventKey{left}, 40)...),
-								down,
-								up,
-								down)), 40),
-							// -
-							Repeat(append(Repeat([]*tcell.EventKey{right, char}, 40), left, down, up, down), 40),
-							// -
-							Repeat([]*tcell.EventKey{right, newline}, 40),
-							// -
-							Repeat([]*tcell.EventKey{delete}, 40),
-							// -
-							Repeat([]*tcell.EventKey{delete, right, up, down}, 40),
-						} {
-							count++
-							if count > maxCount {
-								break
-							}
-							ch <- testCase{border, screenX, screenY, text, inp}
-						}
+type tkey = *tcell.EventKey
+
+var (
+	borders = []bool{false, true}
+	texts   = []string{
+		"",
+		strings.Repeat("世界", 5),
+		strings.Repeat("世界", 50),
+		strings.Repeat(strings.Repeat("世界", 10)+"\n", 2),
+		strings.Repeat(strings.Repeat("世界", 10)+"\n", 20),
+	}
+	movements = [][]*tcell.EventKey{
+		// Do nothing
+		[]*tcell.EventKey{},
+		// List to down and up
+		append(repearKeys([]tkey{KeyDown}, 40), repearKeys([]tkey{KeyUp}, 40)...),
+		// Moving on each rune
+		repearKeys(append(append(repearKeys([]tkey{KeyRight}, 40), repearKeys([]tkey{KeyLeft}, 40)...), KeyDown, KeyUp, KeyDown), 40),
+		repearKeys(append(repearKeys([]tkey{KeyRight}, 40), KeyDown, KeyUp, KeyDown), 40),
+		// Fast move by line
+		repearKeys([]tkey{KeyHome, KeyEnd, KeyDown}, 10),
+		// Delete rune, newline
+		repearKeys([]tkey{KeyHome, KeyChar, KeyEnter, KeyDelete, KeyDelete, KeyEnd, KeyChar, KeyDelete, KeyDown}, 10),
+		// single operations
+		[]tkey{KeyEnter},
+		[]tkey{KeyDelete},
+		// Delete all
+		repearKeys(append([]tkey{KeyEnd}, repearKeys([]tkey{KeyDelete}, 40)...), 20),
+	}
+	screenSizes = []int{5, 7, 40}
+	mouseMove   = []struct{ x, y int }{
+		{0, 0},
+		{0, 100},
+		{100, -1},
+		{3, 3},
+	}
+)
+
+func init() {
+	for _, border := range []bool{false, true} {
+		for _, screenX := range screenSizes {
+			for _, screenY := range screenSizes {
+				for _, text := range texts {
+					for _, keys := range movements {
+						tcs = append(tcs, testCase{
+							border:  border,
+							screenX: screenX,
+							screenY: screenY,
+							text:    text,
+							keys:    keys,
+						})
 					}
 				}
 			}
 		}
-		close(ch)
-	}()
+	}
+}
 
+func TestTextArea(t *testing.T) {
 	count := 0
-	for tc := range ch {
+	for _, tc := range tcs {
+		tc := tc
 		count++
 		t.Run(fmt.Sprintf("%d", count), func(t *testing.T) {
-			tc := tc
-			//t.Parallel()
+			t.Parallel()
 			defer func() {
 				if r := recover(); r != nil {
 					t.Logf("%#v", tc)
@@ -145,102 +152,52 @@ func TestTextArea(t *testing.T) {
 				}
 			}()
 
-			for _, ek := range tc.inp {
+			isChanged := false
+			for _, ek := range tc.keys {
+				if ek.Key() == tcell.KeyDelete ||
+					ek.Key() == tcell.KeyEnter ||
+					ek.Key() == KeyChar.Key() ||
+					ek.Key() == tcell.KeyBackspace {
+					isChanged = true
+				}
 				eb.InputHandler()(ek, nil)
 				app.Draw()
 			}
+
+			for i := range mouseMove {
+				eb.MouseHandler()(
+					MouseLeftClick,
+					tcell.NewEventMouse(mouseMove[i].x, mouseMove[i].y, tcell.Button1, tcell.ModNone),
+					func(p Primitive) {})
+			}
+
 			time.Sleep(time.Millisecond) // for avoid terminal: too many tty
 
-			// cells, width, height := simScreen.GetContents()
-			// var buf bytes.Buffer
-			// for row := 0; row < height; row++ {
-			// 	for col := 0; col < width; col++ {
-			// 		position := row*width + col
-			// 		fmt.Fprintf(&buf, "%s", string(cells[position].Runes))
-			// 	}
-			// 	fmt.Fprintf(&buf, "\n")
-			// }
-			// fmt.Fprintf(os.Stdout, buf.String())
+			if !isChanged || (isChanged && len(eb.GetText()) == len(tc.text)) {
+				if eb.GetText() != tc.text {
+					t.Errorf("text is not same")
+				}
+			}
 
+			// TODO: add screenshot comparing
+			// snapshotFilename := filepath.Join(".", snapshotPath, tcs[i].name)
+			//
+			// // for update test screens run in console:
+			// // UPDATE=true go test
+			// if os.Getenv("UPDATE") == "true" {
+			// 	if err := ioutil.WriteFile(snapshotFilename, buf.Bytes(), 0644); err != nil {
+			// 		t.Fatalf("Cannot write snapshot to file: %v", err)
+			// 	}
+			// }
+			//
+			// content, err := ioutil.ReadFile(snapshotFilename)
+			// if err != nil {
+			// 	t.Fatalf("Cannot read snapshot file: %v", err)
+			// }
+			//
+			// if !bytes.Equal(buf.Bytes(), content) {
+			// 	t.Errorf("Snapshots is not same")
+			// }
 		})
 	}
-
-	// tcs := []struct {
-	// 	name string
-	// 	box  *Box
-	// }{
-	// 	{
-	// 		name: "box.Simple",
-	// 		box:  NewBox(),
-	// 	},
-	// 	{
-	// 		name: "box.Bold.Border",
-	// 		box:  NewBox().SetBorder(true).SetBorderAttributes(tcell.AttrBold).SetTitle("Hello"),
-	// 	},
-	// 	{
-	// 		name: "box.AlignLeft",
-	// 		box:  NewBox().SetBorder(true).SetTitle("Left").SetTitleAlign(AlignLeft),
-	// 	},
-	// 	{
-	// 		name: "box.AlignRight",
-	// 		box:  NewBox().SetBorder(true).SetTitle("Right").SetTitleAlign(AlignRight),
-	// 	},
-	// 	{
-	// 		name: "box.AlignCenter",
-	// 		box:  NewBox().SetBorder(true).SetTitle("Center").SetTitleAlign(AlignCenter),
-	// 	},
-	// }
-	//
-	// for i := range tcs {
-	// 	i := i
-	// 	t.Run(tcs[i].name, func(t *testing.T) {
-	// 		t.Parallel()
-	// 		simScreen := tcell.NewSimulationScreen("UTF-8")
-	// 		simScreen.Init()
-	// 		simScreen.SetSize(10, 5)
-	//
-	// 		app := NewApplication()
-	// 		app.SetScreen(simScreen)
-	// 		app.SetRoot(tcs[i].box, true)
-	//
-	// 		go func() {
-	// 			if err := app.Run(); err != nil {
-	// 				panic(err)
-	// 			}
-	// 		}()
-	//
-	// 		app.Draw()
-	//
-	// 		//	time.Sleep(time.Second)
-	//
-	// 		cells, width, height := simScreen.GetContents()
-	// 		var buf bytes.Buffer
-	// 		for row := 0; row < height; row++ {
-	// 			for col := 0; col < width; col++ {
-	// 				position := row*width + col
-	// 				fmt.Fprintf(&buf, "%s", string(cells[position].Runes))
-	// 			}
-	// 			fmt.Fprintf(&buf, "\n")
-	// 		}
-	//
-	// 		snapshotFilename := filepath.Join(".", snapshotPath, tcs[i].name)
-	//
-	// 		// for update test screens run in console:
-	// 		// UPDATE=true go test
-	// 		if os.Getenv("UPDATE") == "true" {
-	// 			if err := ioutil.WriteFile(snapshotFilename, buf.Bytes(), 0644); err != nil {
-	// 				t.Fatalf("Cannot write snapshot to file: %v", err)
-	// 			}
-	// 		}
-	//
-	// 		content, err := ioutil.ReadFile(snapshotFilename)
-	// 		if err != nil {
-	// 			t.Fatalf("Cannot read snapshot file: %v", err)
-	// 		}
-	//
-	// 		if !bytes.Equal(buf.Bytes(), content) {
-	// 			t.Errorf("Snapshots is not same")
-	// 		}
-	// 	})
-	// }
 }

@@ -1,29 +1,28 @@
 package tview
 
 import (
-	"bytes"
-	"fmt"
-	"net/http"
 	"strings"
 	"unicode"
 
 	"github.com/gdamore/tcell"
 )
 
-var debugBuffer bytes.Buffer
-
-func log(args ...interface{}) {
-	fmt.Fprintln(&debugBuffer, args...)
-}
-
-func init() {
-	go func() {
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, "%s", debugBuffer.String())
-		})
-		http.ListenAndServe(":9090", nil)
-	}()
-}
+// Uncomment only for debugging
+//
+// var debugBuffer bytes.Buffer
+//
+// func log(args ...interface{}) {
+// 	fmt.Fprintln(&debugBuffer, args...)
+// }
+//
+// func init() {
+// 	go func() {
+// 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+// 			fmt.Fprintf(w, "%s", debugBuffer.String())
+// 		})
+// 		http.ListenAndServe(":9090", nil)
+// 	}()
+// }
 
 // TextArea is a wrapper which adds space around another primitive. In addition,
 // the top area (header) and the bottom area (footer) may also contain text.
@@ -45,7 +44,7 @@ func NewTextArea() *TextArea {
 	f := &TextArea{}
 	f.view = NewTextView()
 	f.Box = f.view.Box
-	// WordWrap is not acceptable, because cursor movement 
+	// WordWrap is not acceptable, because cursor movement
 	// is not valid for that case
 	f.view.SetWordWrap(false)
 	f.view.SetWrap(true)
@@ -72,7 +71,7 @@ func (f *TextArea) SetText(text string) *TextArea {
 }
 
 // GetText returns the current text of this text area.
-func (f *TextArea) GetText(stripTags bool) string {
+func (f *TextArea) GetText() string {
 	// Get the buffer.
 	buffers := f.view.buffer
 
@@ -81,7 +80,6 @@ func (f *TextArea) GetText(stripTags bool) string {
 
 	return text
 }
-
 
 // Draw draws this primitive onto the screen.
 func (f *TextArea) Draw(screen tcell.Screen) {
@@ -294,7 +292,6 @@ func (f TextArea) cursorByScreen() (bufferLine, bufferPosition int) {
 	return
 }
 
-
 // cursorByBuffer modify position of cursor in according to position in buffers.
 func (f *TextArea) cursorByBuffer(bufferLine, bufferPosition int) {
 	lastIndexLine := f.cursorIndexLine()
@@ -334,6 +331,10 @@ func (f *TextArea) cursorByBuffer(bufferLine, bufferPosition int) {
 			indexPos = bufferPosition - pos
 			break
 		}
+	}
+	if indexLine < 0 {
+		// TODO: find that situation
+		indexLine = 0
 	}
 	// convert position from indexes to grapheme for cursor
 	var posInGrapheme int
@@ -408,7 +409,9 @@ func (f *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyHome:
 			pos = 0
 		case tcell.KeyEnd:
-			pos = stringWidth(f.view.buffer[line])
+			if 0 <= line && line < len(f.view.buffer) {
+				pos = len([]rune(f.view.buffer[line]))
+			}
 		case tcell.KeyEnter:
 			f.insertNewLine()
 			line++
