@@ -30,6 +30,12 @@ type Checkbox struct {
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
+	// The background color of the input area when readonly.
+	fieldBackgroundReadOnlyColor tcell.Color
+
+	// The text color of the input area when readonly.
+	fieldTextReadOnlyColor tcell.Color
+
 	// An optional function which is called when the user changes the checked
 	// state of this checkbox.
 	changed func(checked bool)
@@ -42,15 +48,21 @@ type Checkbox struct {
 	// A callback function set by the Form class and called when the user leaves
 	// this form item.
 	finished func(tcell.Key)
+
+	// If set the item does not respond to form input/mouse events
+	// that would change its contents
+	readonly bool
 }
 
 // NewCheckbox returns a new input field.
 func NewCheckbox() *Checkbox {
 	return &Checkbox{
-		Box:                  NewBox(),
-		labelColor:           Styles.SecondaryTextColor,
-		fieldBackgroundColor: Styles.ContrastBackgroundColor,
-		fieldTextColor:       Styles.PrimaryTextColor,
+		Box:                          NewBox(),
+		labelColor:                   Styles.SecondaryTextColor,
+		fieldBackgroundColor:         Styles.ContrastBackgroundColor,
+		fieldTextColor:               Styles.PrimaryTextColor,
+		fieldTextReadOnlyColor:       Styles.SecondaryTextColor,
+		fieldBackgroundReadOnlyColor: Styles.ContrastBackgroundColor,
 	}
 }
 
@@ -63,6 +75,13 @@ func (c *Checkbox) SetChecked(checked bool) *Checkbox {
 // IsChecked returns whether or not the box is checked.
 func (c *Checkbox) IsChecked() bool {
 	return c.checked
+}
+
+// SetReadOnly sets whether the item responds to input
+// or mouse events that would change its contents
+func (c *Checkbox) SetReadOnly(readonly bool) *Checkbox {
+	c.readonly = readonly
+	return c
 }
 
 // SetLabel sets the text to be displayed before the input area.
@@ -101,6 +120,18 @@ func (c *Checkbox) SetFieldTextColor(color tcell.Color) *Checkbox {
 	return c
 }
 
+// SetFieldBackgroundReadOnlyColor sets the background color of the input area when readonly.
+func (c *Checkbox) SetFieldBackgroundReadOnlyColor(color tcell.Color) *Checkbox {
+	c.fieldBackgroundReadOnlyColor = color
+	return c
+}
+
+// SetFieldTextReadOnlyColor sets the text color of the input area when readonly.
+func (c *Checkbox) SetFieldTextReadOnlyColor(color tcell.Color) *Checkbox {
+	c.fieldTextReadOnlyColor = color
+	return c
+}
+
 // SetFormAttributes sets attributes shared by all form items.
 func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
 	c.labelWidth = labelWidth
@@ -108,6 +139,8 @@ func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 	c.backgroundColor = bgColor
 	c.fieldTextColor = fieldTextColor
 	c.fieldBackgroundColor = fieldBgColor
+	c.fieldTextReadOnlyColor = labelColor
+	c.fieldBackgroundReadOnlyColor = fieldBgColor
 	return c
 }
 
@@ -168,7 +201,9 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 
 	// Draw checkbox.
 	fieldStyle := tcell.StyleDefault.Background(c.fieldBackgroundColor).Foreground(c.fieldTextColor)
-	if c.focus.HasFocus() {
+	if c.readonly {
+		fieldStyle = tcell.StyleDefault.Background(c.fieldBackgroundReadOnlyColor).Foreground(c.fieldTextReadOnlyColor)
+	} else if c.focus.HasFocus() {
 		fieldStyle = fieldStyle.Background(c.fieldTextColor).Foreground(c.fieldBackgroundColor)
 	}
 	checkedRune := 'X'
@@ -184,6 +219,9 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyRune, tcell.KeyEnter: // Check.
+			if c.readonly {
+				break
+			}
 			if key == tcell.KeyRune && event.Rune() != ' ' {
 				break
 			}
@@ -214,9 +252,11 @@ func (c *Checkbox) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		// Process mouse event.
 		if action == MouseLeftClick && y == rectY {
 			setFocus(c)
-			c.checked = !c.checked
-			if c.changed != nil {
-				c.changed(c.checked)
+			if !c.readonly {
+				c.checked = !c.checked
+				if c.changed != nil {
+					c.changed(c.checked)
+				}
 			}
 			consumed = true
 		}

@@ -56,6 +56,12 @@ type DropDown struct {
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
+	// The background color of the input area when readonly.
+	fieldBackgroundReadOnlyColor tcell.Color
+
+	// The text color of the input area when readonly.
+	fieldTextReadOnlyColor tcell.Color
+
 	// The color for prefixes.
 	prefixTextColor tcell.Color
 
@@ -81,6 +87,10 @@ type DropDown struct {
 	selected func(text string, index int)
 
 	dragging bool // Set to true when mouse dragging is in progress.
+
+	// If set the item does not respond to form input/mouse events
+	// that would change its contents
+	readonly bool
 }
 
 // NewDropDown returns a new drop-down.
@@ -94,13 +104,15 @@ func NewDropDown() *DropDown {
 		SetBackgroundColor(Styles.MoreContrastBackgroundColor)
 
 	d := &DropDown{
-		Box:                  NewBox(),
-		currentOption:        -1,
-		list:                 list,
-		labelColor:           Styles.SecondaryTextColor,
-		fieldBackgroundColor: Styles.ContrastBackgroundColor,
-		fieldTextColor:       Styles.PrimaryTextColor,
-		prefixTextColor:      Styles.ContrastSecondaryTextColor,
+		Box:                          NewBox(),
+		currentOption:                -1,
+		list:                         list,
+		labelColor:                   Styles.SecondaryTextColor,
+		fieldBackgroundColor:         Styles.ContrastBackgroundColor,
+		fieldTextColor:               Styles.PrimaryTextColor,
+		prefixTextColor:              Styles.ContrastSecondaryTextColor,
+		fieldTextReadOnlyColor:       Styles.SecondaryTextColor,
+		fieldBackgroundReadOnlyColor: Styles.ContrastBackgroundColor,
 	}
 
 	d.focus = d
@@ -158,6 +170,13 @@ func (d *DropDown) SetTextOptions(prefix, suffix, currentPrefix, currentSuffix, 
 	return d
 }
 
+// SetReadOnly sets whether the item responds to input
+// or mouse events that would change its contents
+func (d *DropDown) SetReadOnly(readonly bool) *DropDown {
+	d.readonly = readonly
+	return d
+}
+
 // SetLabel sets the text to be displayed before the input area.
 func (d *DropDown) SetLabel(label string) *DropDown {
 	d.label = label
@@ -202,6 +221,18 @@ func (d *DropDown) SetPrefixTextColor(color tcell.Color) *DropDown {
 	return d
 }
 
+// SetFieldBackgroundColor sets the background color of the options area when readonly.
+func (d *DropDown) SetFieldBackgroundReadOnlyColor(color tcell.Color) *DropDown {
+	d.fieldBackgroundReadOnlyColor = color
+	return d
+}
+
+// SetFieldTextRedaOnlyColor sets the text color of the options area when readonly.
+func (d *DropDown) SetFieldTextReadOnlyColor(color tcell.Color) *DropDown {
+	d.fieldTextReadOnlyColor = color
+	return d
+}
+
 // SetFormAttributes sets attributes shared by all form items.
 func (d *DropDown) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
 	d.labelWidth = labelWidth
@@ -209,6 +240,8 @@ func (d *DropDown) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 	d.backgroundColor = bgColor
 	d.fieldTextColor = fieldTextColor
 	d.fieldBackgroundColor = fieldBgColor
+	d.fieldTextReadOnlyColor = labelColor
+	d.fieldBackgroundReadOnlyColor = fieldBgColor
 	return d
 }
 
@@ -340,7 +373,9 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		fieldWidth = rightLimit - x
 	}
 	fieldStyle := tcell.StyleDefault.Background(d.fieldBackgroundColor)
-	if d.GetFocusable().HasFocus() && !d.open {
+	if d.readonly {
+		fieldStyle = fieldStyle.Background(d.fieldBackgroundReadOnlyColor)
+	} else if d.GetFocusable().HasFocus() && !d.open {
 		fieldStyle = fieldStyle.Background(d.fieldTextColor)
 	}
 	for index := 0; index < fieldWidth; index++ {
@@ -360,13 +395,15 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		}
 	} else {
 		color := d.fieldTextColor
+		if d.readonly {
+			color = d.fieldTextReadOnlyColor
+		} else if d.GetFocusable().HasFocus() && !d.open {
+			// Just show the current selection.
+			color = d.fieldBackgroundColor
+		}
 		text := d.noSelection
 		if d.currentOption >= 0 && d.currentOption < len(d.options) {
 			text = d.currentOptionPrefix + d.options[d.currentOption].Text + d.currentOptionSuffix
-		}
-		// Just show the current selection.
-		if d.GetFocusable().HasFocus() && !d.open {
-			color = d.fieldBackgroundColor
 		}
 		Print(screen, text, x, y, fieldWidth, AlignLeft, color)
 	}
@@ -511,7 +548,7 @@ func (d *DropDown) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		x, y := event.Position()
 		_, rectY, _, _ := d.GetInnerRect()
 		inRect := y == rectY
-		if !d.open && !inRect {
+		if !d.open && !inRect || d.readonly {
 			return d.InRect(x, y), nil // No, and it's not expanded either. Ignore.
 		}
 
