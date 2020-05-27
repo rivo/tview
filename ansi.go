@@ -24,6 +24,7 @@ type ansi struct {
 	// Reusable buffers.
 	buffer                        *bytes.Buffer // The entire output text of one Write().
 	csiParameter, csiIntermediate *bytes.Buffer // Partial CSI strings.
+	attributes                    string        // The buffer's current text attributes (a tview attribute string).
 
 	// The current state of the parser. One of the ansi constants.
 	state int
@@ -89,13 +90,12 @@ func (a *ansi) Write(text []byte) (int, error) {
 					}
 					fmt.Fprint(a.buffer, strings.Repeat("\n", count))
 				case 'm': // Select Graphic Rendition.
-					var (
-						background, foreground, attributes string
-						clearAttributes                    bool
-					)
-					fields := strings.Split(a.csiParameter.String(), ";")
-					if len(fields) == 0 || len(fields) == 1 && fields[0] == "0" {
+					var background, foreground string
+					params := a.csiParameter.String()
+					fields := strings.Split(params, ";")
+					if len(params) == 0 || len(fields) == 1 && fields[0] == "0" {
 						// Reset.
+						a.attributes = ""
 						if _, err := a.buffer.WriteString("[-:-:-]"); err != nil {
 							return 0, err
 						}
@@ -131,17 +131,36 @@ func (a *ansi) Write(text []byte) (int, error) {
 					for index, field := range fields {
 						switch field {
 						case "1", "01":
-							attributes += "b"
+							if strings.IndexRune(a.attributes, 'b') < 0 {
+								a.attributes += "b"
+							}
 						case "2", "02":
-							attributes += "d"
+							if strings.IndexRune(a.attributes, 'd') < 0 {
+								a.attributes += "d"
+							}
 						case "4", "04":
-							attributes += "u"
+							if strings.IndexRune(a.attributes, 'u') < 0 {
+								a.attributes += "u"
+							}
 						case "5", "05":
-							attributes += "l"
-						case "7", "07":
-							attributes += "7"
-						case "22", "24", "25", "27":
-							clearAttributes = true
+							if strings.IndexRune(a.attributes, 'l') < 0 {
+								a.attributes += "l"
+							}
+						case "22":
+							if i := strings.IndexRune(a.attributes, 'b'); i >= 0 {
+								a.attributes = a.attributes[:i] + a.attributes[i+1:]
+							}
+							if i := strings.IndexRune(a.attributes, 'd'); i >= 0 {
+								a.attributes = a.attributes[:i] + a.attributes[i+1:]
+							}
+						case "24":
+							if i := strings.IndexRune(a.attributes, 'u'); i >= 0 {
+								a.attributes = a.attributes[:i] + a.attributes[i+1:]
+							}
+						case "25":
+							if i := strings.IndexRune(a.attributes, 'l'); i >= 0 {
+								a.attributes = a.attributes[:i] + a.attributes[i+1:]
+							}
 						case "30", "31", "32", "33", "34", "35", "36", "37":
 							colorNumber, _ := strconv.Atoi(field)
 							foreground = lookupColor(colorNumber-30, false)
@@ -193,11 +212,12 @@ func (a *ansi) Write(text []byte) (int, error) {
 							break FieldLoop
 						}
 					}
-					if len(attributes) > 0 || clearAttributes {
-						attributes = ":" + attributes
+					var colon string
+					if len(a.attributes) > 0 {
+						colon = ":"
 					}
-					if len(foreground) > 0 || len(background) > 0 || len(attributes) > 0 {
-						fmt.Fprintf(a.buffer, "[%s:%s%s]", foreground, background, attributes)
+					if len(foreground) > 0 || len(background) > 0 || len(a.attributes) > 0 {
+						fmt.Fprintf(a.buffer, "[%s:%s%s%s]", foreground, background, colon, a.attributes)
 					}
 				}
 				a.state = ansiText
