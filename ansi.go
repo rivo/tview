@@ -101,30 +101,27 @@ func (a *ansi) Write(text []byte) (int, error) {
 						}
 						break
 					}
-					lookupColor := func(colorNumber int, bright bool) string {
-						if colorNumber < 0 || colorNumber > 7 {
+					lookupColor := func(colorNumber int) string {
+						if colorNumber < 0 || colorNumber > 15 {
 							return "black"
 						}
-						if bright {
-							colorNumber += 8
-						}
-						return [...]string{
+						return []string{
 							"black",
-							"red",
+							"maroon",
 							"green",
+							"olive",
+							"navy",
+							"purple",
+							"teal",
+							"silver",
+							"gray",
+							"red",
+							"lime",
 							"yellow",
 							"blue",
-							"darkmagenta",
-							"darkcyan",
+							"fuchsia",
+							"aqua",
 							"white",
-							"#7f7f7f",
-							"#ff0000",
-							"#00ff00",
-							"#ffff00",
-							"#5c5cff",
-							"#ff00ff",
-							"#00ffff",
-							"#ffffff",
 						}[colorNumber]
 					}
 				FieldLoop:
@@ -163,29 +160,27 @@ func (a *ansi) Write(text []byte) (int, error) {
 							}
 						case "30", "31", "32", "33", "34", "35", "36", "37":
 							colorNumber, _ := strconv.Atoi(field)
-							foreground = lookupColor(colorNumber-30, false)
+							foreground = lookupColor(colorNumber - 30)
 						case "39":
 							foreground = "-"
 						case "40", "41", "42", "43", "44", "45", "46", "47":
 							colorNumber, _ := strconv.Atoi(field)
-							background = lookupColor(colorNumber-40, false)
+							background = lookupColor(colorNumber - 40)
 						case "49":
 							background = "-"
 						case "90", "91", "92", "93", "94", "95", "96", "97":
 							colorNumber, _ := strconv.Atoi(field)
-							foreground = lookupColor(colorNumber-90, true)
+							foreground = lookupColor(colorNumber - 82)
 						case "100", "101", "102", "103", "104", "105", "106", "107":
 							colorNumber, _ := strconv.Atoi(field)
-							background = lookupColor(colorNumber-100, true)
+							background = lookupColor(colorNumber - 92)
 						case "38", "48":
 							var color string
 							if len(fields) > index+1 {
 								if fields[index+1] == "5" && len(fields) > index+2 { // 8-bit colors.
 									colorNumber, _ := strconv.Atoi(fields[index+2])
-									if colorNumber <= 7 {
-										color = lookupColor(colorNumber, false)
-									} else if colorNumber <= 15 {
-										color = lookupColor(colorNumber, true)
+									if colorNumber <= 15 {
+										color = lookupColor(colorNumber)
 									} else if colorNumber <= 231 {
 										red := (colorNumber - 16) / 36
 										green := ((colorNumber - 16) / 6) % 6
