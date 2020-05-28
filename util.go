@@ -198,32 +198,31 @@ func decomposeString(text string, findColors, findRegions bool) (colorIndices []
 	}
 
 	// Make a (sorted) list of all tags.
-	var allIndices [][]int
-	if findColors && findRegions {
-		allIndices = colorIndices
-		allIndices = make([][]int, len(colorIndices)+len(regionIndices))
-		copy(allIndices, colorIndices)
-		copy(allIndices[len(colorIndices):], regionIndices)
-		sort.Slice(allIndices, func(i int, j int) bool {
-			return allIndices[i][0] < allIndices[j][0]
-		})
-	} else if findColors {
-		allIndices = colorIndices
-	} else {
-		allIndices = regionIndices
+	allIndices := make([][3]int, 0, len(colorIndices)+len(regionIndices)+len(escapeIndices))
+	for indexType, index := range [][][]int{colorIndices, regionIndices, escapeIndices} {
+		for _, tag := range index {
+			allIndices = append(allIndices, [3]int{tag[0], tag[1], indexType})
+		}
 	}
+	sort.Slice(allIndices, func(i int, j int) bool {
+		return allIndices[i][0] < allIndices[j][0]
+	})
 
 	// Remove the tags from the original string.
 	var from int
 	buf := make([]byte, 0, len(text))
 	for _, indices := range allIndices {
-		buf = append(buf, []byte(text[from:indices[0]])...)
-		from = indices[1]
+		if indices[2] == 2 { // Escape sequences are not simply removed.
+			buf = append(buf, []byte(text[from:indices[1]-2])...)
+			buf = append(buf, ']')
+			from = indices[1]
+		} else {
+			buf = append(buf, []byte(text[from:indices[0]])...)
+			from = indices[1]
+		}
 	}
 	buf = append(buf, text[from:]...)
-
-	// Escape string.
-	stripped = string(escapePattern.ReplaceAll(buf, []byte("[$1$2]")))
+	stripped = string(buf)
 
 	// Get the width of the stripped string.
 	width = stringWidth(stripped)
