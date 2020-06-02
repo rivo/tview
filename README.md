@@ -49,6 +49,42 @@ Check out the [GitHub Wiki](https://github.com/rivo/tview/wiki) for more example
 
 For a presentation highlighting this package, compile and run the program found in the "demos/presentation" subdirectory.
 
+## Projects using tview
+
+- https://github.com/7onetella/password
+- https://github.com/Endi1/drawer
+- https://github.com/IdlePhysicist/cave-logger
+- https://github.com/MrDienns/bike-commerce
+- https://github.com/bannzai/itree
+- https://github.com/bluemon0919/todotool
+- https://github.com/broadcastle/crm
+- https://github.com/cyberdummy/todoista
+- https://github.com/dcaiafa/kpick
+- https://github.com/decred/dcrdex
+- https://github.com/derailed/k9s
+- https://github.com/destinmoulton/pixi
+- https://github.com/divramod/dp
+- https://github.com/epiclabs-io/winman
+- https://github.com/erleene/go-bmi
+- https://github.com/godsic/vibe
+- https://github.com/guillaumemichel/passtor/tree/master/client
+- https://github.com/muesli/service-tools/
+- https://github.com/nitishm/redis-terminal
+- https://github.com/pablogadhi/XMPPClient
+- https://github.com/patilsuraj767/connection-master
+- https://github.com/shilangyu/typer-go
+- https://github.com/skanehira/docuix
+- https://github.com/stephane-martin/vssh
+- https://github.com/thebmw/y2kpos
+- https://github.com/thebsdbox/vctui
+- https://github.com/tryffel/bookmarker
+- https://github.com/vaelen/udp-tester
+- https://github.com/witchard/toukan
+- https://github.com/wtfutil/wtf
+- https://github.com/xxjwxc/gormt
+- https://github.com/y3sh/cw-sdk-go
+- https://gitlab.com/diamondburned/6cord
+
 ## Documentation
 
 Refer to https://pkg.go.dev/github.com/rivo/tview for the package's documentation.
