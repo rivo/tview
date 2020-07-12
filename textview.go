@@ -287,7 +287,12 @@ func (t *TextView) GetText(stripTags bool) string {
 			text = regionPattern.ReplaceAllString(text, "")
 		}
 		if t.dynamicColors {
-			text = colorPattern.ReplaceAllString(text, "")
+			text = colorPattern.ReplaceAllStringFunc(text, func(match string) string {
+				if len(match) > 2 {
+					return ""
+				}
+				return match
+			})
 		}
 		if t.regions || t.dynamicColors {
 			text = escapePattern.ReplaceAllString(text, `[$1$2]`)
@@ -550,7 +555,9 @@ func (t *TextView) GetRegionText(regionID string) string {
 				if pos == colorTagIndices[currentTag][1]-1 {
 					currentTag++
 				}
-				continue
+				if colorTagIndices[currentTag][1]-colorTagIndices[currentTag][0] > 2 {
+					continue
+				}
 			}
 
 			// Skip any regions.
