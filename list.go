@@ -57,6 +57,12 @@ type List struct {
 	// The number of list items skipped at the top before the first item is drawn.
 	offset int
 
+	// Last index of seeable item
+	last int
+
+	// Number of items drawn
+	itemsDrawn int
+
 	// An optional function which is called when the user has navigated to a list
 	// item.
 	changed func(index int, mainText, secondaryText string, shortcut rune)
@@ -67,6 +73,7 @@ type List struct {
 
 	// An optional function which is called when the user presses the Escape key.
 	done func()
+
 }
 
 // NewList returns a new form.
@@ -399,6 +406,7 @@ func (l *List) Draw(screen tcell.Screen) {
 		bottomLimit = totalHeight
 	}
 
+
 	// Do we show any shortcuts?
 	var showShortcuts bool
 	for _, item := range l.items {
@@ -423,6 +431,8 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 	}
 
+	l.itemsDrawn = 0
+
 	// Draw the list items.
 	for index, item := range l.items {
 		if index < l.offset {
@@ -440,6 +450,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Main text.
 		Print(screen, item.MainText, x, y, width, AlignLeft, l.mainTextColor)
+		l.itemsDrawn++
 
 		// Background color of selected text.
 		if index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus()) {
@@ -472,7 +483,24 @@ func (l *List) Draw(screen tcell.Screen) {
 			Print(screen, item.SecondaryText, x, y, width, AlignLeft, l.secondaryTextColor)
 			y++
 		}
+
+
 	}
+}
+
+// GetFirst returns the first index of item drawn
+func (l *List) GetFirst() int {
+	return l.offset
+}
+
+// GetLast returns the last index of item drawn. If showSecondaryText set to true,
+// GetLast returns the second last index of item drawn to prevent from scrolling
+func (l *List) GetLast() int {
+	lastIndex := l.itemsDrawn - 1 + l.offset
+	if l.showSecondaryText {
+		return lastIndex - 1
+	}
+	return lastIndex
 }
 
 // InputHandler returns the handler for this primitive.
