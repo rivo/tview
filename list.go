@@ -148,9 +148,9 @@ func (l *List) RemoveItem(index int) *List {
 		return l
 	}
 
-	// Shift current item.
+	// Shift current item when it was the last.
 	previousCurrentItem := l.currentItem
-	if l.currentItem >= index {
+	if l.currentItem >= len(l.items) {
 		l.currentItem--
 	}
 
