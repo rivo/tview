@@ -88,8 +88,10 @@ func main() {
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlN {
 			nextSlide()
+			return nil
 		} else if event.Key() == tcell.KeyCtrlP {
 			previousSlide()
+			return nil
 		}
 		return event
 	})

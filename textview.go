@@ -1173,8 +1173,8 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 					break
 				}
 			}
-			consumed = true
 			setFocus(t)
+			consumed = true
 		case MouseScrollUp:
 			t.trackEnd = false
 			t.lineOffset--

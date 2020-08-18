@@ -1250,8 +1250,8 @@ func (t *Table) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 			if t.rowsSelectable || t.columnsSelectable {
 				t.Select(t.cellAt(x, y))
 			}
-			consumed = true
 			setFocus(t)
+			consumed = true
 		case MouseScrollUp:
 			t.trackEnd = false
 			t.rowOffset--

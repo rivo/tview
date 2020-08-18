@@ -396,6 +396,14 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return d.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		// If the list has focus, let it process its own key events.
+		if d.list.GetFocusable().HasFocus() {
+			if handler := d.list.InputHandler(); handler != nil {
+				handler(event, setFocus)
+			}
+			return
+		}
+
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyEnter, tcell.KeyRune, tcell.KeyDown:

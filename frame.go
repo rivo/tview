@@ -19,7 +19,7 @@ type frameText struct {
 type Frame struct {
 	*Box
 
-	// The contained primitive.
+	// The contained primitive. May be nil.
 	primitive Primitive
 
 	// The lines of text to be displayed.
@@ -30,7 +30,8 @@ type Frame struct {
 }
 
 // NewFrame returns a new frame around the given primitive. The primitive's
-// size will be changed to fit within this frame.
+// size will be changed to fit within this frame. The primitive may be nil, in
+// which case no other primitive is embedded in the frame.
 func NewFrame(primitive Primitive) *Frame {
 	box := NewBox()
 
@@ -127,33 +128,42 @@ func (f *Frame) Draw(screen tcell.Screen) {
 	}
 
 	// Set the size of the contained primitive.
-	if topMax > top {
-		top = topMax + f.header
-	}
-	if bottomMin < bottom {
-		bottom = bottomMin - f.footer
-	}
-	if top > bottom {
-		return // No space for the primitive.
-	}
-	f.primitive.SetRect(x, top, width, bottom+1-top)
+	if f.primitive != nil {
+		if topMax > top {
+			top = topMax + f.header
+		}
+		if bottomMin < bottom {
+			bottom = bottomMin - f.footer
+		}
+		if top > bottom {
+			return // No space for the primitive.
+		}
+		f.primitive.SetRect(x, top, width, bottom+1-top)
 
-	// Finally, draw the contained primitive.
-	f.primitive.Draw(screen)
+		// Finally, draw the contained primitive.
+		f.primitive.Draw(screen)
+	}
 }
 
 // Focus is called when this primitive receives focus.
 func (f *Frame) Focus(delegate func(p Primitive)) {
-	delegate(f.primitive)
+	if f.primitive != nil {
+		delegate(f.primitive)
+	} else {
+		f.hasFocus = true
+	}
 }
 
 // HasFocus returns whether or not this primitive has focus.
 func (f *Frame) HasFocus() bool {
+	if f.primitive == nil {
+		return f.hasFocus
+	}
 	focusable, ok := f.primitive.(Focusable)
 	if ok {
 		return focusable.HasFocus()
 	}
-	return false
+	return f.hasFocus
 }
 
 // MouseHandler returns the mouse handler for this primitive.
@@ -164,6 +174,25 @@ func (f *Frame) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 		}
 
 		// Pass mouse events on to contained primitive.
-		return f.primitive.MouseHandler()(action, event, setFocus)
+		if f.primitive != nil {
+			return f.primitive.MouseHandler()(action, event, setFocus)
+		}
+
+		return false, nil
+	})
+}
+
+// InputHandler returns the handler for this primitive.
+func (f *Frame) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return f.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		if f.primitive == nil {
+			return
+		}
+		if f.primitive.GetFocusable().HasFocus() {
+			if handler := f.primitive.InputHandler(); handler != nil {
+				handler(event, setFocus)
+				return
+			}
+		}
 	})
 }

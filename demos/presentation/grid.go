@@ -11,18 +11,9 @@ func Grid(nextSlide func()) (title string, content tview.Primitive) {
 	pages := tview.NewPages()
 
 	newPrimitive := func(text string) tview.Primitive {
-		return tview.NewTextView().
-			SetTextAlign(tview.AlignCenter).
-			SetText(text).
-			SetDoneFunc(func(key tcell.Key) {
-				if modalShown {
-					nextSlide()
-					modalShown = false
-				} else {
-					pages.ShowPage("modal")
-					modalShown = true
-				}
-			})
+		return tview.NewFrame(nil).
+			SetBorders(0, 0, 0, 0, 0, 0).
+			AddText(text, true, tview.AlignCenter, tcell.ColorWhite)
 	}
 
 	menu := newPrimitive("Menu")
@@ -35,6 +26,16 @@ func Grid(nextSlide func()) (title string, content tview.Primitive) {
 		SetBorders(true).
 		AddItem(newPrimitive("Header"), 0, 0, 1, 3, 0, 0, true).
 		AddItem(newPrimitive("Footer"), 2, 0, 1, 3, 0, 0, false)
+	grid.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if modalShown {
+			nextSlide()
+			modalShown = false
+		} else {
+			pages.ShowPage("modal")
+			modalShown = true
+		}
+		return event
+	})
 
 	// Layout for screens narrower than 100 cells (menu and side bar are hidden).
 	grid.AddItem(menu, 0, 0, 0, 0, 0, 0, false).

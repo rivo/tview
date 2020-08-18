@@ -305,17 +305,19 @@ EventLoop:
 			switch event := event.(type) {
 			case *tcell.EventKey:
 				a.RLock()
-				p := a.focus
+				root := a.root
 				inputCapture := a.inputCapture
 				a.RUnlock()
 
 				// Intercept keys.
+				var draw bool
 				if inputCapture != nil {
 					event = inputCapture(event)
 					if event == nil {
 						a.draw()
 						continue // Don't forward event.
 					}
+					draw = true
 				}
 
 				// Ctrl-C closes the application.
@@ -323,14 +325,19 @@ EventLoop:
 					a.Stop()
 				}
 
-				// Pass other key events to the currently focused primitive.
-				if p != nil {
-					if handler := p.InputHandler(); handler != nil {
+				// Pass other key events to the root primitive.
+				if root != nil && root.GetFocusable().HasFocus() {
+					if handler := root.InputHandler(); handler != nil {
 						handler(event, func(p Primitive) {
 							a.SetFocus(p)
 						})
-						a.draw()
+						draw = true
 					}
+				}
+
+				// Redraw.
+				if draw {
+					a.draw()
 				}
 			case *tcell.EventResize:
 				if time.Since(lastRedraw) < redrawPause {

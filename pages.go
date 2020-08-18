@@ -300,3 +300,17 @@ func (p *Pages) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 		return
 	})
 }
+
+// InputHandler returns the handler for this primitive.
+func (p *Pages) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return p.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		for _, page := range p.pages {
+			if page.Item.GetFocusable().HasFocus() {
+				if handler := page.Item.InputHandler(); handler != nil {
+					handler(event, setFocus)
+					return
+				}
+			}
+		}
+	})
+}
