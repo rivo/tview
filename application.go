@@ -212,10 +212,9 @@ func (a *Application) EnableMouse(enable bool) *Application {
 // when Stop() was called.
 func (a *Application) Run() error {
 	var (
-		err           error
-		width, height int         // The current size of the screen.
-		lastRedraw    time.Time   // The time the screen was last redrawn.
-		redrawTimer   *time.Timer // A timer to schedule the next redraw.
+		err         error
+		lastRedraw  time.Time   // The time the screen was last redrawn.
+		redrawTimer *time.Timer // A timer to schedule the next redraw.
 	)
 	a.Lock()
 
@@ -354,11 +353,6 @@ EventLoop:
 				if screen == nil {
 					continue
 				}
-				newWidth, newHeight := screen.Size()
-				if newWidth == width && newHeight == height {
-					continue
-				}
-				width, height = newWidth, newHeight
 				lastRedraw = time.Now()
 				screen.Clear()
 				a.draw()
