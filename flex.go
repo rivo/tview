@@ -228,7 +228,7 @@ func (f *Flex) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 func (f *Flex) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return f.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		for _, item := range f.items {
-			if item != nil && item.Item.GetFocusable().HasFocus() {
+			if item.Item != nil && item.Item.GetFocusable().HasFocus() {
 				if handler := item.Item.InputHandler(); handler != nil {
 					handler(event, setFocus)
 					return
