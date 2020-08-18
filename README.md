@@ -49,16 +49,17 @@ Check out the [GitHub Wiki](https://github.com/rivo/tview/wiki) for more example
 
 For a presentation highlighting this package, compile and run the program found in the "demos/presentation" subdirectory.
 
-## Projects using tview
+## Projects using `tview`
 
-- [password manager](https://github.com/7onetella/password)
+- [Window manager for `tview`](https://github.com/epiclabs-io/winman)
+- [Password manager](https://github.com/7onetella/password)
 - [CLI bookmark manager](https://github.com/Endi1/drawer)
 - [A caving database interface written in Go](https://github.com/IdlePhysicist/cave-logger)
 - [App for rental of electic bikes](https://github.com/MrDienns/bike-commerce)
-- [interactive file browse and exec any command.](https://github.com/bannzai/itree)
+- [Interactive file browse and exec any command.](https://github.com/bannzai/itree)
 - [A simple CRM](https://github.com/broadcastle/crm)
 - [Terminal UI for todist](https://github.com/cyberdummy/todoista)
-- [graphical kubectl wrapper](https://github.com/dcaiafa/kpick)
+- [Graphical kubectl wrapper](https://github.com/dcaiafa/kpick)
 - [Decred Decentralized Exchange ](https://github.com/decred/dcrdex)
 - [Kubernetes CLI To Manage Your Clusters In Style! ](https://github.com/derailed/k9s)
 - [A CLI file browser for Raspberry PI](https://github.com/destinmoulton/pixi)
