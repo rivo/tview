@@ -227,6 +227,18 @@ type Table struct {
 	// The rightmost column in the data set.
 	lastColumn int
 
+	// The sort function of the table. Defaults to a case-sensitive string comparison.
+	sortFunc func(column, i, j int) bool
+
+	// Whether or not the table should be sorted when a fixed row is clicked.
+	sortClicked bool
+
+	// The last direction the table was sorted by when clicked.
+	sortClickedDescending bool
+
+	// The last column the table was sorted by when clicked.
+	sortClickedColumn int
+
 	// If true, when calculating the widths of the columns, all rows are evaluated
 	// instead of only the visible ones.
 	evaluateAllRows bool
@@ -568,7 +580,7 @@ func (t *Table) cellAt(x, y int) (row, column int) {
 		}
 	}
 
-	// Saerch for the clicked column.
+	// Search for the clicked column.
 	column = -1
 	if x >= rectX {
 		columnX := rectX
@@ -605,6 +617,50 @@ func (t *Table) ScrollToEnd() *Table {
 	t.trackEnd = true
 	t.columnOffset = 0
 	t.rowOffset = len(t.cells)
+	return t
+}
+
+// SetSortClicked sets a flag which determines whether the table is sorted when
+// a fixed row is clicked. This flag is enabled by default.
+func (t *Table) SetSortClicked(sortClicked bool) *Table {
+	t.sortClicked = sortClicked
+	return t
+}
+
+// SetSortFunc sets the sorting function used for the table. When unset, a
+// case-sensitive string comparison is used.
+func (t *Table) SetSortFunc(sortFunc func(column, i, j int) bool) *Table {
+	t.sortFunc = sortFunc
+	return t
+}
+
+// Sort sorts the table by the column at the given index. You may set a custom
+// sorting function with SetSortFunc.
+func (t *Table) Sort(column int, descending bool) *Table {
+	if len(t.cells) == 0 || column < 0 || column >= len(t.cells[0]) {
+		return t
+	}
+
+	if t.sortFunc == nil {
+		t.sortFunc = func(column, i, j int) bool {
+			return t.cells[i][column].Text < t.cells[j][column].Text
+		}
+	}
+
+	sort.SliceStable(t.cells, func(i, j int) bool {
+		if i < t.fixedRows {
+			return i < j
+		} else if j < t.fixedRows {
+			return j > i
+		}
+
+		if !descending {
+			return t.sortFunc(column, i, j)
+		} else {
+			return t.sortFunc(column, j, i)
+		}
+	})
+
 	return t
 }
 
@@ -1247,9 +1303,31 @@ func (t *Table) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 
 		switch action {
 		case MouseLeftClick:
-			if t.rowsSelectable || t.columnsSelectable {
+			_, tableY, _, _ := t.GetInnerRect()
+			mul := 1
+			maxY := tableY
+			if t.borders {
+				mul = 2
+				maxY = tableY + 1
+			}
+
+			if t.sortClicked && t.fixedRows > 0 && (y >= tableY && y < maxY+(t.fixedRows*mul)) {
+				_, column := t.cellAt(x, y)
+				if t.sortClickedColumn != column {
+					t.sortClickedColumn = column
+					t.sortClickedDescending = false
+				} else {
+					t.sortClickedDescending = !t.sortClickedDescending
+				}
+				t.Sort(column, t.sortClickedDescending)
+
+				if t.columnsSelectable {
+					t.selectedColumn = column
+				}
+			} else if t.rowsSelectable || t.columnsSelectable {
 				t.Select(t.cellAt(x, y))
 			}
+
 			setFocus(t)
 			consumed = true
 		case MouseScrollUp:
