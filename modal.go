@@ -95,6 +95,17 @@ func (m *Modal) SetText(text string) *Modal {
 	return m
 }
 
+/// AddInputText adds buttons to the window. There must be at least one button and
+// a "done" handler so the window can be closed again.
+func (m *Modal) AddInputText(labels []string) *Modal {
+	for index, label := range labels {
+		func(i int, l string) {
+			m.form.AddInputField(label, "", 20, nil, nil)
+		}(index, label)
+	}
+	return m
+}
+
 // AddButtons adds buttons to the window. There must be at least one button and
 // a "done" handler so the window can be closed again.
 func (m *Modal) AddButtons(labels []string) *Modal {
