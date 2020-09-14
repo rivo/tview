@@ -175,8 +175,13 @@ func (m *Modal) Draw(screen tcell.Screen) {
 		m.frame.AddText(line, true, AlignCenter, m.textColor)
 	}
 
+	lengthForm := 0
+	if len(m.form.items) > 0 {
+		lengthForm += len(m.form.items) + 1
+	}
+
 	// Set the modal's position and size.
-	height := len(lines) + 6 + len(m.form.items) + 1
+	height := len(lines) + 6 + lengthForm
 	width += 4
 	x := (screenWidth - width) / 2
 	y := (screenHeight - height) / 2

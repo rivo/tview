@@ -9,7 +9,7 @@ func main() {
 	app := tview.NewApplication()
 	modal := tview.NewModal().
 		SetText("Search a list").
-		AddInputText([]string{"Search text"}).
+		AddInputText([]string{"Input text:"}).
 		AddButtons([]string{"Search", "Clear"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 			if buttonLabel == "Clear" {
