@@ -282,9 +282,53 @@ func (l *List) UpdateItem(index int, mainText, secondaryText string, shortcut ru
 		return l
 	}
 
-	l.RemoveItem(index)
-	l.InsertItem(index, mainText, secondaryText, shortcut, selected)
-	l.SetCurrentItem(index)
+	element := l.items[index]
+	element.MainText = mainText
+	element.SecondaryText = secondaryText
+	element.Shortcut = shortcut
+	element.Selected = selected
+
+	return l
+}
+
+// UpdateItemMainText updates the main text of an item from the list at the specified index.
+// An index of 0 will update the item at the beginning, an index of 1 before the second item,
+// and so on. Using an index that is out of range will return the unmodified list
+func (l *List) UpdateItemMainText(index int, mainText string) *List {
+	if l.GetItemCount() < index || index < 0 {
+		return l
+	}
+
+	element := l.items[index]
+	element.MainText = mainText
+
+	return l
+}
+
+// UpdateItemSecondaryText updates the secondary text of an item from the list at the specified index.
+// An index of 0 will update the item at the beginning, an index of 1 before the second item,
+// and so on. Using an index that is out of range will return the unmodified list
+func (l *List) UpdateItemSecondaryText(index int, secondaryText string) *List {
+	if l.GetItemCount() < index || index < 0 {
+		return l
+	}
+
+	element := l.items[index]
+	element.SecondaryText = secondaryText
+
+	return l
+}
+
+// UpdateItemSelectedFunc updates the selected function of an item from the list at the specified index.
+// An index of 0 will update the item at the beginning, an index of 1 before the second item,
+// and so on. Using an index that is out of range will return the unmodified list
+func (l *List) UpdateItemSelectedFunc(index int, selected func()) *List {
+	if l.GetItemCount() < index || index < 0 {
+		return l
+	}
+
+	element := l.items[index]
+	element.Selected = selected
 
 	return l
 }
