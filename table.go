@@ -42,6 +42,11 @@ type TableCell struct {
 	// If set to true, this cell cannot be selected.
 	NotSelectable bool
 
+	// An optional handler for mouse clicks. This also fires if the cell is not
+	// selectable. If true is returned, no additional "selected" event is fired
+	// on selectable cells.
+	Clicked func() bool
+
 	// The position and width of the cell the last time table was drawn.
 	x, y, width int
 }
@@ -158,6 +163,14 @@ func (c *TableCell) GetReference() interface{} {
 // SetSelectionChangedFunc()).
 func (c *TableCell) GetLastPosition() (x, y, width int) {
 	return c.x, c.y, c.width
+}
+
+// SetClickedFunc sets a handler which fires when this cell is clicked. This is
+// independent of whether the cell is selectable or not. But for selectable
+// cells, if the function returns "true", the "selected" event is not fired.
+func (c *TableCell) SetClickedFunc(clicked func() bool) *TableCell {
+	c.Clicked = clicked
+	return c
 }
 
 // Table visualizes two-dimensional data consisting of rows and columns. Each
@@ -1247,8 +1260,21 @@ func (t *Table) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 
 		switch action {
 		case MouseLeftClick:
-			if t.rowsSelectable || t.columnsSelectable {
-				t.Select(t.cellAt(x, y))
+			selectEvent := true
+			row, column := t.cellAt(x, y)
+			if row >= 0 && row < len(t.cells) && column >= 0 {
+				cells := t.cells[row]
+				if column < len(cells) {
+					cell := cells[column]
+					if cell != nil && cell.Clicked != nil {
+						if noSelect := cell.Clicked(); noSelect {
+							selectEvent = false
+						}
+					}
+				}
+			}
+			if selectEvent && (t.rowsSelectable || t.columnsSelectable) {
+				t.Select(row, column)
 			}
 			setFocus(t)
 			consumed = true

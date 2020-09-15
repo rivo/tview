@@ -273,7 +273,8 @@ func (t *TextView) SetText(text string) *TextView {
 // to true, any region/color tags are stripped from the text.
 func (t *TextView) GetText(stripTags bool) string {
 	// Get the buffer.
-	buffer := t.buffer
+	buffer := make([]string, len(t.buffer), len(t.buffer)+1)
+	copy(buffer, t.buffer)
 	if !stripTags {
 		buffer = append(buffer, string(t.recentBytes))
 	}
