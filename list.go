@@ -259,6 +259,36 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 	return l
 }
 
+// UpdateItem updates an item from the list at the specified index. An index of 0
+// will update the item at the beginning, an index of 1 before the second item,
+// and so on. Using an index that is out of range will return the unmodified list
+//
+// An item has a main text which will be highlighted when selected. It also has
+// a secondary text which is shown underneath the main text (if it is set to
+// visible) but which may remain empty.
+//
+// The shortcut is a key binding. If the specified rune is entered, the item
+// is selected immediately. Set to 0 for no binding.
+//
+// The "selected" callback will be invoked when the user selects the item. You
+// may provide nil if no such callback is needed or if all events are handled
+// through the selected callback set with SetSelectedFunc().
+//
+// The currently selected item will shift its position accordingly. If the list
+// was previously empty, a "changed" event is fired because the new item becomes
+// selected.
+func (l *List) UpdateItem(index int, mainText, secondaryText string, shortcut rune, selected func()) *List {
+	if l.GetItemCount() < index || index < 0 {
+		return l
+	}
+
+	l.RemoveItem(index)
+	l.InsertItem(index, mainText, secondaryText, shortcut, selected)
+	l.SetCurrentItem(index)
+
+	return l
+}
+
 // InsertItem adds a new item to the list at the specified index. An index of 0
 // will insert the item at the beginning, an index of 1 before the second item,
 // and so on. An index of GetItemCount() or higher will insert the item at the
