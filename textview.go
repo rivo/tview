@@ -269,13 +269,13 @@ func (t *TextView) SetText(text string) *TextView {
 	return t
 }
 
-// GetText returns the current text of this text view. If "stripTags" is set
+// GetText returns the current text of this text view. If "stripAllTags" is set
 // to true, any region/color tags are stripped from the text.
-func (t *TextView) GetText(stripTags bool) string {
+func (t *TextView) GetText(stripAllTags bool) string {
 	// Get the buffer.
 	buffer := make([]string, len(t.buffer), len(t.buffer)+1)
 	copy(buffer, t.buffer)
-	if !stripTags {
+	if !stripAllTags {
 		buffer = append(buffer, string(t.recentBytes))
 	}
 
@@ -283,19 +283,14 @@ func (t *TextView) GetText(stripTags bool) string {
 	text := strings.Join(buffer, "\n")
 
 	// Strip from tags if required.
-	if stripTags {
+	if stripAllTags {
 		if t.regions {
 			text = regionPattern.ReplaceAllString(text, "")
 		}
 		if t.dynamicColors {
-			text = colorPattern.ReplaceAllStringFunc(text, func(match string) string {
-				if len(match) > 2 {
-					return ""
-				}
-				return match
-			})
+			text = stripTags(text)
 		}
-		if t.regions || t.dynamicColors {
+		if t.regions && !t.dynamicColors {
 			text = escapePattern.ReplaceAllString(text, `[$1$2]`)
 		}
 	}
