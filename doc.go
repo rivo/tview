@@ -97,6 +97,7 @@ terminal):
   l: blink
   b: bold
   d: dim
+  i: italic
   r: reverse (switch foreground and background color)
   u: underline
 
