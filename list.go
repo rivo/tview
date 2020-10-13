@@ -54,8 +54,9 @@ type List struct {
 	// Whether or not navigating the list will wrap around.
 	wrapAround bool
 
-	// The number of list items skipped at the top before the first item is drawn.
-	offset int
+	// The number of list items and columns by which the list is scrolled
+	// down/to the right.
+	itemOffset, columnOffset int
 
 	// An optional function which is called when the user has navigated to a list
 	// item.
@@ -161,6 +162,24 @@ func (l *List) RemoveItem(index int) *List {
 	}
 
 	return l
+}
+
+// SetOffset sets the number of list items and columns by which the list is
+// scrolled down/to the right.
+func (l *List) SetOffset(items, columns int) {
+	if items < 0 {
+		items = 0
+	}
+	if columns < 0 {
+		columns = 0
+	}
+	l.itemOffset, l.columnOffset = items, columns
+}
+
+// GetOffset returns the number of list items and columns by which the list is
+// scrolled down/to the right.
+func (l *List) GetOffset() (int, int) {
+	return l.itemOffset, l.columnOffset
 }
 
 // SetMainTextColor sets the color of the items' main text.
@@ -384,6 +403,8 @@ func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ig
 func (l *List) Clear() *List {
 	l.items = nil
 	l.currentItem = 0
+	l.itemOffset = 0
+	l.columnOffset = 0
 	return l
 }
 
@@ -411,26 +432,41 @@ func (l *List) Draw(screen tcell.Screen) {
 	}
 
 	// Adjust offset to keep the current selection in view.
-	if l.currentItem < l.offset {
-		l.offset = l.currentItem
+	if l.currentItem < l.itemOffset {
+		l.itemOffset = l.currentItem
 	} else if l.showSecondaryText {
-		if 2*(l.currentItem-l.offset) >= height-1 {
-			l.offset = (2*l.currentItem + 3 - height) / 2
+		if 2*(l.currentItem-l.itemOffset) >= height-1 {
+			l.itemOffset = (2*l.currentItem + 3 - height) / 2
 		}
 	} else {
-		if l.currentItem-l.offset >= height {
-			l.offset = l.currentItem + 1 - height
+		if l.currentItem-l.itemOffset >= height {
+			l.itemOffset = l.currentItem + 1 - height
 		}
 	}
 
 	// Draw the list items.
 	for index, item := range l.items {
-		if index < l.offset {
+		if index < l.itemOffset {
 			continue
 		}
 
 		if y >= bottomLimit {
 			break
+		}
+
+		mainText := item.MainText
+		secondaryText := item.SecondaryText
+		if l.columnOffset > 0 {
+			if l.columnOffset < len(mainText) {
+				mainText = mainText[l.columnOffset:]
+			} else {
+				mainText = ""
+			}
+			if l.columnOffset < len(secondaryText) {
+				secondaryText = secondaryText[l.columnOffset:]
+			} else {
+				secondaryText = ""
+			}
 		}
 
 		// Shortcuts.
@@ -439,13 +475,13 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 
 		// Main text.
-		Print(screen, item.MainText, x, y, width, AlignLeft, l.mainTextColor)
+		Print(screen, mainText, x, y, width, AlignLeft, l.mainTextColor)
 
 		// Background color of selected text.
 		if index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus()) {
 			textWidth := width
 			if !l.highlightFullLine {
-				if w := TaggedStringWidth(item.MainText); w < textWidth {
+				if w := TaggedStringWidth(mainText); w < textWidth {
 					textWidth = w
 				}
 			}
@@ -469,7 +505,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Secondary text.
 		if l.showSecondaryText {
-			Print(screen, item.SecondaryText, x, y, width, AlignLeft, l.secondaryTextColor)
+			Print(screen, secondaryText, x, y, width, AlignLeft, l.secondaryTextColor)
 			y++
 		}
 	}
@@ -490,10 +526,14 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		previousItem := l.currentItem
 
 		switch key := event.Key(); key {
-		case tcell.KeyTab, tcell.KeyDown, tcell.KeyRight:
+		case tcell.KeyTab, tcell.KeyDown:
 			l.currentItem++
-		case tcell.KeyBacktab, tcell.KeyUp, tcell.KeyLeft:
+		case tcell.KeyBacktab, tcell.KeyUp:
 			l.currentItem--
+		case tcell.KeyRight:
+			l.columnOffset++
+		case tcell.KeyLeft:
+			l.columnOffset--
 		case tcell.KeyHome:
 			l.currentItem = 0
 		case tcell.KeyEnd:
@@ -554,6 +594,30 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 			}
 		}
 
+		// Maximum width of item text
+		maxWidth := 0
+		for _, option := range l.items {
+			strWidth := TaggedStringWidth(option.MainText)
+			secondaryWidth := TaggedStringWidth(option.SecondaryText)
+			if secondaryWidth > strWidth {
+				strWidth = secondaryWidth
+			}
+			if option.Shortcut != 0 {
+				strWidth += 4
+			}
+
+			if strWidth > maxWidth {
+				maxWidth = strWidth
+			}
+		}
+
+		if l.columnOffset > (maxWidth - l.innerWidth) {
+			l.columnOffset = maxWidth - l.innerWidth
+		}
+		if l.columnOffset < 0 {
+			l.columnOffset = 0
+		}
+
 		if l.currentItem != previousItem && l.currentItem < len(l.items) && l.changed != nil {
 			item := l.items[l.currentItem]
 			l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
@@ -573,7 +637,7 @@ func (l *List) indexAtPoint(x, y int) int {
 	if l.showSecondaryText {
 		index /= 2
 	}
-	index += l.offset
+	index += l.itemOffset
 
 	if index >= len(l.items) {
 		return -1
@@ -608,17 +672,17 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			}
 			consumed = true
 		case MouseScrollUp:
-			if l.offset > 0 {
-				l.offset--
+			if l.itemOffset > 0 {
+				l.itemOffset--
 			}
 			consumed = true
 		case MouseScrollDown:
-			lines := len(l.items) - l.offset
+			lines := len(l.items) - l.itemOffset
 			if l.showSecondaryText {
 				lines *= 2
 			}
 			if _, _, _, height := l.GetInnerRect(); lines > height {
-				l.offset++
+				l.itemOffset++
 			}
 			consumed = true
 		}
