@@ -9,6 +9,7 @@ import (
 
 // listItem represents one item in a List.
 type listItem struct {
+	Enabled       bool   // Whether or not the list item is selectable.
 	MainText      string // The main text of the list item.
 	SecondaryText string // A secondary text to be shown underneath the main text.
 	Shortcut      rune   // The key to select the list item directly, 0 if there is no shortcut.
@@ -20,6 +21,7 @@ type listItem struct {
 // See https://github.com/rivo/tview/wiki/List for an example.
 type List struct {
 	*Box
+	*ContextMenu
 
 	// The items of the list.
 	items []*listItem
@@ -54,6 +56,9 @@ type List struct {
 	// Whether or not navigating the list will wrap around.
 	wrapAround bool
 
+	// Whether or not hovering over an item will highlight it.
+	hover bool
+
 	// The number of list items skipped at the top before the first item is drawn.
 	offset int
 
@@ -71,7 +76,7 @@ type List struct {
 
 // NewList returns a new form.
 func NewList() *List {
-	return &List{
+	l := &List{
 		Box:                     NewBox(),
 		showSecondaryText:       true,
 		wrapAround:              true,
@@ -81,6 +86,11 @@ func NewList() *List {
 		selectedTextColor:       Styles.PrimitiveBackgroundColor,
 		selectedBackgroundColor: Styles.PrimaryTextColor,
 	}
+
+	l.ContextMenu = NewContextMenu(l)
+	l.focus = l
+
+	return l
 }
 
 // SetCurrentItem sets the currently selected item by its index, starting at 0
@@ -150,7 +160,7 @@ func (l *List) RemoveItem(index int) *List {
 
 	// Shift current item.
 	previousCurrentItem := l.currentItem
-	if l.currentItem >= index {
+	if l.currentItem >= index && l.currentItem > 0 {
 		l.currentItem--
 	}
 
@@ -213,6 +223,13 @@ func (l *List) SetHighlightFullLine(highlight bool) *List {
 // ShowSecondaryText determines whether or not to show secondary item texts.
 func (l *List) ShowSecondaryText(show bool) *List {
 	l.showSecondaryText = show
+	return l
+}
+
+// SetHover sets the flag that determines whether hovering over an item will
+// highlight it (without triggering callbacks set with SetSelectedFunc).
+func (l *List) SetHover(hover bool) *List {
+	l.hover = hover
 	return l
 }
 
@@ -283,6 +300,7 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 // selected.
 func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut rune, selected func()) *List {
 	item := &listItem{
+		Enabled:       true,
 		MainText:      mainText,
 		SecondaryText: secondaryText,
 		Shortcut:      shortcut,
@@ -340,6 +358,14 @@ func (l *List) SetItemText(index int, main, secondary string) *List {
 	return l
 }
 
+// SetItemEnabled sets whether an item is selectable. Panics if the index is
+// out of range.
+func (l *List) SetItemEnabled(index int, enabled bool) *List {
+	item := l.items[index]
+	item.Enabled = enabled
+	return l
+}
+
 // FindItems searches the main and secondary texts for the given strings and
 // returns a list of item indices in which those strings are found. One of the
 // two search strings may be empty, it will then be ignored. Indices are always
@@ -387,9 +413,26 @@ func (l *List) Clear() *List {
 	return l
 }
 
+// Focus is called by the application when the primitive receives focus.
+func (l *List) Focus(delegate func(p Primitive)) {
+	l.Box.Focus(delegate)
+	if l.ContextMenu.open {
+		delegate(l.ContextMenu.list)
+	}
+}
+
+// HasFocus returns whether or not this primitive has focus.
+func (l *List) HasFocus() bool {
+	if l.ContextMenu.open {
+		return l.ContextMenu.list.HasFocus()
+	}
+	return l.hasFocus
+}
+
 // Draw draws this primitive onto the screen.
 func (l *List) Draw(screen tcell.Screen) {
 	l.Box.Draw(screen)
+	hasFocus := l.GetFocusable().HasFocus()
 
 	// Determine the dimensions.
 	x, y, width, height := l.GetInnerRect()
@@ -433,6 +476,26 @@ func (l *List) Draw(screen tcell.Screen) {
 			break
 		}
 
+		if item.MainText == "" && item.SecondaryText == "" && item.Shortcut == 0 { // Divider
+			Print(screen, string(tcell.RuneLTee), (x-5)-l.paddingLeft, y, 1, AlignLeft, l.mainTextColor)
+			Print(screen, strings.Repeat(string(tcell.RuneHLine), width+4+l.paddingLeft+l.paddingRight), (x-4)-l.paddingLeft, y, width+4+l.paddingLeft+l.paddingRight, AlignLeft, l.mainTextColor)
+			Print(screen, string(tcell.RuneRTee), (x-5)+width+5+l.paddingRight, y, 1, AlignLeft, l.mainTextColor)
+
+			y++
+			continue
+		} else if !item.Enabled { // Disabled item
+			// Shortcuts.
+			if showShortcuts && item.Shortcut != 0 {
+				Print(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 4, AlignRight, tcell.ColorDarkSlateGray)
+			}
+
+			// Main text.
+			Print(screen, item.MainText, x, y, width, AlignLeft, tcell.ColorGray)
+
+			y++
+			continue
+		}
+
 		// Shortcuts.
 		if showShortcuts && item.Shortcut != 0 {
 			Print(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 4, AlignRight, l.shortcutColor)
@@ -473,17 +536,71 @@ func (l *List) Draw(screen tcell.Screen) {
 			y++
 		}
 	}
+
+	// Draw context menu.
+	if hasFocus && l.ContextMenu.open {
+		ctx := l.ContextMenu.list
+
+		x, y, width, height = l.GetInnerRect()
+
+		// What's the longest option text?
+		maxWidth := 0
+		for _, option := range ctx.items {
+			strWidth := TaggedStringWidth(option.MainText)
+			if option.Shortcut != 0 {
+				strWidth += 4
+			}
+			if strWidth > maxWidth {
+				maxWidth = strWidth
+			}
+		}
+
+		lheight := len(ctx.items)
+		lwidth := maxWidth
+
+		// Add space for borders
+		lwidth += 2
+		lheight += 2
+
+		lwidth += ctx.paddingLeft + ctx.paddingRight
+		lheight += ctx.paddingTop + ctx.paddingBottom
+
+		cx, cy := l.ContextMenu.x, l.ContextMenu.y
+		if cx < 0 || cy < 0 {
+			cx = x + (width / 2)
+			cy = y + (height / 2)
+		}
+
+		_, sheight := screen.Size()
+		if cy+lheight >= sheight && cy-2 > lheight-cy {
+			cy = y - lheight
+			if cy < 0 {
+				cy = 0
+			}
+		}
+		if cy+lheight >= sheight {
+			lheight = sheight - cy
+		}
+
+		ctx.SetRect(cx, cy, lwidth, lheight)
+		ctx.Draw(screen)
+	}
 }
 
 // InputHandler returns the handler for this primitive.
 func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return l.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		if event.Key() == tcell.KeyEscape {
+			if l.ContextMenu.open {
+				l.ContextMenu.hide(setFocus)
+				return
+			}
+
 			if l.done != nil {
 				l.done()
 			}
 			return
-		} else if len(l.items) == 0 {
+		} else if len(l.items) == 0 && (event.Key() != tcell.KeyEnter || event.Modifiers()&tcell.ModAlt == 0) {
 			return
 		}
 
@@ -505,13 +622,36 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 			_, _, _, height := l.GetInnerRect()
 			l.currentItem -= height
 		case tcell.KeyEnter:
-			if l.currentItem >= 0 && l.currentItem < len(l.items) {
-				item := l.items[l.currentItem]
-				if item.Selected != nil {
-					item.Selected()
+			if event.Modifiers()&tcell.ModAlt != 0 {
+				// Do we show any shortcuts?
+				var showShortcuts bool
+				for _, item := range l.items {
+					if item.Shortcut != 0 {
+						showShortcuts = true
+						break
+					}
 				}
-				if l.selected != nil {
-					l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+
+				offsetX := 7
+				if showShortcuts {
+					offsetX += 4
+				}
+				offsetY := l.currentItem
+				if l.showSecondaryText {
+					offsetY *= 2
+				}
+
+				x, y, _, _ := l.GetInnerRect()
+				l.ContextMenu.show(l.currentItem, x+offsetX, y+offsetY, setFocus)
+			} else if l.currentItem >= 0 && l.currentItem < len(l.items) {
+				item := l.items[l.currentItem]
+				if item.Enabled {
+					if item.Selected != nil {
+						item.Selected()
+					}
+					if l.selected != nil {
+						l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+					}
 				}
 			}
 		case tcell.KeyRune:
@@ -520,7 +660,7 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 				// It's not a space bar. Is it a shortcut?
 				var found bool
 				for index, item := range l.items {
-					if item.Shortcut == ch {
+					if item.Enabled && item.Shortcut == ch {
 						// We have a shortcut.
 						found = true
 						l.currentItem = index
@@ -540,17 +680,31 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 			}
 		}
 
-		if l.currentItem < 0 {
-			if l.wrapAround {
-				l.currentItem = len(l.items) - 1
-			} else {
-				l.currentItem = 0
+		decreasing := l.currentItem < previousItem
+		for i := 0; i < len(l.items); i++ {
+			if l.currentItem < 0 {
+				if l.wrapAround {
+					l.currentItem = len(l.items) - 1
+				} else {
+					l.currentItem = 0
+				}
+			} else if l.currentItem >= len(l.items) {
+				if l.wrapAround {
+					l.currentItem = 0
+				} else {
+					l.currentItem = len(l.items) - 1
+				}
 			}
-		} else if l.currentItem >= len(l.items) {
-			if l.wrapAround {
-				l.currentItem = 0
+
+			item := l.items[l.currentItem]
+			if item.Enabled {
+				break
+			}
+
+			if decreasing {
+				l.currentItem--
 			} else {
-				l.currentItem = len(l.items) - 1
+				l.currentItem++
 			}
 		}
 
@@ -561,11 +715,31 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 	})
 }
 
+// indexAtY returns the index of the list item found at the given Y position
+// or a negative value if there is no such list item.
+func (l *List) indexAtY(y int) int {
+	_, rectY, _, height := l.GetInnerRect()
+	if y < rectY || y >= rectY+height {
+		return -1
+	}
+
+	index := y - rectY
+	if l.showSecondaryText {
+		index /= 2
+	}
+	index += l.offset
+
+	if index >= len(l.items) {
+		return -1
+	}
+	return index
+}
+
 // indexAtPoint returns the index of the list item found at the given position
 // or a negative value if there is no such list item.
 func (l *List) indexAtPoint(x, y int) int {
 	rectX, rectY, width, height := l.GetInnerRect()
-	if rectX < 0 || rectX >= rectX+width || y < rectY || y >= rectY+height {
+	if x < rectX || x >= rectX+width || y < rectY || y >= rectY+height {
 		return -1
 	}
 
@@ -584,6 +758,13 @@ func (l *List) indexAtPoint(x, y int) int {
 // MouseHandler returns the mouse handler for this primitive.
 func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return l.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		// Pass events to context menu.
+		if l.ContextMenuVisible() && l.ContextMenuList().InRect(event.Position()) {
+			defer l.ContextMenuList().MouseHandler()(action, event, setFocus)
+			consumed = true
+			return
+		}
+
 		if !l.InRect(event.Position()) {
 			return false, nil
 		}
@@ -591,22 +772,70 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		// Process mouse event.
 		switch action {
 		case MouseLeftClick:
+			if l.ContextMenuVisible() {
+				defer l.ContextMenu.hide(setFocus)
+				consumed = true
+				return
+			}
+
 			setFocus(l)
 			index := l.indexAtPoint(event.Position())
 			if index != -1 {
 				item := l.items[index]
-				if item.Selected != nil {
-					item.Selected()
+				if item.Enabled {
+					if item.Selected != nil {
+						item.Selected()
+					}
+					if l.selected != nil {
+						l.selected(index, item.MainText, item.SecondaryText, item.Shortcut)
+					}
+					if index != l.currentItem && l.changed != nil {
+						l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
+					}
+					l.currentItem = index
 				}
-				if l.selected != nil {
-					l.selected(index, item.MainText, item.SecondaryText, item.Shortcut)
-				}
-				if index != l.currentItem && l.changed != nil {
-					l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
-				}
-				l.currentItem = index
 			}
 			consumed = true
+		case MouseMiddleClick:
+			if l.ContextMenuVisible() {
+				defer l.ContextMenu.hide(setFocus)
+				consumed = true
+				return
+			}
+		case MouseRightDown:
+			if len(l.ContextMenuList().items) == 0 {
+				return
+			}
+
+			x, y := event.Position()
+
+			index := l.indexAtPoint(event.Position())
+			if index != -1 {
+				item := l.items[index]
+				if item.Enabled {
+					l.currentItem = index
+					if index != l.currentItem && l.changed != nil {
+						l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
+					}
+				}
+			}
+
+			defer l.ContextMenu.show(l.currentItem, x, y, setFocus)
+			l.ContextMenu.drag = true
+			consumed = true
+		case MouseMove:
+			if l.hover {
+				_, y := event.Position()
+				index := l.indexAtY(y)
+				if index >= 0 {
+					item := l.items[index]
+					if item.Enabled {
+						l.currentItem = index
+					}
+				}
+
+				consumed = true
+			}
 		case MouseScrollUp:
 			if l.offset > 0 {
 				l.offset--
