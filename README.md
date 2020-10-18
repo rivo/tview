@@ -51,6 +51,7 @@ For a presentation highlighting this package, compile and run the program found 
 
 ## Projects using `tview`
 
+- [IRCCloud Terminal Client](https://github.com/termoose/irccloud)
 - [Window manager for `tview`](https://github.com/epiclabs-io/winman)
 - [Password manager](https://github.com/7onetella/password)
 - [CLI bookmark manager](https://github.com/Endi1/drawer)
