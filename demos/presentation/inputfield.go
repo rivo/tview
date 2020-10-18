@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -10,7 +10,7 @@ const inputField = `[green]package[white] main
 [green]import[white] (
     [red]"strconv"[white]
 
-    [red]"github.com/gdamore/tcell"[white]
+    [red]"github.com/gdamore/tcell/v2"[white]
     [red]"github.com/rivo/tview"[white]
 )
 

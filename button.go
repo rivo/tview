@@ -1,7 +1,7 @@
 package tview
 
 import (
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 )
 
 // Button is labeled box that triggers an action when selected.
@@ -95,13 +95,13 @@ func (b *Button) SetBlurFunc(handler func(key tcell.Key)) *Button {
 // Draw draws this primitive onto the screen.
 func (b *Button) Draw(screen tcell.Screen) {
 	// Draw the box.
-	borderColor := b.borderColor
-	backgroundColor := b.backgroundColor
+	borderColor := b.GetBorderColor()
+	backgroundColor := b.GetBackgroundColor()
 	if b.focus.HasFocus() {
-		b.backgroundColor = b.backgroundColorActivated
-		b.borderColor = b.labelColorActivated
+		b.SetBackgroundColor(b.backgroundColorActivated)
+		b.SetBorderColor(b.labelColorActivated)
 		defer func() {
-			b.borderColor = borderColor
+			b.SetBorderColor(borderColor)
 		}()
 	}
 	b.Box.Draw(screen)
