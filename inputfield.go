@@ -51,6 +51,12 @@ type InputField struct {
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
+	// The background color of the input area when readonly.
+	fieldBackgroundReadOnlyColor tcell.Color
+
+	// The text color of the input area when readonly.
+	fieldTextReadOnlyColor tcell.Color
+
 	// The text color of the placeholder.
 	placeholderTextColor tcell.Color
 
@@ -96,16 +102,22 @@ type InputField struct {
 
 	fieldX int // The x-coordinate of the input field as determined during the last call to Draw().
 	offset int // The number of bytes of the text string skipped ahead while drawing.
+
+	// If set the item does not respond to form input/mouse events
+	// that would change its contents
+	readonly bool
 }
 
 // NewInputField returns a new input field.
 func NewInputField() *InputField {
 	return &InputField{
-		Box:                  NewBox(),
-		labelColor:           Styles.SecondaryTextColor,
-		fieldBackgroundColor: Styles.ContrastBackgroundColor,
-		fieldTextColor:       Styles.PrimaryTextColor,
-		placeholderTextColor: Styles.ContrastSecondaryTextColor,
+		Box:                          NewBox(),
+		labelColor:                   Styles.SecondaryTextColor,
+		fieldBackgroundColor:         Styles.ContrastBackgroundColor,
+		fieldTextColor:               Styles.PrimaryTextColor,
+		placeholderTextColor:         Styles.ContrastSecondaryTextColor,
+		fieldTextReadOnlyColor:       Styles.SecondaryTextColor,
+		fieldBackgroundReadOnlyColor: Styles.ContrastBackgroundColor,
 	}
 }
 
@@ -122,6 +134,13 @@ func (i *InputField) SetText(text string) *InputField {
 // GetText returns the current text of the input field.
 func (i *InputField) GetText() string {
 	return i.text
+}
+
+// SetReadOnly sets whether the item responds to input
+// or mouse events that would change its contents
+func (i *InputField) SetReadOnly(readonly bool) *InputField {
+	i.readonly = readonly
+	return i
 }
 
 // SetLabel sets the text to be displayed before the input area.
@@ -172,6 +191,18 @@ func (i *InputField) SetPlaceholderTextColor(color tcell.Color) *InputField {
 	return i
 }
 
+// SetFieldBackgroundColor sets the background color of the input area when readonly.
+func (i *InputField) SetFieldBackgroundReadOnlyColor(color tcell.Color) *InputField {
+	i.fieldBackgroundReadOnlyColor = color
+	return i
+}
+
+// SetFieldTextReadOnlyColor sets the text color of the input area when readonly.
+func (i *InputField) SetFieldTextReadOnlyColor(color tcell.Color) *InputField {
+	i.fieldTextReadOnlyColor = color
+	return i
+}
+
 // SetFormAttributes sets attributes shared by all form items.
 func (i *InputField) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
 	i.labelWidth = labelWidth
@@ -179,6 +210,8 @@ func (i *InputField) SetFormAttributes(labelWidth int, labelColor, bgColor, fiel
 	i.backgroundColor = bgColor
 	i.fieldTextColor = fieldTextColor
 	i.fieldBackgroundColor = fieldBgColor
+	i.fieldTextReadOnlyColor = labelColor
+	i.fieldBackgroundReadOnlyColor = fieldBgColor
 	return i
 }
 
@@ -334,7 +367,11 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	if rightLimit-x < fieldWidth {
 		fieldWidth = rightLimit - x
 	}
-	fieldStyle := tcell.StyleDefault.Background(i.fieldBackgroundColor)
+	bgcolor := i.fieldBackgroundColor
+	if i.readonly {
+		bgcolor = i.fieldBackgroundReadOnlyColor
+	}
+	fieldStyle := tcell.StyleDefault.Background(bgcolor)
 	for index := 0; index < fieldWidth; index++ {
 		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
 	}
@@ -344,16 +381,24 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	text := i.text
 	if text == "" && i.placeholder != "" {
 		// Draw placeholder text.
-		Print(screen, Escape(i.placeholder), x, y, fieldWidth, AlignLeft, i.placeholderTextColor)
+		color := i.placeholderTextColor
+		if i.readonly {
+			color = i.fieldTextReadOnlyColor
+		}
+		Print(screen, Escape(i.placeholder), x, y, fieldWidth, AlignLeft, color)
 		i.offset = 0
 	} else {
 		// Draw entered text.
+		color := i.fieldTextColor
+		if i.readonly {
+			color = i.fieldTextReadOnlyColor
+		}
 		if i.maskCharacter > 0 {
 			text = strings.Repeat(string(i.maskCharacter), utf8.RuneCountInString(i.text))
 		}
 		if fieldWidth >= stringWidth(text) {
 			// We have enough space for the full text.
-			Print(screen, Escape(text), x, y, fieldWidth, AlignLeft, i.fieldTextColor)
+			Print(screen, Escape(text), x, y, fieldWidth, AlignLeft, color)
 			i.offset = 0
 			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
 				if textPos >= i.cursorPos {
@@ -391,7 +436,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 				}
 				return false
 			})
-			Print(screen, Escape(text[i.offset:]), x, y, fieldWidth, AlignLeft, i.fieldTextColor)
+			Print(screen, Escape(text[i.offset:]), x, y, fieldWidth, AlignLeft, color)
 		}
 	}
 
@@ -508,27 +553,45 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				case 'f': // Move word right.
 					moveWordRight()
 				default:
+					if i.readonly {
+						break
+					}
 					if !add(event.Rune()) {
 						return
 					}
 				}
 			} else {
+				if i.readonly {
+					break
+				}
 				// Other keys are simply accepted as regular characters.
 				if !add(event.Rune()) {
 					return
 				}
 			}
 		case tcell.KeyCtrlU: // Delete all.
+			if i.readonly {
+				break
+			}
 			i.text = ""
 			i.cursorPos = 0
 		case tcell.KeyCtrlK: // Delete until the end of the line.
+			if i.readonly {
+				break
+			}
 			i.text = i.text[:i.cursorPos]
 		case tcell.KeyCtrlW: // Delete last word.
+			if i.readonly {
+				break
+			}
 			lastWord := regexp.MustCompile(`\S+\s*$`)
 			newText := lastWord.ReplaceAllString(i.text[:i.cursorPos], "") + i.text[i.cursorPos:]
 			i.cursorPos -= len(i.text) - len(newText)
 			i.text = newText
 		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete character before the cursor.
+			if i.readonly {
+				break
+			}
 			iterateStringReverse(i.text[:i.cursorPos], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
 				i.text = i.text[:textPos] + i.text[textPos+textWidth:]
 				i.cursorPos -= textWidth
@@ -538,6 +601,9 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				i.offset = 0
 			}
 		case tcell.KeyDelete: // Delete character after the cursor.
+			if i.readonly {
+				break
+			}
 			iterateString(i.text[i.cursorPos:], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
 				i.text = i.text[:i.cursorPos] + i.text[i.cursorPos+textWidth:]
 				return true
