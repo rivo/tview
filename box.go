@@ -70,7 +70,7 @@ func NewBox() *Box {
 		height:          10,
 		innerX:          -1, // Mark as uninitialized.
 		backgroundColor: Styles.PrimitiveBackgroundColor,
-		borderStyle:     tcell.StyleDefault.Foreground(Styles.BorderColor),
+		borderStyle:     tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
 		titleColor:      Styles.TitleColor,
 		titleAlign:      AlignCenter,
 	}
@@ -252,6 +252,7 @@ func (b *Box) GetMouseCapture() func(action MouseAction, event *tcell.EventMouse
 // SetBackgroundColor sets the box's background color.
 func (b *Box) SetBackgroundColor(color tcell.Color) *Box {
 	b.backgroundColor = color
+	b.borderStyle = b.borderStyle.Background(color)
 	return b
 }
 
