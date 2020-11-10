@@ -3,7 +3,7 @@ package tview
 import (
 	"sort"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
@@ -271,8 +271,8 @@ type Table struct {
 	// drawn.
 	visibleColumnWidths []int
 
-	// The style of the selected rows. If this value is 0, selected rows are
-	// simply inverted.
+	// The style of the selected rows. If this value is the empty struct,
+	// selected rows are simply inverted.
 	selectedStyle tcell.Style
 
 	// An optional function which gets called when the user presses Enter on a
@@ -327,8 +327,8 @@ func (t *Table) SetBordersColor(color tcell.Color) *Table {
 // To reset a previous setting to its default, make the following call:
 //
 //   table.SetSelectedStyle(tcell.ColorDefault, tcell.ColorDefault, 0)
-func (t *Table) SetSelectedStyle(foregroundColor, backgroundColor tcell.Color, attributes tcell.AttrMask) *Table {
-	t.selectedStyle = tcell.StyleDefault.Foreground(foregroundColor).Background(backgroundColor) | tcell.Style(attributes)
+func (t *Table) SetSelectedStyle(style tcell.Style) *Table {
+	t.selectedStyle = style
 	return t
 }
 
@@ -885,7 +885,7 @@ ColumnLoop:
 				finalWidth = width - columnX - 1
 			}
 			cell.x, cell.y, cell.width = x+columnX+1, y+rowY, finalWidth
-			_, printed := printWithStyle(screen, cell.Text, x+columnX+1, y+rowY, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color)|tcell.Style(cell.Attributes))
+			_, printed := printWithStyle(screen, cell.Text, x+columnX+1, y+rowY, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color).Attributes(cell.Attributes))
 			if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
 				_, _, style, _ := screen.GetContent(x+columnX+finalWidth, y+rowY)
 				printWithStyle(screen, string(SemigraphicsHorizontalEllipsis), x+columnX+finalWidth, y+rowY, 1, AlignLeft, style)
@@ -954,7 +954,7 @@ ColumnLoop:
 					if attr != 0 {
 						a = attr
 					}
-					style = style.Background(bg).Foreground(fg) | tcell.Style(a)
+					style = style.Background(bg).Foreground(fg).Attributes(a)
 				}
 				screen.SetContent(fromX+bx, fromY+by, m, c, style)
 			}
@@ -1017,7 +1017,7 @@ ColumnLoop:
 		entries := cellsByBackgroundColor[bgColor]
 		for _, cell := range entries {
 			if cell.selected {
-				if t.selectedStyle != 0 {
+				if t.selectedStyle != (tcell.Style{}) {
 					defer colorBackground(cell.x, cell.y, cell.w, cell.h, selBg, selFg, selAttr, false)
 				} else {
 					defer colorBackground(cell.x, cell.y, cell.w, cell.h, bgColor, cell.text, 0, true)

@@ -1,6 +1,6 @@
 package tview
 
-import "github.com/gdamore/tcell"
+import "github.com/gdamore/tcell/v2"
 
 // Primitive is the top-most interface for all graphical primitives.
 type Primitive interface {
