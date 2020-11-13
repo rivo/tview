@@ -7,7 +7,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 )
 
 // InputField is a one-line box (three lines if there is a title) where the
@@ -573,6 +573,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				}
 				i.autocompleteList.SetCurrentItem(newEntry)
 				currentText, _ = i.autocompleteList.GetItemText(newEntry) // Don't trigger changed function twice.
+				currentText = stripTags(currentText)
 				i.SetText(currentText)
 			} else {
 				finish(key)
@@ -585,6 +586,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				}
 				i.autocompleteList.SetCurrentItem(newEntry)
 				currentText, _ = i.autocompleteList.GetItemText(newEntry) // Don't trigger changed function twice.
+				currentText = stripTags(currentText)
 				i.SetText(currentText)
 			} else {
 				finish(key)
