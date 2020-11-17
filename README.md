@@ -85,6 +85,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [Cryptowatch Go SDK](https://github.com/y3sh/cw-sdk-go)
 - [Discord, TUI and SIXEL.](https://gitlab.com/diamondburned/6cord)
 - [A CLI Audio Player](https://www.github.com/dhulihan/grump)
+- [GLab, a GitLab CLI tool](https://gitlab.com/profclems/glab)
 
 ## Documentation
 
