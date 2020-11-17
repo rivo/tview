@@ -49,7 +49,6 @@ func NewModal() *Modal {
 	m.frame.SetBorder(true).
 		SetBackgroundColor(Styles.ContrastBackgroundColor).
 		SetBorderPadding(1, 1, 1, 1)
-	m.focus = m
 	return m
 }
 
@@ -192,7 +191,7 @@ func (m *Modal) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 // InputHandler returns the handler for this primitive.
 func (m *Modal) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return m.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		if m.frame.GetFocusable().HasFocus() {
+		if m.frame.HasFocus() {
 			if handler := m.frame.InputHandler(); handler != nil {
 				handler(event, setFocus)
 				return

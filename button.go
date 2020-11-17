@@ -97,14 +97,14 @@ func (b *Button) Draw(screen tcell.Screen) {
 	// Draw the box.
 	borderColor := b.GetBorderColor()
 	backgroundColor := b.GetBackgroundColor()
-	if b.focus.HasFocus() {
+	if b.HasFocus() {
 		b.SetBackgroundColor(b.backgroundColorActivated)
 		b.SetBorderColor(b.labelColorActivated)
 		defer func() {
 			b.SetBorderColor(borderColor)
 		}()
 	}
-	b.Box.Draw(screen)
+	b.Box.DrawForSubclass(screen, b)
 	b.backgroundColor = backgroundColor
 
 	// Draw label.
@@ -112,7 +112,7 @@ func (b *Button) Draw(screen tcell.Screen) {
 	if width > 0 && height > 0 {
 		y = y + height/2
 		labelColor := b.labelColor
-		if b.focus.HasFocus() {
+		if b.HasFocus() {
 			labelColor = b.labelColorActivated
 		}
 		Print(screen, b.label, x, y, width, AlignCenter, labelColor)

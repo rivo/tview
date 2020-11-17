@@ -325,7 +325,7 @@ EventLoop:
 				}
 
 				// Pass other key events to the root primitive.
-				if root != nil && root.GetFocusable().HasFocus() {
+				if root != nil && root.HasFocus() {
 					if handler := root.InputHandler(); handler != nil {
 						handler(event, func(p Primitive) {
 							a.SetFocus(p)

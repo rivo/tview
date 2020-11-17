@@ -303,7 +303,7 @@ func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 
 // Draw draws this primitive onto the screen.
 func (i *InputField) Draw(screen tcell.Screen) {
-	i.Box.Draw(screen)
+	i.Box.DrawForSubclass(screen, i)
 
 	// Prepare
 	x, y, width, height := i.GetInnerRect()
@@ -428,7 +428,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 
 	// Set cursor.
-	if i.focus.HasFocus() {
+	if i.HasFocus() {
 		screen.ShowCursor(x+cursorScreenPos, y)
 	}
 }

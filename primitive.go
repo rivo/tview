@@ -38,11 +38,12 @@ type Primitive interface {
 	// Implementers may call delegate() to pass the focus on to another primitive.
 	Focus(delegate func(p Primitive))
 
+	// HasFocus determines if the primitive has focus. This function must return
+	// true also if one of this primitive's child elements has focus.
+	HasFocus() bool
+
 	// Blur is called by the application when the primitive loses focus.
 	Blur()
-
-	// GetFocusable returns the item's Focusable.
-	GetFocusable() Focusable
 
 	// MouseHandler returns a handler which receives mouse events.
 	// It is called by the Application class.

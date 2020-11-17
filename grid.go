@@ -71,7 +71,6 @@ func NewGrid() *Grid {
 		Box:          NewBox().SetBackgroundColor(tcell.ColorDefault),
 		bordersColor: Styles.GraphicsColor,
 	}
-	g.focus = g
 	return g
 }
 
@@ -261,7 +260,7 @@ func (g *Grid) Blur() {
 // HasFocus returns whether or not this primitive has focus.
 func (g *Grid) HasFocus() bool {
 	for _, item := range g.items {
-		if item.visible && item.Item.GetFocusable().HasFocus() {
+		if item.visible && item.Item.HasFocus() {
 			return true
 		}
 	}
@@ -274,7 +273,7 @@ func (g *Grid) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		if !g.hasFocus {
 			// Pass event on to child primitive.
 			for _, item := range g.items {
-				if item != nil && item.Item.GetFocusable().HasFocus() {
+				if item != nil && item.Item.HasFocus() {
 					if handler := item.Item.InputHandler(); handler != nil {
 						handler(event, setFocus)
 						return
@@ -319,7 +318,7 @@ func (g *Grid) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 
 // Draw draws this primitive onto the screen.
 func (g *Grid) Draw(screen tcell.Screen) {
-	g.Box.Draw(screen)
+	g.Box.DrawForSubclass(screen, g)
 	x, y, width, height := g.GetInnerRect()
 	screenWidth, screenHeight := screen.Size()
 
@@ -497,7 +496,7 @@ func (g *Grid) Draw(screen tcell.Screen) {
 		}
 		item.x, item.y, item.w, item.h = px, py, pw, ph
 		item.visible = true
-		if primitive.GetFocusable().HasFocus() {
+		if primitive.HasFocus() {
 			focus = item
 		}
 	}

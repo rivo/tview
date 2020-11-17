@@ -42,10 +42,6 @@ type Box struct {
 	// The alignment of the title.
 	titleAlign int
 
-	// Provides a way to find out if this box has focus. We always go through
-	// this interface because it may be overridden by implementing classes.
-	focus Focusable
-
 	// Whether or not this box has focus.
 	hasFocus bool
 
@@ -74,7 +70,6 @@ func NewBox() *Box {
 		titleColor:      Styles.TitleColor,
 		titleAlign:      AlignCenter,
 	}
-	b.focus = b
 	return b
 }
 
@@ -320,6 +315,16 @@ func (b *Box) SetTitleAlign(align int) *Box {
 
 // Draw draws this primitive onto the screen.
 func (b *Box) Draw(screen tcell.Screen) {
+	b.DrawForSubclass(screen, b)
+}
+
+// DrawForSubclass draws this box under the assumption that primitive p is a
+// subclass of this box. This is needed e.g. to draw proper box frames which
+// depend on the subclass's focus.
+//
+// Only call this function from your own custom primitives. It is not needed in
+// applications that have no custom primitives.
+func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 	// Don't draw anything if there is no space.
 	if b.width <= 0 || b.height <= 0 {
 		return
@@ -340,7 +345,7 @@ func (b *Box) Draw(screen tcell.Screen) {
 	// Draw border.
 	if b.border && b.width >= 2 && b.height >= 2 {
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
-		if b.focus.HasFocus() {
+		if p.HasFocus() {
 			horizontal = Borders.HorizontalFocus
 			vertical = Borders.VerticalFocus
 			topLeft = Borders.TopLeftFocus
@@ -402,9 +407,4 @@ func (b *Box) Blur() {
 // HasFocus returns whether or not this primitive has focus.
 func (b *Box) HasFocus() bool {
 	return b.hasFocus
-}
-
-// GetFocusable returns the item's Focusable.
-func (b *Box) GetFocusable() Focusable {
-	return b.focus
 }

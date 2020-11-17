@@ -623,7 +623,7 @@ func (t *Table) ScrollToEnd() *Table {
 
 // Draw draws this primitive onto the screen.
 func (t *Table) Draw(screen tcell.Screen) {
-	t.Box.Draw(screen)
+	t.Box.DrawForSubclass(screen, t)
 
 	// What's our available screen space?
 	_, totalHeight := screen.Size()

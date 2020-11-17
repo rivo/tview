@@ -103,8 +103,6 @@ func NewDropDown() *DropDown {
 		prefixTextColor:      Styles.ContrastSecondaryTextColor,
 	}
 
-	d.focus = d
-
 	return d
 }
 
@@ -288,7 +286,7 @@ func (d *DropDown) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 
 // Draw draws this primitive onto the screen.
 func (d *DropDown) Draw(screen tcell.Screen) {
-	d.Box.Draw(screen)
+	d.Box.DrawForSubclass(screen, d)
 
 	// Prepare.
 	x, y, width, height := d.GetInnerRect()
@@ -340,7 +338,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		fieldWidth = rightLimit - x
 	}
 	fieldStyle := tcell.StyleDefault.Background(d.fieldBackgroundColor)
-	if d.GetFocusable().HasFocus() && !d.open {
+	if d.HasFocus() && !d.open {
 		fieldStyle = fieldStyle.Background(d.fieldTextColor)
 	}
 	for index := 0; index < fieldWidth; index++ {
@@ -365,7 +363,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 			text = d.currentOptionPrefix + d.options[d.currentOption].Text + d.currentOptionSuffix
 		}
 		// Just show the current selection.
-		if d.GetFocusable().HasFocus() && !d.open {
+		if d.HasFocus() && !d.open {
 			color = d.fieldBackgroundColor
 		}
 		Print(screen, text, x, y, fieldWidth, AlignLeft, color)
@@ -397,7 +395,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return d.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		// If the list has focus, let it process its own key events.
-		if d.list.GetFocusable().HasFocus() {
+		if d.list.HasFocus() {
 			if handler := d.list.InputHandler(); handler != nil {
 				handler(event, setFocus)
 			}

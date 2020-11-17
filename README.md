@@ -99,7 +99,7 @@ I try really hard to keep this project backwards compatible. Your software shoul
 
 - a new version of an imported package (most likely [`tcell`](https://github.com/gdamore/tcell)) changes in such a way that forces me to make changes in `tview` as well,
 - I fix something that I consider a bug, rather than a feature, something that does not work as originally intended,
-- I make changes to "internal" interfaces such as [`Primitive`](https://pkg.go.dev/github.com/rivo/tview#Primitive) or [`Focusable`](https://pkg.go.dev/github.com/rivo/tview#Focusable). You shouldn't need these interfaces unless you're writing your own primitives for `tview`. (Yes, I realize these are public interfaces. This has advantages as well as disadvantages. For the time being, it is what it is.)
+- I make changes to "internal" interfaces such as [`Primitive`](https://pkg.go.dev/github.com/rivo/tview#Primitive). You shouldn't need these interfaces unless you're writing your own primitives for `tview`. (Yes, I realize these are public interfaces. This has advantages as well as disadvantages. For the time being, it is what it is.)
 
 ## Your Feedback
 

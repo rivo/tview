@@ -144,7 +144,7 @@ func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 
 // Draw draws this primitive onto the screen.
 func (c *Checkbox) Draw(screen tcell.Screen) {
-	c.Box.Draw(screen)
+	c.Box.DrawForSubclass(screen, c)
 
 	// Prepare
 	x, y, width, height := c.GetInnerRect()
@@ -168,7 +168,7 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 
 	// Draw checkbox.
 	fieldStyle := tcell.StyleDefault.Background(c.fieldBackgroundColor).Foreground(c.fieldTextColor)
-	if c.focus.HasFocus() {
+	if c.HasFocus() {
 		fieldStyle = fieldStyle.Background(c.fieldTextColor).Foreground(c.fieldBackgroundColor)
 	}
 	checkedRune := 'X'

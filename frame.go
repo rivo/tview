@@ -46,8 +46,6 @@ func NewFrame(primitive Primitive) *Frame {
 		right:     1,
 	}
 
-	f.focus = f
-
 	return f
 }
 
@@ -83,7 +81,7 @@ func (f *Frame) SetBorders(top, bottom, header, footer, left, right int) *Frame 
 
 // Draw draws this primitive onto the screen.
 func (f *Frame) Draw(screen tcell.Screen) {
-	f.Box.Draw(screen)
+	f.Box.DrawForSubclass(screen, f)
 
 	// Calculate start positions.
 	x, top, width, height := f.GetInnerRect()
@@ -159,11 +157,7 @@ func (f *Frame) HasFocus() bool {
 	if f.primitive == nil {
 		return f.hasFocus
 	}
-	focusable, ok := f.primitive.(Focusable)
-	if ok {
-		return focusable.HasFocus()
-	}
-	return f.hasFocus
+	return f.primitive.HasFocus()
 }
 
 // MouseHandler returns the mouse handler for this primitive.
@@ -188,7 +182,7 @@ func (f *Frame) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 		if f.primitive == nil {
 			return
 		}
-		if f.primitive.GetFocusable().HasFocus() {
+		if f.primitive.HasFocus() {
 			if handler := f.primitive.InputHandler(); handler != nil {
 				handler(event, setFocus)
 				return

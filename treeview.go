@@ -571,7 +571,7 @@ func (t *TreeView) process() {
 
 // Draw draws this primitive onto the screen.
 func (t *TreeView) Draw(screen tcell.Screen) {
-	t.Box.Draw(screen)
+	t.Box.DrawForSubclass(screen, t)
 	if t.root == nil {
 		return
 	}

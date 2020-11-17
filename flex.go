@@ -53,7 +53,6 @@ func NewFlex() *Flex {
 		Box:       NewBox().SetBackgroundColor(tcell.ColorDefault),
 		direction: FlexColumn,
 	}
-	f.focus = f
 	return f
 }
 
@@ -122,7 +121,7 @@ func (f *Flex) ResizeItem(p Primitive, fixedSize, proportion int) *Flex {
 
 // Draw draws this primitive onto the screen.
 func (f *Flex) Draw(screen tcell.Screen) {
-	f.Box.Draw(screen)
+	f.Box.DrawForSubclass(screen, f)
 
 	// Calculate size and position of the items.
 
@@ -173,7 +172,7 @@ func (f *Flex) Draw(screen tcell.Screen) {
 		pos += size
 
 		if item.Item != nil {
-			if item.Item.GetFocusable().HasFocus() {
+			if item.Item.HasFocus() {
 				defer item.Item.Draw(screen)
 			} else {
 				item.Item.Draw(screen)
@@ -195,7 +194,7 @@ func (f *Flex) Focus(delegate func(p Primitive)) {
 // HasFocus returns whether or not this primitive has focus.
 func (f *Flex) HasFocus() bool {
 	for _, item := range f.items {
-		if item.Item != nil && item.Item.GetFocusable().HasFocus() {
+		if item.Item != nil && item.Item.HasFocus() {
 			return true
 		}
 	}
@@ -228,7 +227,7 @@ func (f *Flex) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 func (f *Flex) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return f.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		for _, item := range f.items {
-			if item.Item != nil && item.Item.GetFocusable().HasFocus() {
+			if item.Item != nil && item.Item.HasFocus() {
 				if handler := item.Item.InputHandler(); handler != nil {
 					handler(event, setFocus)
 					return
