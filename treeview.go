@@ -744,7 +744,7 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		case MouseLeftClick:
 			setFocus(t)
 			_, rectY, _, _ := t.GetInnerRect()
-			y -= rectY
+			y += t.offsetY - rectY
 			if y >= 0 && y < len(t.nodes) {
 				node := t.nodes[y]
 				if node.selectable {
