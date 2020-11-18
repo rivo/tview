@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"strings"
+
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -30,6 +32,9 @@ type Checkbox struct {
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
+	// The string use to display a checked box.
+	checkedString string
+
 	// An optional function which is called when the user changes the checked
 	// state of this checkbox.
 	changed func(checked bool)
@@ -51,6 +56,7 @@ func NewCheckbox() *Checkbox {
 		labelColor:           Styles.SecondaryTextColor,
 		fieldBackgroundColor: Styles.ContrastBackgroundColor,
 		fieldTextColor:       Styles.PrimaryTextColor,
+		checkedString:        "X",
 	}
 }
 
@@ -98,6 +104,13 @@ func (c *Checkbox) SetFieldBackgroundColor(color tcell.Color) *Checkbox {
 // SetFieldTextColor sets the text color of the input area.
 func (c *Checkbox) SetFieldTextColor(color tcell.Color) *Checkbox {
 	c.fieldTextColor = color
+	return c
+}
+
+// SetCheckedString sets the string to be displayed when the checkbox is
+// checked (defaults to "X").
+func (c *Checkbox) SetCheckedString(checked string) *Checkbox {
+	c.checkedString = checked
 	return c
 }
 
@@ -171,11 +184,12 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	if c.HasFocus() {
 		fieldStyle = fieldStyle.Background(c.fieldTextColor).Foreground(c.fieldBackgroundColor)
 	}
-	checkedRune := 'X'
+	checkboxWidth := stringWidth(c.checkedString)
+	checkedString := c.checkedString
 	if !c.checked {
-		checkedRune = ' '
+		checkedString = strings.Repeat(" ", checkboxWidth)
 	}
-	screen.SetContent(x, y, checkedRune, nil, fieldStyle)
+	printWithStyle(screen, checkedString, x, y, checkboxWidth, AlignLeft, fieldStyle)
 }
 
 // InputHandler returns the handler for this primitive.
