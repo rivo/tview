@@ -27,7 +27,10 @@ type TreeNode struct {
 	text string
 
 	// The text color.
-	color tcell.Color
+	textColor tcell.Color
+
+	// The background color.
+	backgroundColor tcell.Color
 
 	// Whether or not this node can be selected.
 	selectable bool
@@ -51,11 +54,12 @@ type TreeNode struct {
 // NewTreeNode returns a new tree node.
 func NewTreeNode(text string) *TreeNode {
 	return &TreeNode{
-		text:       text,
-		color:      Styles.PrimaryTextColor,
-		indent:     2,
-		expanded:   true,
-		selectable: true,
+		text:            text,
+		textColor:       Styles.PrimaryTextColor,
+		backgroundColor: Styles.PrimitiveBackgroundColor,
+		indent:          2,
+		expanded:        true,
+		selectable:      true,
 	}
 }
 
@@ -188,14 +192,25 @@ func (n *TreeNode) SetText(text string) *TreeNode {
 	return n
 }
 
-// GetColor returns the node's color.
-func (n *TreeNode) GetColor() tcell.Color {
-	return n.color
+// GetTextColor returns the node's text color.
+func (n *TreeNode) GetTextColor() tcell.Color {
+	return n.textColor
 }
 
-// SetColor sets the node's text color.
-func (n *TreeNode) SetColor(color tcell.Color) *TreeNode {
-	n.color = color
+// GetBackgroundColor returns the node's background color.
+func (n *TreeNode) GetBackgroundColor() tcell.Color {
+	return n.backgroundColor
+}
+
+// SetTextColor sets the node's text color.
+func (n *TreeNode) SetTextColor(color tcell.Color) *TreeNode {
+	n.textColor = color
+	return n
+}
+
+// SetBackgroundColor sets the node's background color.
+func (n *TreeNode) SetBackgroundColor(color tcell.Color) *TreeNode {
+	n.backgroundColor = color
 	return n
 }
 
@@ -659,14 +674,14 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 			// Prefix.
 			var prefixWidth int
 			if len(t.prefixes) > 0 {
-				_, prefixWidth = Print(screen, t.prefixes[(node.level-t.topLevel)%len(t.prefixes)], x+node.textX, posY, width-node.textX, AlignLeft, node.color)
+				_, prefixWidth = Print(screen, t.prefixes[(node.level-t.topLevel)%len(t.prefixes)], x+node.textX, posY, width-node.textX, AlignLeft, node.textColor)
 			}
 
 			// Text.
 			if node.textX+prefixWidth < width {
-				style := tcell.StyleDefault.Foreground(node.color)
+				style := tcell.StyleDefault.Background(node.backgroundColor).Foreground(node.textColor)
 				if node == t.currentNode {
-					style = tcell.StyleDefault.Background(node.color).Foreground(t.backgroundColor)
+					style = tcell.StyleDefault.Background(node.textColor).Foreground(node.backgroundColor)
 				}
 				printWithStyle(screen, node.text, x+node.textX+prefixWidth, posY, width-node.textX-prefixWidth, AlignLeft, style)
 			}
