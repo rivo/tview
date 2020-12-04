@@ -450,8 +450,9 @@ func (t *Table) SetDoneFunc(handler func(key tcell.Key)) *Table {
 // the Text and Color fields should be set.
 //
 // Note that setting cells in previously unknown rows and columns will
-// automatically extend the internal table representation, e.g. starting with
-// a row of 100,000 will immediately create 100,000 empty rows.
+// automatically extend the internal table representation with empty TableCell
+// objects, e.g. starting with a row of 100,000 will immediately create 100,000
+// empty rows.
 //
 // To avoid unnecessary garbage collection, fill columns from left to right.
 func (t *Table) SetCell(row, column int, cell *TableCell) *Table {
@@ -652,7 +653,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 		}
 		for t.selectedRow < len(t.cells) {
 			cell := getCell(t.selectedRow, t.selectedColumn)
-			if cell == nil || !cell.NotSelectable {
+			if cell != nil && !cell.NotSelectable {
 				break
 			}
 			t.selectedColumn++
@@ -1060,7 +1061,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			previous = func() {
 				for t.selectedRow >= 0 {
 					cell := getCell(t.selectedRow, t.selectedColumn)
-					if cell == nil || !cell.NotSelectable {
+					if cell != nil && !cell.NotSelectable {
 						return
 					}
 					t.selectedColumn--
@@ -1081,7 +1082,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				}
 				for t.selectedRow < len(t.cells) {
 					cell := getCell(t.selectedRow, t.selectedColumn)
-					if cell == nil || !cell.NotSelectable {
+					if cell != nil && !cell.NotSelectable {
 						return
 					}
 					t.selectedColumn++
@@ -1158,9 +1159,6 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			right = func() {
 				if t.columnsSelectable {
 					t.selectedColumn++
-					if t.selectedColumn > t.lastColumn {
-						t.selectedColumn = t.lastColumn
-					}
 					next()
 				} else {
 					t.columnOffset++
