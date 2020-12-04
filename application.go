@@ -514,6 +514,14 @@ func (a *Application) Suspend(f func()) bool {
 	// Wait for "f" to return.
 	f()
 
+	// If stop was called in the meantime (a.screen is nil), we're done already.
+	a.RLock()
+	screen = a.screen
+	a.RUnlock()
+	if screen == nil {
+		return true
+	}
+
 	// Make a new screen.
 	var err error
 	screen, err = tcell.NewScreen()
