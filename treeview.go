@@ -41,9 +41,13 @@ type TreeNode struct {
 	// An optional function which is called when the user selects this node.
 	selected func()
 
+	// The hierarchy level (0 for the root, 1 for its children, and so on). This
+	// is only up to date immediately after a call to process() (e.g. via
+	// Draw()).
+	level int
+
 	// Temporary member variables.
 	parent    *TreeNode // The parent node (nil for the root).
-	level     int       // The hierarchy level (0 for the root, 1 for its children, and so on).
 	graphicsX int       // The x-coordinate of the left-most graphics rune.
 	textX     int       // The x-coordinate of the first rune of the text.
 }
@@ -205,6 +209,14 @@ func (n *TreeNode) SetColor(color tcell.Color) *TreeNode {
 func (n *TreeNode) SetIndent(indent int) *TreeNode {
 	n.indent = indent
 	return n
+}
+
+// GetLevel returns the node's level within the hierarchy, where 0 corresponds
+// to the root node, 1 corresponds to its children, and so on. This is only
+// guaranteed to be up to date immediately after the tree that contains this
+// node is drawn.
+func (n *TreeNode) GetLevel() int {
+	return n.level
 }
 
 // TreeView displays tree structures. A tree consists of nodes (TreeNode
