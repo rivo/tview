@@ -282,12 +282,12 @@ func (a *Application) Run() error {
 			// We have a new screen. Keep going.
 			a.Lock()
 			a.screen = screen
-			a.Unlock()
 
 			// Initialize and draw this screen.
 			if err := screen.Init(); err != nil {
 				panic(err)
 			}
+			a.Unlock()
 			a.draw()
 		}
 	}()
