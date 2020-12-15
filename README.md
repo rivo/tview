@@ -86,6 +86,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [Discord, TUI and SIXEL.](https://gitlab.com/diamondburned/6cord)
 - [A CLI Audio Player](https://www.github.com/dhulihan/grump)
 - [GLab, a GitLab CLI tool](https://gitlab.com/profclems/glab)
+- [Browse your AWS ECS Clusters in the Terminal](https://github.com/swartzrock/ecsview)
 
 ## Documentation
 
