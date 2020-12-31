@@ -8,7 +8,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 	colorful "github.com/lucasb-eyer/go-colorful"
 	runewidth "github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
@@ -269,12 +269,13 @@ func (t *TextView) SetText(text string) *TextView {
 	return t
 }
 
-// GetText returns the current text of this text view. If "stripTags" is set
+// GetText returns the current text of this text view. If "stripAllTags" is set
 // to true, any region/color tags are stripped from the text.
-func (t *TextView) GetText(stripTags bool) string {
+func (t *TextView) GetText(stripAllTags bool) string {
 	// Get the buffer.
-	buffer := t.buffer
-	if !stripTags {
+	buffer := make([]string, len(t.buffer), len(t.buffer)+1)
+	copy(buffer, t.buffer)
+	if !stripAllTags {
 		buffer = append(buffer, string(t.recentBytes))
 	}
 
@@ -282,19 +283,14 @@ func (t *TextView) GetText(stripTags bool) string {
 	text := strings.Join(buffer, "\n")
 
 	// Strip from tags if required.
-	if stripTags {
+	if stripAllTags {
 		if t.regions {
 			text = regionPattern.ReplaceAllString(text, "")
 		}
 		if t.dynamicColors {
-			text = colorPattern.ReplaceAllStringFunc(text, func(match string) string {
-				if len(match) > 2 {
-					return ""
-				}
-				return match
-			})
+			text = stripTags(text)
 		}
-		if t.regions || t.dynamicColors {
+		if t.regions && !t.dynamicColors {
 			text = escapePattern.ReplaceAllString(text, `[$1$2]`)
 		}
 	}
@@ -849,9 +845,9 @@ func (t *TextView) reindexBuffer(width int) {
 
 // Draw draws this primitive onto the screen.
 func (t *TextView) Draw(screen tcell.Screen) {
+	t.Box.DrawForSubclass(screen, t)
 	t.Lock()
 	defer t.Unlock()
-	t.Box.Draw(screen)
 	totalWidth, totalHeight := screen.Size()
 
 	// Get the available size.

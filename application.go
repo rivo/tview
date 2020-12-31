@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 )
 
 const (
@@ -325,7 +325,7 @@ EventLoop:
 				}
 
 				// Pass other key events to the root primitive.
-				if root != nil && root.GetFocusable().HasFocus() {
+				if root != nil && root.HasFocus() {
 					if handler := root.InputHandler(); handler != nil {
 						handler(event, func(p Primitive) {
 							a.SetFocus(p)
@@ -513,6 +513,14 @@ func (a *Application) Suspend(f func()) bool {
 
 	// Wait for "f" to return.
 	f()
+
+	// If stop was called in the meantime (a.screen is nil), we're done already.
+	a.RLock()
+	screen = a.screen
+	a.RUnlock()
+	if screen == nil {
+		return true
+	}
 
 	// Make a new screen.
 	var err error

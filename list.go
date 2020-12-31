@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 )
 
 // listItem represents one item in a List.
@@ -389,7 +389,7 @@ func (l *List) Clear() *List {
 
 // Draw draws this primitive onto the screen.
 func (l *List) Draw(screen tcell.Screen) {
-	l.Box.Draw(screen)
+	l.Box.DrawForSubclass(screen, l)
 
 	// Determine the dimensions.
 	x, y, width, height := l.GetInnerRect()

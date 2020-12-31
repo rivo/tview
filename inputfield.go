@@ -7,7 +7,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 )
 
 // InputField is a one-line box (three lines if there is a title) where the
@@ -303,7 +303,7 @@ func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 
 // Draw draws this primitive onto the screen.
 func (i *InputField) Draw(screen tcell.Screen) {
-	i.Box.Draw(screen)
+	i.Box.DrawForSubclass(screen, i)
 
 	// Prepare
 	x, y, width, height := i.GetInnerRect()
@@ -428,7 +428,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 
 	// Set cursor.
-	if i.focus.HasFocus() {
+	if i.HasFocus() {
 		screen.ShowCursor(x+cursorScreenPos, y)
 	}
 }
@@ -573,6 +573,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				}
 				i.autocompleteList.SetCurrentItem(newEntry)
 				currentText, _ = i.autocompleteList.GetItemText(newEntry) // Don't trigger changed function twice.
+				currentText = stripTags(currentText)
 				i.SetText(currentText)
 			} else {
 				finish(key)
@@ -585,6 +586,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				}
 				i.autocompleteList.SetCurrentItem(newEntry)
 				currentText, _ = i.autocompleteList.GetItemText(newEntry) // Don't trigger changed function twice.
+				currentText = stripTags(currentText)
 				i.SetText(currentText)
 			} else {
 				finish(key)

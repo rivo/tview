@@ -3,7 +3,7 @@ package tview
 import (
 	"sort"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
@@ -41,6 +41,11 @@ type TableCell struct {
 
 	// If set to true, this cell cannot be selected.
 	NotSelectable bool
+
+	// An optional handler for mouse clicks. This also fires if the cell is not
+	// selectable. If true is returned, no additional "selected" event is fired
+	// on selectable cells.
+	Clicked func() bool
 
 	// The position and width of the cell the last time table was drawn.
 	x, y, width int
@@ -160,6 +165,14 @@ func (c *TableCell) GetLastPosition() (x, y, width int) {
 	return c.x, c.y, c.width
 }
 
+// SetClickedFunc sets a handler which fires when this cell is clicked. This is
+// independent of whether the cell is selectable or not. But for selectable
+// cells, if the function returns "true", the "selected" event is not fired.
+func (c *TableCell) SetClickedFunc(clicked func() bool) *TableCell {
+	c.Clicked = clicked
+	return c
+}
+
 // Table visualizes two-dimensional data consisting of rows and columns. Each
 // Table cell is defined via SetCell() by the TableCell type. They can be added
 // dynamically to the table and changed any time.
@@ -258,8 +271,8 @@ type Table struct {
 	// drawn.
 	visibleColumnWidths []int
 
-	// The style of the selected rows. If this value is 0, selected rows are
-	// simply inverted.
+	// The style of the selected rows. If this value is the empty struct,
+	// selected rows are simply inverted.
 	selectedStyle tcell.Style
 
 	// An optional function which gets called when the user presses Enter on a
@@ -314,8 +327,8 @@ func (t *Table) SetBordersColor(color tcell.Color) *Table {
 // To reset a previous setting to its default, make the following call:
 //
 //   table.SetSelectedStyle(tcell.ColorDefault, tcell.ColorDefault, 0)
-func (t *Table) SetSelectedStyle(foregroundColor, backgroundColor tcell.Color, attributes tcell.AttrMask) *Table {
-	t.selectedStyle = tcell.StyleDefault.Foreground(foregroundColor).Background(backgroundColor) | tcell.Style(attributes)
+func (t *Table) SetSelectedStyle(style tcell.Style) *Table {
+	t.selectedStyle = style
 	return t
 }
 
@@ -437,8 +450,9 @@ func (t *Table) SetDoneFunc(handler func(key tcell.Key)) *Table {
 // the Text and Color fields should be set.
 //
 // Note that setting cells in previously unknown rows and columns will
-// automatically extend the internal table representation, e.g. starting with
-// a row of 100,000 will immediately create 100,000 empty rows.
+// automatically extend the internal table representation with empty TableCell
+// objects, e.g. starting with a row of 100,000 will immediately create 100,000
+// empty rows.
 //
 // To avoid unnecessary garbage collection, fill columns from left to right.
 func (t *Table) SetCell(row, column int, cell *TableCell) *Table {
@@ -610,7 +624,7 @@ func (t *Table) ScrollToEnd() *Table {
 
 // Draw draws this primitive onto the screen.
 func (t *Table) Draw(screen tcell.Screen) {
-	t.Box.Draw(screen)
+	t.Box.DrawForSubclass(screen, t)
 
 	// What's our available screen space?
 	_, totalHeight := screen.Size()
@@ -639,7 +653,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 		}
 		for t.selectedRow < len(t.cells) {
 			cell := getCell(t.selectedRow, t.selectedColumn)
-			if cell == nil || !cell.NotSelectable {
+			if cell != nil && !cell.NotSelectable {
 				break
 			}
 			t.selectedColumn++
@@ -872,7 +886,7 @@ ColumnLoop:
 				finalWidth = width - columnX - 1
 			}
 			cell.x, cell.y, cell.width = x+columnX+1, y+rowY, finalWidth
-			_, printed := printWithStyle(screen, cell.Text, x+columnX+1, y+rowY, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color)|tcell.Style(cell.Attributes))
+			_, printed := printWithStyle(screen, cell.Text, x+columnX+1, y+rowY, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color).Attributes(cell.Attributes))
 			if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
 				_, _, style, _ := screen.GetContent(x+columnX+finalWidth, y+rowY)
 				printWithStyle(screen, string(SemigraphicsHorizontalEllipsis), x+columnX+finalWidth, y+rowY, 1, AlignLeft, style)
@@ -941,7 +955,7 @@ ColumnLoop:
 					if attr != 0 {
 						a = attr
 					}
-					style = style.Background(bg).Foreground(fg) | tcell.Style(a)
+					style = style.Background(bg).Foreground(fg).Attributes(a)
 				}
 				screen.SetContent(fromX+bx, fromY+by, m, c, style)
 			}
@@ -1004,7 +1018,7 @@ ColumnLoop:
 		entries := cellsByBackgroundColor[bgColor]
 		for _, cell := range entries {
 			if cell.selected {
-				if t.selectedStyle != 0 {
+				if t.selectedStyle != (tcell.Style{}) {
 					defer colorBackground(cell.x, cell.y, cell.w, cell.h, selBg, selFg, selAttr, false)
 				} else {
 					defer colorBackground(cell.x, cell.y, cell.w, cell.h, bgColor, cell.text, 0, true)
@@ -1047,7 +1061,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			previous = func() {
 				for t.selectedRow >= 0 {
 					cell := getCell(t.selectedRow, t.selectedColumn)
-					if cell == nil || !cell.NotSelectable {
+					if cell != nil && !cell.NotSelectable {
 						return
 					}
 					t.selectedColumn--
@@ -1068,7 +1082,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				}
 				for t.selectedRow < len(t.cells) {
 					cell := getCell(t.selectedRow, t.selectedColumn)
-					if cell == nil || !cell.NotSelectable {
+					if cell != nil && !cell.NotSelectable {
 						return
 					}
 					t.selectedColumn++
@@ -1145,9 +1159,6 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			right = func() {
 				if t.columnsSelectable {
 					t.selectedColumn++
-					if t.selectedColumn > t.lastColumn {
-						t.selectedColumn = t.lastColumn
-					}
 					next()
 				} else {
 					t.columnOffset++
@@ -1247,8 +1258,21 @@ func (t *Table) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 
 		switch action {
 		case MouseLeftClick:
-			if t.rowsSelectable || t.columnsSelectable {
-				t.Select(t.cellAt(x, y))
+			selectEvent := true
+			row, column := t.cellAt(x, y)
+			if row >= 0 && row < len(t.cells) && column >= 0 {
+				cells := t.cells[row]
+				if column < len(cells) {
+					cell := cells[column]
+					if cell != nil && cell.Clicked != nil {
+						if noSelect := cell.Clicked(); noSelect {
+							selectEvent = false
+						}
+					}
+				}
+			}
+			if selectEvent && (t.rowsSelectable || t.columnsSelectable) {
+				t.Select(row, column)
 			}
 			setFocus(t)
 			consumed = true

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 	runewidth "github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 )
@@ -627,4 +627,16 @@ func iterateStringReverse(text string, callback func(main rune, comb []rune, tex
 	}
 
 	return false
+}
+
+// stripTags strips colour tags from the given string. (Region tags are not
+// stripped.)
+func stripTags(text string) string {
+	stripped := colorPattern.ReplaceAllStringFunc(text, func(match string) string {
+		if len(match) > 2 {
+			return ""
+		}
+		return match
+	})
+	return escapePattern.ReplaceAllString(stripped, `[$1$2]`)
 }

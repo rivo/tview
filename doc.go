@@ -169,8 +169,7 @@ Type Hierarchy
 All widgets listed above contain the Box type. All of Box's functions are
 therefore available for all widgets, too.
 
-All widgets also implement the Primitive interface. There is also the Focusable
-interface which is used to override functions in subclassing types.
+All widgets also implement the Primitive interface.
 
 The tview package is based on https://github.com/gdamore/tcell. It uses types
 and constants from that package (e.g. colors and keyboard values).

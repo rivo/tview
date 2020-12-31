@@ -1,7 +1,9 @@
 package tview
 
 import (
-	"github.com/gdamore/tcell"
+	"strings"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 // Checkbox implements a simple box for boolean values which can be checked and
@@ -30,6 +32,9 @@ type Checkbox struct {
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
+	// The string use to display a checked box.
+	checkedString string
+
 	// An optional function which is called when the user changes the checked
 	// state of this checkbox.
 	changed func(checked bool)
@@ -51,6 +56,7 @@ func NewCheckbox() *Checkbox {
 		labelColor:           Styles.SecondaryTextColor,
 		fieldBackgroundColor: Styles.ContrastBackgroundColor,
 		fieldTextColor:       Styles.PrimaryTextColor,
+		checkedString:        "X",
 	}
 }
 
@@ -101,6 +107,13 @@ func (c *Checkbox) SetFieldTextColor(color tcell.Color) *Checkbox {
 	return c
 }
 
+// SetCheckedString sets the string to be displayed when the checkbox is
+// checked (defaults to "X").
+func (c *Checkbox) SetCheckedString(checked string) *Checkbox {
+	c.checkedString = checked
+	return c
+}
+
 // SetFormAttributes sets attributes shared by all form items.
 func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
 	c.labelWidth = labelWidth
@@ -144,7 +157,7 @@ func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 
 // Draw draws this primitive onto the screen.
 func (c *Checkbox) Draw(screen tcell.Screen) {
-	c.Box.Draw(screen)
+	c.Box.DrawForSubclass(screen, c)
 
 	// Prepare
 	x, y, width, height := c.GetInnerRect()
@@ -168,14 +181,15 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 
 	// Draw checkbox.
 	fieldStyle := tcell.StyleDefault.Background(c.fieldBackgroundColor).Foreground(c.fieldTextColor)
-	if c.focus.HasFocus() {
+	if c.HasFocus() {
 		fieldStyle = fieldStyle.Background(c.fieldTextColor).Foreground(c.fieldBackgroundColor)
 	}
-	checkedRune := 'X'
+	checkboxWidth := stringWidth(c.checkedString)
+	checkedString := c.checkedString
 	if !c.checked {
-		checkedRune = ' '
+		checkedString = strings.Repeat(" ", checkboxWidth)
 	}
-	screen.SetContent(x, y, checkedRune, nil, fieldStyle)
+	printWithStyle(screen, checkedString, x, y, checkboxWidth, AlignLeft, fieldStyle)
 }
 
 // InputHandler returns the handler for this primitive.

@@ -1,7 +1,7 @@
 package tview
 
 import (
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 )
 
 // Box implements the Primitive interface with an empty background and optional
@@ -30,11 +30,8 @@ type Box struct {
 	// two in width and height.
 	border bool
 
-	// The color of the border.
-	borderColor tcell.Color
-
-	// The style attributes of the border.
-	borderAttributes tcell.AttrMask
+	// The border style.
+	borderStyle tcell.Style
 
 	// The title. Only visible if there is a border, too.
 	title string
@@ -44,10 +41,6 @@ type Box struct {
 
 	// The alignment of the title.
 	titleAlign int
-
-	// Provides a way to find out if this box has focus. We always go through
-	// this interface because it may be overridden by implementing classes.
-	focus Focusable
 
 	// Whether or not this box has focus.
 	hasFocus bool
@@ -73,11 +66,10 @@ func NewBox() *Box {
 		height:          10,
 		innerX:          -1, // Mark as uninitialized.
 		backgroundColor: Styles.PrimitiveBackgroundColor,
-		borderColor:     Styles.BorderColor,
+		borderStyle:     tcell.StyleDefault.Foreground(Styles.BorderColor),
 		titleColor:      Styles.TitleColor,
 		titleAlign:      AlignCenter,
 	}
-	b.focus = b
 	return b
 }
 
@@ -267,7 +259,7 @@ func (b *Box) SetBorder(show bool) *Box {
 
 // SetBorderColor sets the box's border color.
 func (b *Box) SetBorderColor(color tcell.Color) *Box {
-	b.borderColor = color
+	b.borderStyle = b.borderStyle.Foreground(color)
 	return b
 }
 
@@ -276,18 +268,20 @@ func (b *Box) SetBorderColor(color tcell.Color) *Box {
 //
 //   box.SetBorderAttributes(tcell.AttrUnderline | tcell.AttrBold)
 func (b *Box) SetBorderAttributes(attr tcell.AttrMask) *Box {
-	b.borderAttributes = attr
+	b.borderStyle = b.borderStyle.Attributes(attr)
 	return b
 }
 
 // GetBorderAttributes returns the border's style attributes.
 func (b *Box) GetBorderAttributes() tcell.AttrMask {
-	return b.borderAttributes
+	_, _, attr := b.borderStyle.Decompose()
+	return attr
 }
 
 // GetBorderColor returns the box's border color.
 func (b *Box) GetBorderColor() tcell.Color {
-	return b.borderColor
+	color, _, _ := b.borderStyle.Decompose()
+	return color
 }
 
 // GetBackgroundColor returns the box's background color.
@@ -321,6 +315,16 @@ func (b *Box) SetTitleAlign(align int) *Box {
 
 // Draw draws this primitive onto the screen.
 func (b *Box) Draw(screen tcell.Screen) {
+	b.DrawForSubclass(screen, b)
+}
+
+// DrawForSubclass draws this box under the assumption that primitive p is a
+// subclass of this box. This is needed e.g. to draw proper box frames which
+// depend on the subclass's focus.
+//
+// Only call this function from your own custom primitives. It is not needed in
+// applications that have no custom primitives.
+func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 	// Don't draw anything if there is no space.
 	if b.width <= 0 || b.height <= 0 {
 		return
@@ -340,9 +344,8 @@ func (b *Box) Draw(screen tcell.Screen) {
 
 	// Draw border.
 	if b.border && b.width >= 2 && b.height >= 2 {
-		border := background.Foreground(b.borderColor) | tcell.Style(b.borderAttributes)
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
-		if b.focus.HasFocus() {
+		if p.HasFocus() {
 			horizontal = Borders.HorizontalFocus
 			vertical = Borders.VerticalFocus
 			topLeft = Borders.TopLeftFocus
@@ -358,17 +361,17 @@ func (b *Box) Draw(screen tcell.Screen) {
 			bottomRight = Borders.BottomRight
 		}
 		for x := b.x + 1; x < b.x+b.width-1; x++ {
-			screen.SetContent(x, b.y, horizontal, nil, border)
-			screen.SetContent(x, b.y+b.height-1, horizontal, nil, border)
+			screen.SetContent(x, b.y, horizontal, nil, b.borderStyle)
+			screen.SetContent(x, b.y+b.height-1, horizontal, nil, b.borderStyle)
 		}
 		for y := b.y + 1; y < b.y+b.height-1; y++ {
-			screen.SetContent(b.x, y, vertical, nil, border)
-			screen.SetContent(b.x+b.width-1, y, vertical, nil, border)
+			screen.SetContent(b.x, y, vertical, nil, b.borderStyle)
+			screen.SetContent(b.x+b.width-1, y, vertical, nil, b.borderStyle)
 		}
-		screen.SetContent(b.x, b.y, topLeft, nil, border)
-		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, border)
-		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, border)
-		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, border)
+		screen.SetContent(b.x, b.y, topLeft, nil, b.borderStyle)
+		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, b.borderStyle)
+		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, b.borderStyle)
+		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, b.borderStyle)
 
 		// Draw title.
 		if b.title != "" && b.width >= 4 {
@@ -404,9 +407,4 @@ func (b *Box) Blur() {
 // HasFocus returns whether or not this primitive has focus.
 func (b *Box) HasFocus() bool {
 	return b.hasFocus
-}
-
-// GetFocusable returns the item's Focusable.
-func (b *Box) GetFocusable() Focusable {
-	return b.focus
 }
