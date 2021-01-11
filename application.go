@@ -193,7 +193,7 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 	return a
 }
 
-// EnableMouse enables mouse events.
+// EnableMouse enables mouse events or disables them (if "false" is provided).
 func (a *Application) EnableMouse(enable bool) *Application {
 	a.Lock()
 	defer a.Unlock()
@@ -282,11 +282,15 @@ func (a *Application) Run() error {
 			// We have a new screen. Keep going.
 			a.Lock()
 			a.screen = screen
+			enableMouse := a.enableMouse
 			a.Unlock()
 
 			// Initialize and draw this screen.
 			if err := screen.Init(); err != nil {
 				panic(err)
+			}
+			if enableMouse {
+				screen.EnableMouse()
 			}
 			a.draw()
 		}
