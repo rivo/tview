@@ -13,6 +13,8 @@ const (
 	treeDown
 	treePageUp
 	treePageDown
+	treeParent
+	treeChild
 )
 
 // TreeNode represents one node in a tree view.
@@ -235,6 +237,8 @@ func (n *TreeNode) GetLevel() int {
 //   - k, up arrow, left arrow: Move (the selection) up by one node.
 //   - g, home: Move (the selection) to the top.
 //   - G, end: Move (the selection) to the bottom.
+//   - J: Move (the selection) up one level.
+//   - K: Move (the selection) down one level (if it is shown).
 //   - Ctrl-F, page down: Move (the selection) down by one page.
 //   - Ctrl-B, page up: Move (the selection) up by one page.
 //
@@ -419,7 +423,7 @@ func (t *TreeView) process() {
 	_, _, _, height := t.GetInnerRect()
 
 	// Determine visible nodes and their placement.
-	var graphicsOffset, maxTextX int
+	var graphicsOffset, maxTextX, parentSelectedIndex int
 	t.nodes = nil
 	if t.root == nil {
 		return
@@ -467,6 +471,11 @@ func (t *TreeView) process() {
 			}
 
 			t.nodes = append(t.nodes, node)
+		}
+
+		// Keep track of the parent of the selected node.
+		if selectedIndex < 0 && node.selectable && len(node.children) > 0 && node.expanded {
+			parentSelectedIndex = len(t.nodes) - 1
 		}
 
 		// Recurse if desired.
@@ -543,6 +552,16 @@ func (t *TreeView) process() {
 			}
 			for ; newSelectedIndex >= 0; newSelectedIndex-- {
 				if t.nodes[newSelectedIndex].selectable {
+					break MovementSwitch
+				}
+			}
+			newSelectedIndex = selectedIndex
+		case treeParent:
+			newSelectedIndex = parentSelectedIndex
+		case treeChild:
+			for newSelectedIndex < len(t.nodes)-1 {
+				newSelectedIndex++
+				if t.nodes[newSelectedIndex].selectable && t.nodes[newSelectedIndex].parent == t.nodes[selectedIndex] {
 					break MovementSwitch
 				}
 			}
@@ -731,16 +750,18 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.movement = treeEnd
 			case 'j':
 				t.movement = treeDown
+			case 'J':
+				t.movement = treeChild
 			case 'k':
 				t.movement = treeUp
+			case 'K':
+				t.movement = treeParent
 			case ' ':
 				selectNode()
 			}
 		case tcell.KeyEnter:
 			selectNode()
 		}
-
-		t.process()
 	})
 }
 
