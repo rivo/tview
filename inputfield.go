@@ -249,11 +249,13 @@ func (i *InputField) Autocomplete() *InputField {
 
 	// Fill it with the entries.
 	currentEntry := -1
+	suffixLength := 9999 // I'm just waiting for the day somebody opens an issue with this number being too small.
 	i.autocompleteList.Clear()
 	for index, entry := range entries {
 		i.autocompleteList.AddItem(entry, "", 0, nil)
-		if currentEntry < 0 && entry == i.text {
+		if strings.HasPrefix(entry, i.text) && len(entry)-len(i.text) < suffixLength {
 			currentEntry = index
+			suffixLength = len(i.text) - len(entry)
 		}
 	}
 
@@ -481,6 +483,21 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			return true
 		}
 
+		// Change the autocomplete selection.
+		autocompleteSelect := func(offset int) {
+			count := i.autocompleteList.GetItemCount()
+			newEntry := i.autocompleteList.GetCurrentItem() + offset
+			if newEntry >= count {
+				newEntry = 0
+			} else if newEntry < 0 {
+				newEntry = count - 1
+			}
+			i.autocompleteList.SetCurrentItem(newEntry)
+			currentText, _ = i.autocompleteList.GetItemText(newEntry) // Don't trigger changed function twice.
+			currentText = stripTags(currentText)
+			i.SetText(currentText)
+		}
+
 		// Finish up.
 		finish := func(key tcell.Key) {
 			if i.done != nil {
@@ -558,36 +575,34 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			home()
 		case tcell.KeyEnd, tcell.KeyCtrlE:
 			end()
-		case tcell.KeyEnter, tcell.KeyEscape: // We might be done.
+		case tcell.KeyEnter:
+			if i.autocompleteList != nil {
+				autocompleteSelect(0)
+				i.autocompleteList = nil
+			} else {
+				finish(key)
+			}
+		case tcell.KeyEscape:
 			if i.autocompleteList != nil {
 				i.autocompleteList = nil
 			} else {
 				finish(key)
 			}
-		case tcell.KeyDown, tcell.KeyTab: // Autocomplete selection.
+		case tcell.KeyTab:
 			if i.autocompleteList != nil {
-				count := i.autocompleteList.GetItemCount()
-				newEntry := i.autocompleteList.GetCurrentItem() + 1
-				if newEntry >= count {
-					newEntry = 0
-				}
-				i.autocompleteList.SetCurrentItem(newEntry)
-				currentText, _ = i.autocompleteList.GetItemText(newEntry) // Don't trigger changed function twice.
-				currentText = stripTags(currentText)
-				i.SetText(currentText)
+				autocompleteSelect(0)
+			} else {
+				finish(key)
+			}
+		case tcell.KeyDown:
+			if i.autocompleteList != nil {
+				autocompleteSelect(1)
 			} else {
 				finish(key)
 			}
 		case tcell.KeyUp, tcell.KeyBacktab: // Autocomplete selection.
 			if i.autocompleteList != nil {
-				newEntry := i.autocompleteList.GetCurrentItem() - 1
-				if newEntry < 0 {
-					newEntry = i.autocompleteList.GetItemCount() - 1
-				}
-				i.autocompleteList.SetCurrentItem(newEntry)
-				currentText, _ = i.autocompleteList.GetItemText(newEntry) // Don't trigger changed function twice.
-				currentText = stripTags(currentText)
-				i.SetText(currentText)
+				autocompleteSelect(-1)
 			} else {
 				finish(key)
 			}
