@@ -240,12 +240,12 @@ func decomposeString(text string, findColors, findRegions bool) (colorIndices []
 // Returns the number of actual bytes of the text printed (including color tags)
 // and the actual width used for the printed runes.
 func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tcell.Color) (int, int) {
-	return printWithStyle(screen, text, x, y, maxWidth, align, tcell.StyleDefault.Foreground(color))
+	return PrintWithStyle(screen, text, x, y, maxWidth, align, tcell.StyleDefault.Foreground(color))
 }
 
-// printWithStyle works like Print() but it takes a style instead of just a
+// PrintWithStyle works like Print() but it takes a style instead of just a
 // foreground color.
-func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int, style tcell.Style) (int, int) {
+func PrintWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int, style tcell.Style) (int, int) {
 	totalWidth, totalHeight := screen.Size()
 	if maxWidth <= 0 || len(text) == 0 || y < 0 || y >= totalHeight {
 		return 0, 0
@@ -258,7 +258,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 	if align == AlignRight {
 		if strippedWidth <= maxWidth {
 			// There's enough space for the entire text.
-			return printWithStyle(screen, text, x+maxWidth-strippedWidth, y, maxWidth, AlignLeft, style)
+			return PrintWithStyle(screen, text, x+maxWidth-strippedWidth, y, maxWidth, AlignLeft, style)
 		}
 		// Trim characters off the beginning.
 		var (
@@ -286,7 +286,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 					text = text[:escapeCharPos] + text[escapeCharPos+1:]
 				}
 				// Print and return.
-				bytes, width = printWithStyle(screen, text[textPos+tagOffset:], x, y, maxWidth, AlignLeft, style)
+				bytes, width = PrintWithStyle(screen, text[textPos+tagOffset:], x, y, maxWidth, AlignLeft, style)
 				return true
 			}
 			return false
@@ -295,11 +295,11 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 	} else if align == AlignCenter {
 		if strippedWidth == maxWidth {
 			// Use the exact space.
-			return printWithStyle(screen, text, x, y, maxWidth, AlignLeft, style)
+			return PrintWithStyle(screen, text, x, y, maxWidth, AlignLeft, style)
 		} else if strippedWidth < maxWidth {
 			// We have more space than we need.
 			half := (maxWidth - strippedWidth) / 2
-			return printWithStyle(screen, text, x+half, y, maxWidth-half, AlignLeft, style)
+			return PrintWithStyle(screen, text, x+half, y, maxWidth-half, AlignLeft, style)
 		} else {
 			// Chop off runes until we have a perfect fit.
 			var choppedLeft, choppedRight, leftIndex, rightIndex int
@@ -354,7 +354,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, maxWidth, align int,
 					escapePos++
 				}
 			}
-			return printWithStyle(screen, text[leftIndex+tagOffset:], x, y, maxWidth, AlignLeft, style)
+			return PrintWithStyle(screen, text[leftIndex+tagOffset:], x, y, maxWidth, AlignLeft, style)
 		}
 	}
 
