@@ -938,7 +938,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	defaultStyle := tcell.StyleDefault.Foreground(t.textColor)
 	for line := t.lineOffset; line < len(t.index); line++ {
 		// Are we done?
-		if line-t.lineOffset >= height || y+line-t.lineOffset >= totalHeight {
+		if line-t.lineOffset >= height || y+line-t.lineOffset >= totalHeight || len(t.buffer) == 0 {
 			break
 		}
 
