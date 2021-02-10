@@ -17,8 +17,8 @@ import (
 //
 // The following keys can be used for navigation and editing:
 //
-//   - Left arrow: Move left by one character.
-//   - Right arrow: Move right by one character.
+//   - Left arrow, Ctrl-B: Move left by one character.
+//   - Right arrow, Ctrl-F: Move right by one character.
 //   - Home, Ctrl-A, Alt-a: Move to the beginning of the line.
 //   - End, Ctrl-E, Alt-e: Move to the end of the line.
 //   - Alt-left, Alt-b: Move left by one word.
@@ -559,13 +559,13 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				i.text = i.text[:i.cursorPos] + i.text[i.cursorPos+textWidth:]
 				return true
 			})
-		case tcell.KeyLeft:
+		case tcell.KeyLeft, tcell.KeyCtrlB:
 			if event.Modifiers()&tcell.ModAlt > 0 {
 				moveWordLeft()
 			} else {
 				moveLeft()
 			}
-		case tcell.KeyRight:
+		case tcell.KeyRight, tcell.KeyCtrlF:
 			if event.Modifiers()&tcell.ModAlt > 0 {
 				moveWordRight()
 			} else {
