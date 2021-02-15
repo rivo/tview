@@ -699,7 +699,7 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 				if node == t.currentNode {
 					style = tcell.StyleDefault.Background(node.color).Foreground(t.backgroundColor)
 				}
-				printWithStyle(screen, node.text, x+node.textX+prefixWidth, posY, width-node.textX-prefixWidth, AlignLeft, style)
+				printWithStyle(screen, node.text, x+node.textX+prefixWidth, posY, 0, width-node.textX-prefixWidth, AlignLeft, style)
 			}
 		}
 

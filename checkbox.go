@@ -189,7 +189,7 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	if !c.checked {
 		checkedString = strings.Repeat(" ", checkboxWidth)
 	}
-	printWithStyle(screen, checkedString, x, y, checkboxWidth, AlignLeft, fieldStyle)
+	printWithStyle(screen, checkedString, x, y, 0, checkboxWidth, AlignLeft, fieldStyle)
 }
 
 // InputHandler returns the handler for this primitive.
