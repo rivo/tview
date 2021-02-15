@@ -87,6 +87,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [A CLI Audio Player](https://www.github.com/dhulihan/grump)
 - [GLab, a GitLab CLI tool](https://gitlab.com/profclems/glab)
 - [Browse your AWS ECS Clusters in the Terminal](https://github.com/swartzrock/ecsview)
+- [The CLI Task Manager for Geeks](https://github.com/ajaxray/geek-life)
 
 ## Documentation
 
