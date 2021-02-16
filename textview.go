@@ -23,12 +23,11 @@ var (
 	TabSize = 4
 )
 
-// textViewIndex contains information about each line displayed in the text
-// view.
+// textViewIndex contains information about a line displayed in the text view.
 type textViewIndex struct {
-	Line            int    // The index into the "buffer" variable.
+	Line            int    // The index into the "buffer" slice.
 	Pos             int    // The index into the "buffer" string (byte position).
-	NextPos         int    // The (byte) index of the next character in this buffer line.
+	NextPos         int    // The (byte) index of the next line start within this buffer string.
 	Width           int    // The screen width of this line.
 	ForegroundColor string // The starting foreground color ("" = don't change, "-" = reset).
 	BackgroundColor string // The starting background color ("" = don't change, "-" = reset).
@@ -131,7 +130,7 @@ type TextView struct {
 	// A set of region IDs that are currently highlighted.
 	highlights map[string]struct{}
 
-	// The last width for which the current table is drawn.
+	// The last width for which the current text view is drawn.
 	lastWidth int
 
 	// The screen width of the longest line in the index (not the buffer).
@@ -145,6 +144,10 @@ type TextView struct {
 
 	// The number of characters to be skipped on each line (not in wrap mode).
 	columnOffset int
+
+	// The maximum number of lines kept in the line index, effectively the
+	// latest word-wrapped lines. Ignored if 0.
+	maxLines int
 
 	// The height of the content the last time the text view was drawn.
 	pageSize int
@@ -240,6 +243,20 @@ func (t *TextView) SetWordWrap(wrapOnWords bool) *TextView {
 		t.index = nil
 	}
 	t.wordWrap = wrapOnWords
+	return t
+}
+
+// SetMaxLines sets the maximum number of lines for this text view. Lines at the
+// beginning of the text will be discarded when the text view is drawn, so as to
+// remain below this value. Broken lines via word wrapping are counted
+// individually.
+//
+// Note that GetText() will return the shortened text and may start with color
+// and/or region tags that were open at the cutoff point.
+//
+// A value of 0 (the default) will keep all lines in place.
+func (t *TextView) SetMaxLines(maxLines int) *TextView {
+	t.maxLines = maxLines
 	return t
 }
 
@@ -671,7 +688,10 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 // reindexBuffer re-indexes the buffer such that we can use it to easily draw
 // the buffer onto the screen. Each line in the index will contain a pointer
 // into the buffer from which on we will print text. It will also contain the
-// color with which the line starts.
+// colors, attributes, and region with which the line starts.
+//
+// If maxLines is greater than 0, any extra lines will be dropped from the
+// buffer.
 func (t *TextView) reindexBuffer(width int) {
 	if t.index != nil {
 		return // Nothing has changed. We can still use the current index.
@@ -831,6 +851,56 @@ func (t *TextView) reindexBuffer(width int) {
 					line.Width -= stringWidth(t.buffer[line.Line][line.NextPos:oldNextPos])
 				}
 			}
+		}
+	}
+
+	// Drop lines beyond maxLines.
+	if t.maxLines > 0 && len(t.index) > t.maxLines {
+		removedLines := len(t.index) - t.maxLines
+
+		// Adjust the index.
+		t.index = t.index[removedLines:]
+		if t.fromHighlight >= 0 {
+			t.fromHighlight -= removedLines
+			if t.fromHighlight < 0 {
+				t.fromHighlight = 0
+			}
+		}
+		if t.toHighlight >= 0 {
+			t.toHighlight -= removedLines
+			if t.toHighlight < 0 {
+				t.fromHighlight, t.toHighlight, t.posHighlight = -1, -1, -1
+			}
+		}
+		bufferShift := t.index[0].Line
+		for _, line := range t.index {
+			line.Line -= bufferShift
+		}
+
+		// Adjust the original buffer.
+		t.buffer = t.buffer[bufferShift:]
+		var prefix string
+		if t.index[0].ForegroundColor != "" || t.index[0].BackgroundColor != "" || t.index[0].Attributes != "" {
+			prefix = fmt.Sprintf("[%s:%s:%s]", t.index[0].ForegroundColor, t.index[0].BackgroundColor, t.index[0].Attributes)
+		}
+		if t.index[0].Region != "" {
+			prefix += fmt.Sprintf("[%s]", t.index[0].Region)
+		}
+		posShift := t.index[0].Pos
+		t.buffer[0] = prefix + t.buffer[0][posShift:]
+		t.lineOffset -= removedLines
+		if t.lineOffset < 0 {
+			t.lineOffset = 0
+		}
+
+		// Adjust positions of first buffer line.
+		posShift -= len(prefix)
+		for _, line := range t.index {
+			if line.Line != 0 {
+				break
+			}
+			line.Pos -= posShift
+			line.NextPos -= posShift
 		}
 	}
 
