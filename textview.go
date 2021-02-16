@@ -884,7 +884,7 @@ func (t *TextView) reindexBuffer(width int) {
 			prefix = fmt.Sprintf("[%s:%s:%s]", t.index[0].ForegroundColor, t.index[0].BackgroundColor, t.index[0].Attributes)
 		}
 		if t.index[0].Region != "" {
-			prefix += fmt.Sprintf("[%s]", t.index[0].Region)
+			prefix += fmt.Sprintf(`["%s"]`, t.index[0].Region)
 		}
 		posShift := t.index[0].Pos
 		t.buffer[0] = prefix + t.buffer[0][posShift:]
