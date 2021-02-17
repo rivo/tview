@@ -133,6 +133,18 @@ func (n *TreeNode) AddChild(node *TreeNode) *TreeNode {
 	return n
 }
 
+// RemoveChild removes a child node from this node. If the child node cannot be
+// found, nothing happens.
+func (n *TreeNode) RemoveChild(node *TreeNode) *TreeNode {
+	for index, child := range n.children {
+		if child == node {
+			n.children = append(n.children[:index], n.children[index+1:]...)
+			break
+		}
+	}
+	return n
+}
+
 // SetSelectable sets a flag indicating whether this node can be selected by
 // the user.
 func (n *TreeNode) SetSelectable(selectable bool) *TreeNode {
