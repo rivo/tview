@@ -554,7 +554,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			if i.offset >= i.cursorPos {
 				i.offset = 0
 			}
-		case tcell.KeyDelete: // Delete character after the cursor.
+		case tcell.KeyDelete, tcell.KeyCtrlD: // Delete character after the cursor.
 			iterateString(i.text[i.cursorPos:], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
 				i.text = i.text[:i.cursorPos] + i.text[i.cursorPos+textWidth:]
 				return true
@@ -565,12 +565,16 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			} else {
 				moveLeft()
 			}
+		case tcell.KeyCtrlB:
+			moveLeft()
 		case tcell.KeyRight:
 			if event.Modifiers()&tcell.ModAlt > 0 {
 				moveWordRight()
 			} else {
 				moveRight()
 			}
+		case tcell.KeyCtrlF:
+			moveRight()
 		case tcell.KeyHome, tcell.KeyCtrlA:
 			home()
 		case tcell.KeyEnd, tcell.KeyCtrlE:
