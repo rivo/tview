@@ -1,6 +1,6 @@
 package main
 
-import "github.com/rivo/tview"
+import "github.com/uaraven/tview"
 
 // Introduction returns a tview.List with the highlights of the tview package.
 func Introduction(nextSlide func()) (title string, content tview.Primitive) {
