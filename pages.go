@@ -189,7 +189,7 @@ func (p *Pages) SwitchToPage(name string) *Pages {
 func (p *Pages) SendToFront(name string) *Pages {
 	for index, page := range p.pages {
 		if page.Name == name {
-			if index < len(p.pages)-1 {
+			if index < len(p.pages) {
 				p.pages = append(append(p.pages[:index], p.pages[index+1:]...), page)
 			}
 			if page.Visible && p.changed != nil {
@@ -303,8 +303,9 @@ func (p *Pages) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 // InputHandler returns the handler for this primitive.
 func (p *Pages) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return p.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		for _, page := range p.pages {
-			if page.Item.HasFocus() {
+		for index := len(p.pages) - 1; index >= 0; index-- { // back to front
+			page := p.pages[index]
+			if page.Item.HasFocus() && page.Visible { // ignore invisible
 				if handler := page.Item.InputHandler(); handler != nil {
 					handler(event, setFocus)
 					return
