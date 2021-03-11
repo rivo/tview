@@ -541,7 +541,9 @@ func (a *Application) Suspend(f func()) bool {
 
 // Draw refreshes the screen (during the next update cycle). It calls the Draw()
 // function of the application's root primitive and then syncs the screen
-// buffer. It is almost never necessary to call this function. Please see
+// buffer. It is almost never necessary to call this function. It can actually
+// deadlock your application if you call it from the main thread (e.g. in a
+// callback function of a widget). Please see
 // https://github.com/rivo/tview/wiki/Concurrency for details.
 func (a *Application) Draw() *Application {
 	a.QueueUpdate(func() {
