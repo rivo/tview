@@ -71,7 +71,6 @@ For a presentation highlighting this package, compile and run the program found 
 - [A growing collection of convenient little tools to work with systemd services](https://github.com/muesli/service-tools/)
 - [A terminal based browser for Redis written in Go](https://github.com/nitishm/redis-terminal)
 - [First project for the Computer Networks course.](https://github.com/pablogadhi/XMPPClient)
-- [CLI tool build in Golang for managing ssh connection](https://github.com/patilsuraj767/connection-master)
 - [Test your typing speed in the terminal!](https://github.com/shilangyu/typer-go)
 - [TUI Client for Docker](https://github.com/skanehira/docui)
 - [SSH client using certificates signed by HashiCorp Vault](https://github.com/stephane-martin/vssh)
