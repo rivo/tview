@@ -513,27 +513,27 @@ func (a *Application) Suspend(f func()) bool {
 	}
 
 	// Enter suspended mode.
-	screen.Fini()
+	if err := screen.Suspend(); err != nil {
+		return false // Suspension failed.
+	}
 
 	// Wait for "f" to return.
 	f()
 
-	// If stop was called in the meantime (a.screen is nil), we're done already.
+	// If the screen object has changed in the meantime, we need to do more.
 	a.RLock()
-	screen = a.screen
-	a.RUnlock()
-	if screen == nil {
-		return true
+	defer a.RUnlock()
+	if a.screen != screen {
+		// Calling Stop() while in suspend mode currently still leads to a
+		// panic, see https://github.com/gdamore/tcell/issues/440.
+		screen.Fini()
+		if a.screen == nil {
+			return true // If stop was called (a.screen is nil), we're done already.
+		}
+	} else {
+		// It hasn't changed. Resume.
+		screen.Resume() // Not much we can do in case of an error.
 	}
-
-	// Make a new screen.
-	var err error
-	screen, err = tcell.NewScreen()
-	if err != nil {
-		panic(err)
-	}
-	a.screenReplacement <- screen
-	// One key event will get lost, see https://github.com/gdamore/tcell/issues/194
 
 	// Continue application loop.
 	return true
