@@ -270,12 +270,10 @@ var SemigraphicJoints = map[string]rune{
 }
 
 // PrintJoinedSemigraphics prints a semigraphics rune into the screen at the given
-// position with the given color, joining it with any existing semigraphics
-// rune. Background colors are preserved. At this point, only regular single
-// line borders are supported.
-func PrintJoinedSemigraphics(screen tcell.Screen, x, y int, ch rune, color tcell.Color) {
-	previous, _, style, _ := screen.GetContent(x, y)
-	style = style.Foreground(color)
+// position with the given style, joining it with any existing semigraphics
+// rune.At this point, only regular single line borders are supported.
+func PrintJoinedSemigraphics(screen tcell.Screen, x, y int, ch rune, style tcell.Style) {
+	previous, _, _, _ := screen.GetContent(x, y)
 
 	// What's the resulting rune?
 	var result rune

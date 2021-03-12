@@ -1005,7 +1005,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	}
 
 	// Draw the buffer.
-	defaultStyle := tcell.StyleDefault.Foreground(t.textColor)
+	defaultStyle := tcell.StyleDefault.Foreground(t.textColor).Background(t.backgroundColor)
 	for line := t.lineOffset; line < len(t.index); line++ {
 		// Are we done?
 		if line-t.lineOffset >= height || y+line-t.lineOffset >= totalHeight {
@@ -1089,9 +1089,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				}
 
 				// Mix the existing style with the new style.
-				_, _, existingStyle, _ := screen.GetContent(x+posX, y+line-t.lineOffset)
-				_, background, _ := existingStyle.Decompose()
-				style := overlayStyle(background, defaultStyle, foregroundColor, backgroundColor, attributes)
+				style := overlayStyle(defaultStyle, foregroundColor, backgroundColor, attributes)
 
 				// Do we highlight this character?
 				var highlighted bool
@@ -1102,7 +1100,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 				}
 				if highlighted {
 					fg, bg, _ := style.Decompose()
-					if bg == tcell.ColorDefault {
+					if bg == t.backgroundColor {
 						r, g, b := fg.RGB()
 						c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
 						_, _, li := c.Hcl()

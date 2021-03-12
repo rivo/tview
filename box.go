@@ -26,6 +26,9 @@ type Box struct {
 	// The box's background color.
 	backgroundColor tcell.Color
 
+	// If set to true, the background of this box is not cleared while drawing.
+	dontClear bool
+
 	// Whether or not a border is drawn, reducing the box's space for content by
 	// two in width and height.
 	border bool
@@ -66,7 +69,7 @@ func NewBox() *Box {
 		height:          10,
 		innerX:          -1, // Mark as uninitialized.
 		backgroundColor: Styles.PrimitiveBackgroundColor,
-		borderStyle:     tcell.StyleDefault.Foreground(Styles.BorderColor),
+		borderStyle:     tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
 		titleColor:      Styles.TitleColor,
 		titleAlign:      AlignCenter,
 	}
@@ -335,7 +338,7 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 
 	// Fill background.
 	background := def.Background(b.backgroundColor)
-	if b.backgroundColor != tcell.ColorDefault {
+	if !b.dontClear {
 		for y := b.y; y < b.y+b.height; y++ {
 			for x := b.x; x < b.x+b.width; x++ {
 				screen.SetContent(x, y, ' ', nil, background)

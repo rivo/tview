@@ -477,7 +477,7 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 
 		// Main text.
-		_, printedWidth, _, end := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.mainTextColor))
+		_, printedWidth, _, end := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.mainTextColor), true)
 		if printedWidth > maxWidth {
 			maxWidth = printedWidth
 		}
@@ -513,7 +513,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Secondary text.
 		if l.showSecondaryText {
-			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.secondaryTextColor))
+			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.secondaryTextColor), true)
 			if printedWidth > maxWidth {
 				maxWidth = printedWidth
 			}
