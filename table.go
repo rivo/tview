@@ -1156,7 +1156,12 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				if t.columnsSelectable {
 					t.selectedColumn--
 					if t.selectedColumn < 0 {
-						t.selectedColumn = 0
+						t.selectedColumn = t.lastColumn
+						t.selectedRow--
+						if t.selectedRow < 0 {
+							t.selectedRow = 0
+							t.selectedColumn = 0
+						}
 					}
 					previous()
 				} else {
