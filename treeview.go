@@ -774,6 +774,8 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyEnter:
 			selectNode()
 		}
+
+		t.process()
 	})
 }
 
