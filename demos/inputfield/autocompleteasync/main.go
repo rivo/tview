@@ -12,7 +12,7 @@ import (
 )
 
 type company struct {
-	Name string `json:name`
+	Name string `json:"name"`
 }
 
 func main() {
