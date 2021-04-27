@@ -88,6 +88,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [Browse your AWS ECS Clusters in the Terminal](https://github.com/swartzrock/ecsview)
 - [The CLI Task Manager for Geeks](https://github.com/ajaxray/geek-life)
 - [Fast disk usage analyzer written in Go](https://github.com/dundee/gdu)
+- [Scriptable TUI music player](https://github.com/issadarkthing/gomu)
 
 ## Documentation
 
