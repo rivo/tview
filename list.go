@@ -45,6 +45,9 @@ type List struct {
 	// The background color for selected items.
 	selectedBackgroundColor tcell.Color
 
+	// Whether or not to reverse color for selected items.
+	selectedReverseColor bool
+
 	// If true, the selection is only shown when the list has focus.
 	selectedFocusOnly bool
 
@@ -221,6 +224,14 @@ func (l *List) SetSelectedTextColor(color tcell.Color) *List {
 // SetSelectedBackgroundColor sets the background color of selected items.
 func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
 	l.selectedBackgroundColor = color
+	return l
+}
+
+// SetSelectedReverseColor sets a flag which determines if the colors
+// of the selected items are reversed. If set to true, the colors set by
+// SetSelectedTextColor and SetSelectedBackgroundColor are ignored.
+func (l *List) SetSelectedReverseColor(reverse bool) *List {
+	l.selectedReverseColor = reverse
 	return l
 }
 
@@ -500,7 +511,11 @@ func (l *List) Draw(screen tcell.Screen) {
 				if fg == l.mainTextColor {
 					fg = l.selectedTextColor
 				}
-				style = style.Background(l.selectedBackgroundColor).Foreground(fg)
+                if l.selectedReverseColor {
+                    style = style.Reverse(true)
+                } else {
+                    style = style.Background(l.selectedBackgroundColor).Foreground(fg)
+                }
 				screen.SetContent(x+bx, y, m, c, style)
 			}
 		}
