@@ -90,6 +90,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [Fast disk usage analyzer written in Go](https://github.com/dundee/gdu)
 - [Multiplayer Chess On Terminal](https://github.com/qnkhuat/gochess)
 - [Scriptable TUI music player](https://github.com/issadarkthing/gomu)
+- [MangaDesk : TUI Client for downloading manga to your computer](https://github.com/darylhjd/mangadesk)
 
 ## Documentation
 
