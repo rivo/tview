@@ -30,23 +30,17 @@ type List struct {
 	// Whether or not to show the secondary item texts.
 	showSecondaryText bool
 
-	// The item main text color.
-	mainTextColor tcell.Color
+	// The item main text style.
+    mainTextStyle tcell.Style
 
-	// The item secondary text color.
-	secondaryTextColor tcell.Color
+	// The item secondary text style.
+    secondaryTextStyle tcell.Style
 
-	// The item shortcut text color.
-	shortcutColor tcell.Color
+	// The item shortcut text style.
+    shortcutStyle tcell.Style
 
-	// The text color for selected items.
-	selectedTextColor tcell.Color
-
-	// The background color for selected items.
-	selectedBackgroundColor tcell.Color
-
-	// Whether or not to reverse color for selected items.
-	selectedReverseColor bool
+	// The text style for selected items.
+	selectedTextStyle tcell.Style
 
 	// If true, the selection is only shown when the list has focus.
 	selectedFocusOnly bool
@@ -84,15 +78,15 @@ type List struct {
 
 // NewList returns a new form.
 func NewList() *List {
+	base := tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor)
 	return &List{
 		Box:                     NewBox(),
 		showSecondaryText:       true,
 		wrapAround:              true,
-		mainTextColor:           Styles.PrimaryTextColor,
-		secondaryTextColor:      Styles.TertiaryTextColor,
-		shortcutColor:           Styles.SecondaryTextColor,
-		selectedTextColor:       Styles.PrimitiveBackgroundColor,
-		selectedBackgroundColor: Styles.PrimaryTextColor,
+		mainTextStyle:           base.Foreground(Styles.PrimaryTextColor),
+		secondaryTextStyle:      base.Foreground(Styles.TertiaryTextColor),
+		shortcutStyle:           base.Foreground(Styles.SecondaryTextColor),
+		selectedTextStyle:       base.Foreground(Styles.PrimitiveBackgroundColor).Background(Styles.PrimaryTextColor),
 	}
 }
 
@@ -199,39 +193,31 @@ func (l *List) RemoveItem(index int) *List {
 
 // SetMainTextColor sets the color of the items' main text.
 func (l *List) SetMainTextColor(color tcell.Color) *List {
-	l.mainTextColor = color
+	l.mainTextStyle.Foreground(color)
 	return l
 }
 
 // SetSecondaryTextColor sets the color of the items' secondary text.
 func (l *List) SetSecondaryTextColor(color tcell.Color) *List {
-	l.secondaryTextColor = color
+	l.secondaryTextStyle.Foreground(color)
 	return l
 }
 
 // SetShortcutColor sets the color of the items' shortcut.
 func (l *List) SetShortcutColor(color tcell.Color) *List {
-	l.shortcutColor = color
+	l.shortcutStyle.Foreground(color)
 	return l
 }
 
 // SetSelectedTextColor sets the text color of selected items.
 func (l *List) SetSelectedTextColor(color tcell.Color) *List {
-	l.selectedTextColor = color
+	l.selectedTextStyle.Foreground(color)
 	return l
 }
 
 // SetSelectedBackgroundColor sets the background color of selected items.
 func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
-	l.selectedBackgroundColor = color
-	return l
-}
-
-// SetSelectedReverseColor sets a flag which determines if the colors
-// of the selected items are reversed. If set to true, the colors set by
-// SetSelectedTextColor and SetSelectedBackgroundColor are ignored.
-func (l *List) SetSelectedReverseColor(reverse bool) *List {
-	l.selectedReverseColor = reverse
+	l.selectedTextStyle.Background(color)
 	return l
 }
 
@@ -484,11 +470,11 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Shortcuts.
 		if showShortcuts && item.Shortcut != 0 {
-			Print(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 4, AlignRight, l.shortcutColor)
+			printWithStyle(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 0, 4, AlignRight, l.shortcutStyle, false)
 		}
 
 		// Main text.
-		_, printedWidth, _, end := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.mainTextColor), true)
+		_, printedWidth, _, end := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, l.mainTextStyle, false)
 		if printedWidth > maxWidth {
 			maxWidth = printedWidth
 		}
@@ -506,17 +492,8 @@ func (l *List) Draw(screen tcell.Screen) {
 			}
 
 			for bx := 0; bx < textWidth; bx++ {
-				m, c, style, _ := screen.GetContent(x+bx, y)
-				fg, _, _ := style.Decompose()
-				if fg == l.mainTextColor {
-					fg = l.selectedTextColor
-				}
-                if l.selectedReverseColor {
-                    style = style.Reverse(true)
-                } else {
-                    style = style.Background(l.selectedBackgroundColor).Foreground(fg)
-                }
-				screen.SetContent(x+bx, y, m, c, style)
+				m, c, _, _ := screen.GetContent(x+bx, y)
+				screen.SetContent(x+bx, y, m, c, l.selectedTextStyle)
 			}
 		}
 
@@ -528,7 +505,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Secondary text.
 		if l.showSecondaryText {
-			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.secondaryTextColor), true)
+			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, l.secondaryTextStyle, false)
 			if printedWidth > maxWidth {
 				maxWidth = printedWidth
 			}
