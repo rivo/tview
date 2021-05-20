@@ -197,15 +197,33 @@ func (l *List) SetMainTextColor(color tcell.Color) *List {
 	return l
 }
 
+// SetMainTextStyle sets the style of the items' main text.
+func (l *List) SetMainTextStyle(style tcell.Style) *List {
+	l.mainTextStyle = style
+	return l
+}
+
 // SetSecondaryTextColor sets the color of the items' secondary text.
 func (l *List) SetSecondaryTextColor(color tcell.Color) *List {
 	l.secondaryTextStyle.Foreground(color)
 	return l
 }
 
+// SetSecondaryTextStyle sets the style of the items' secondary text.
+func (l *List) SetSecondaryTextStyle(style tcell.Style) *List {
+	l.secondaryTextStyle = style
+	return l
+}
+
 // SetShortcutColor sets the color of the items' shortcut.
 func (l *List) SetShortcutColor(color tcell.Color) *List {
 	l.shortcutStyle.Foreground(color)
+	return l
+}
+
+// SetShortcutStyle sets the style of the items' shortcut.
+func (l *List) SetShortcutStyle(style tcell.Style) *List {
+	l.shortcutStyle = style
 	return l
 }
 
@@ -218,6 +236,12 @@ func (l *List) SetSelectedTextColor(color tcell.Color) *List {
 // SetSelectedBackgroundColor sets the background color of selected items.
 func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
 	l.selectedTextStyle.Background(color)
+	return l
+}
+
+// SetSelectedTextStyle sets the style of selected items.
+func (l *List) SetSelectedTextStyle(style tcell.Style) *List {
+	l.selectedTextStyle = style
 	return l
 }
 
