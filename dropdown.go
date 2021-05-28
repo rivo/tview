@@ -515,8 +515,8 @@ func (d *DropDown) MouseHandler() func(action MouseAction, event *tcell.EventMou
 	return d.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		// Was the mouse event in the drop-down box itself (or on its label)?
 		x, y := event.Position()
-		_, rectY, _, _ := d.GetInnerRect()
-		inRect := y == rectY
+		rectX, rectY, rectWidth, _ := d.GetInnerRect()
+		inRect := y == rectY && x >= rectX && x < rectX+rectWidth
 		if !d.open && !inRect {
 			return d.InRect(x, y), nil // No, and it's not expanded either. Ignore.
 		}
