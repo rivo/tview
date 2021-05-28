@@ -44,8 +44,8 @@ const (
 )
 
 // queuedUpdate represented the execution of f queued by
-// Application.QueueUpdate(). The "done" channel receives exactly one element
-// after f has executed.
+// Application.QueueUpdate(). If "done" is not nil, it receives exactly one
+// element after f has executed.
 type queuedUpdate struct {
 	f    func()
 	done chan struct{}
@@ -374,7 +374,9 @@ EventLoop:
 		// If we have updates, now is the time to execute them.
 		case update := <-a.updates:
 			update.f()
-			update.done <- struct{}{}
+			if update.done != nil {
+				update.done <- struct{}{}
+			}
 		}
 	}
 
@@ -604,6 +606,23 @@ func (a *Application) draw() *Application {
 	// Sync screen.
 	screen.Show()
 
+	return a
+}
+
+// Sync forces a full re-sync of the screen buffer with the actual screen during
+// the next event cycle. This is useful for when the terminal screen is
+// corrupted so you may want to offer your users a keyboard shortcut to refresh
+// the screen.
+func (a *Application) Sync() *Application {
+	a.updates <- queuedUpdate{f: func() {
+		a.RLock()
+		screen := a.screen
+		a.RUnlock()
+		if screen == nil {
+			return
+		}
+		screen.Sync()
+	}}
 	return a
 }
 
