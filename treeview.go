@@ -810,10 +810,10 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			}
 			consumed = true
 		case MouseScrollUp:
-			t.movement = treeUp
+			t.offsetY--
 			consumed = true
 		case MouseScrollDown:
-			t.movement = treeDown
+			t.offsetY++
 			consumed = true
 		}
 
