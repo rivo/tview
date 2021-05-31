@@ -632,7 +632,6 @@ func (f *Form) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 				if index >= 0 {
 					f.focusedElement = index
 				}
-				f.Focus(setFocus)
 			}
 		}()
 
