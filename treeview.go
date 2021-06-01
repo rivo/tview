@@ -15,6 +15,8 @@ const (
 	treePageDown
 	treeParent
 	treeChild
+	treeScrollUp // Move up without changing the selection, even when off screen.
+	treeScrollDown
 )
 
 // TreeNode represents one node in a tree view.
@@ -589,11 +591,13 @@ func (t *TreeView) process() {
 		selectedIndex = newSelectedIndex
 
 		// Move selection into viewport.
-		if selectedIndex-t.offsetY >= height {
-			t.offsetY = selectedIndex - height + 1
-		}
-		if selectedIndex < t.offsetY {
-			t.offsetY = selectedIndex
+		if t.movement != treeScrollDown && t.movement != treeScrollUp {
+			if selectedIndex-t.offsetY >= height {
+				t.offsetY = selectedIndex - height + 1
+			}
+			if selectedIndex < t.offsetY {
+				t.offsetY = selectedIndex
+			}
 		}
 	} else {
 		// If selection is not visible or selectable, select the first candidate.
@@ -625,9 +629,9 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 	// Scroll the tree.
 	x, y, width, height := t.GetInnerRect()
 	switch t.movement {
-	case treeUp:
+	case treeUp, treeScrollUp:
 		t.offsetY--
-	case treeDown:
+	case treeDown, treeScrollDown:
 		t.offsetY++
 	case treeHome:
 		t.offsetY = 0
@@ -810,10 +814,10 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			}
 			consumed = true
 		case MouseScrollUp:
-			t.offsetY--
+			t.movement = treeScrollUp
 			consumed = true
 		case MouseScrollDown:
-			t.offsetY++
+			t.movement = treeScrollDown
 			consumed = true
 		}
 
