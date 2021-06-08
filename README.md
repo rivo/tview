@@ -92,6 +92,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [Scriptable TUI music player](https://github.com/issadarkthing/gomu)
 - [MangaDesk : TUI Client for downloading manga to your computer](https://github.com/darylhjd/mangadesk)
 - [Go How Much? a Crypto coin price tracking from terminal](https://github.com/ledongthuc/gohowmuch)
+- [dbui: Universal CLI for Database Connections](https://github.com/KenanBek/dbui)
 
 ## Documentation
 
