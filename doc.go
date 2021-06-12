@@ -94,9 +94,9 @@ means "reset to default".
 You can specify the following flags (some flags may not be supported by your
 terminal):
 
-  l: blink
   b: bold
   d: dim
+  l: blink
   r: reverse (switch foreground and background color)
   u: underline
 
