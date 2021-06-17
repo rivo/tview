@@ -598,13 +598,13 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			} else {
 				finish(key)
 			}
-		case tcell.KeyDown:
+		case tcell.KeyDown, tcell.KeyCtrlN:
 			if i.autocompleteList != nil {
 				autocompleteSelect(1)
 			} else {
 				finish(key)
 			}
-		case tcell.KeyUp, tcell.KeyBacktab: // Autocomplete selection.
+		case tcell.KeyUp, tcell.KeyBacktab, tcell.KeyCtrlP: // Autocomplete selection.
 			if i.autocompleteList != nil {
 				autocompleteSelect(-1)
 			} else {
