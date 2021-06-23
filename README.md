@@ -93,6 +93,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [MangaDesk : TUI Client for downloading manga to your computer](https://github.com/darylhjd/mangadesk)
 - [Go How Much? a Crypto coin price tracking from terminal](https://github.com/ledongthuc/gohowmuch)
 - [dbui: Universal CLI for Database Connections](https://github.com/KenanBek/dbui)
+- [ssmbrowse: Simple and elegant cli AWS SSM parameter browser](https://github.com/bnaydenov/ssmbrowse)
 
 ## Documentation
 
