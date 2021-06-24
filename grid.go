@@ -412,9 +412,6 @@ func (g *Grid) Draw(screen tcell.Screen) {
 			row = g.rows[index]
 		}
 		if row > 0 {
-			if row < g.minHeight {
-				row = g.minHeight
-			}
 			continue // Not proportional. We already know the width.
 		} else if row == 0 {
 			row = 1
@@ -435,9 +432,6 @@ func (g *Grid) Draw(screen tcell.Screen) {
 			column = g.columns[index]
 		}
 		if column > 0 {
-			if column < g.minWidth {
-				column = g.minWidth
-			}
 			continue // Not proportional. We already know the height.
 		} else if column == 0 {
 			column = 1

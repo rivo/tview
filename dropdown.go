@@ -200,6 +200,17 @@ func (d *DropDown) SetPrefixTextColor(color tcell.Color) *DropDown {
 	return d
 }
 
+// SetListStyles sets the styles of the items in the drop-down list (unselected
+// as well as selected items). Style attributes are currently ignored but may be
+// used in the future.
+func (d *DropDown) SetListStyles(unselected, selected tcell.Style) *DropDown {
+	fg, bg, _ := unselected.Decompose()
+	d.list.SetMainTextColor(fg).SetBackgroundColor(bg)
+	fg, bg, _ = selected.Decompose()
+	d.list.SetSelectedTextColor(fg).SetSelectedBackgroundColor(bg)
+	return d
+}
+
 // SetFormAttributes sets attributes shared by all form items.
 func (d *DropDown) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
 	d.labelWidth = labelWidth
