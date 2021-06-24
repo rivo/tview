@@ -212,7 +212,7 @@ func (a *Application) EnableMouse(enable bool) *Application {
 // when Stop() was called.
 func (a *Application) Run() error {
 	var (
-		err         error
+		err, appErr error
 		lastRedraw  time.Time   // The time the screen was last redrawn.
 		redrawTimer *time.Timer // A timer to schedule the next redraw.
 	)
@@ -326,6 +326,7 @@ EventLoop:
 				// Ctrl-C closes the application.
 				if event.Key() == tcell.KeyCtrlC {
 					a.Stop()
+					break
 				}
 
 				// Pass other key events to the root primitive.
@@ -369,6 +370,9 @@ EventLoop:
 				if isMouseDownAction {
 					a.mouseDownX, a.mouseDownY = event.Position()
 				}
+			case *tcell.EventError:
+				appErr = event
+				a.Stop()
 			}
 
 		// If we have updates, now is the time to execute them.
@@ -384,7 +388,7 @@ EventLoop:
 	wg.Wait()
 	a.screen = nil
 
-	return nil
+	return appErr
 }
 
 // fireMouseActions analyzes the provided mouse event, derives mouse actions
