@@ -346,6 +346,8 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 		}
 	}
 
+	borderStyle := b.borderStyle.Background(b.backgroundColor)
+
 	// Draw border.
 	if b.border && b.width >= 2 && b.height >= 2 {
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
@@ -365,17 +367,17 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 			bottomRight = Borders.BottomRight
 		}
 		for x := b.x + 1; x < b.x+b.width-1; x++ {
-			screen.SetContent(x, b.y, horizontal, nil, b.borderStyle)
-			screen.SetContent(x, b.y+b.height-1, horizontal, nil, b.borderStyle)
+			screen.SetContent(x, b.y, horizontal, nil, borderStyle)
+			screen.SetContent(x, b.y+b.height-1, horizontal, nil, borderStyle)
 		}
 		for y := b.y + 1; y < b.y+b.height-1; y++ {
-			screen.SetContent(b.x, y, vertical, nil, b.borderStyle)
-			screen.SetContent(b.x+b.width-1, y, vertical, nil, b.borderStyle)
+			screen.SetContent(b.x, y, vertical, nil, borderStyle)
+			screen.SetContent(b.x+b.width-1, y, vertical, nil, borderStyle)
 		}
-		screen.SetContent(b.x, b.y, topLeft, nil, b.borderStyle)
-		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, b.borderStyle)
-		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, b.borderStyle)
-		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, b.borderStyle)
+		screen.SetContent(b.x, b.y, topLeft, nil, borderStyle)
+		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, borderStyle)
+		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, borderStyle)
+		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, borderStyle)
 
 		// Draw title.
 		if b.title != "" && b.width >= 4 {
