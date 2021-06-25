@@ -1,0 +1,21 @@
+╔═════════════╗    
+║package main ║    
+║             ║    
+║import "fmt" ║    
+║             ║    
+║func main() {║    
+║fmt.Println("║    
+║Hello, 世n界)")║    
+║Ъ█           ║    
+╚═════════════╝    
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+Cursor {x:2,y:8} true

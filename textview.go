@@ -142,6 +142,10 @@ type TextView struct {
 	// If set to true, the text view will always remain at the end of the content.
 	trackEnd bool
 
+	// If set to true, the text view do not use trackEnd.
+	// Used in TextArea.
+	trackOff bool
+
 	// The number of characters to be skipped on each line (not in wrap mode).
 	columnOffset int
 
@@ -216,7 +220,7 @@ func NewTextView() *TextView {
 // the last line will always be visible.
 func (t *TextView) SetScrollable(scrollable bool) *TextView {
 	t.scrollable = scrollable
-	if !scrollable {
+	if !scrollable && !t.trackOff {
 		t.trackEnd = true
 	}
 	return t
@@ -406,7 +410,9 @@ func (t *TextView) ScrollToEnd() *TextView {
 	if !t.scrollable {
 		return t
 	}
-	t.trackEnd = true
+	if !t.trackOff {
+		t.trackEnd = true
+	}
 	t.columnOffset = 0
 	return t
 }
@@ -965,10 +971,10 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	t.scrollToHighlights = false
 
 	// Adjust line offset.
-	if t.lineOffset+height > len(t.index) {
+	if t.lineOffset+height > len(t.index) && !t.trackOff {
 		t.trackEnd = true
 	}
-	if t.trackEnd {
+	if t.trackEnd && !t.trackOff {
 		t.lineOffset = len(t.index) - height
 	}
 	if t.lineOffset < 0 {
@@ -1218,6 +1224,9 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyPgUp, tcell.KeyCtrlB:
 			t.trackEnd = false
 			t.lineOffset -= t.pageSize
+		}
+		if t.trackOff {
+			t.trackEnd = false
 		}
 	})
 }
