@@ -77,6 +77,18 @@ func (m *Modal) SetButtonTextColor(color tcell.Color) *Modal {
 	return m
 }
 
+// SetBorderColor sets the color of the border.
+func (m *Modal) SetBorderColor(color tcell.Color) *Modal {
+	m.frame.SetBorderColor(color)
+	return m
+}
+
+// SetBorder enables or disables the display of the border
+func (m *Modal) SetBorder(show bool) *Modal {
+	m.frame.SetBorder(show)
+	return m
+}
+
 // SetDoneFunc sets a handler which is called when one of the buttons was
 // pressed. It receives the index of the button as well as its label text. The
 // handler is also called when the user presses the Escape key. The index will
