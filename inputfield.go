@@ -213,6 +213,42 @@ func (i *InputField) SetAutocompleteFunc(callback func(currentText string) (entr
 	return i
 }
 
+// SetAutocompleteMainTextColor sets the autocomplete main text color.
+func (i *InputField) SetAutocompleteMainTextColor(color tcell.Color) *InputField {
+	if i.autocompleteList != nil {
+		i.autocompleteList.SetMainTextColor(color)
+	}
+
+	return i
+}
+
+// SetAutocompleteBackgroundColor sets the autocomplete background color.
+func (i *InputField) SetAutocompleteBackgroundColor(color tcell.Color) *InputField {
+	if i.autocompleteList != nil {
+		i.autocompleteList.SetBackgroundColor(color)
+	}
+
+	return i
+}
+
+// SetAutocompleteSelectedTextColor sets the autocomplete selected text color.
+func (i *InputField) SetAutocompleteSelectedTextColor(color tcell.Color) *InputField {
+	if i.autocompleteList != nil {
+		i.autocompleteList.SetSelectedTextColor(color)
+	}
+
+	return i
+}
+
+// SetAutocompleteBackgroundColor sets the autocomplete selected background color.
+func (i *InputField) SetAutocompleteSelectedBackgroundColor(color tcell.Color) *InputField {
+	if i.autocompleteList != nil {
+		i.autocompleteList.SetSelectedBackgroundColor(color)
+	}
+
+	return i
+}
+
 // Autocomplete invokes the autocomplete callback (if there is one). If the
 // length of the returned autocomplete entries slice is greater than 0, the
 // input field will present the user with a corresponding drop-down list the
