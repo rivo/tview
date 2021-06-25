@@ -52,6 +52,12 @@ func (p *Pages) GetPageCount() int {
 	return len(p.pages)
 }
 
+// GetPage gets the page at the specified index, regardless of its visibility.
+// Panics if index < 0 or >= GetPageCount()
+func (p *Pages) GetPage(index int) (name string, item Primitive) {
+	return p.pages[index].Name, p.pages[index].Item
+}
+
 // AddPage adds a new page with the given name and primitive. If there was
 // previously a page with the same name, it is overwritten. Leaving the name
 // empty may cause conflicts in other functions so always specify a non-empty
