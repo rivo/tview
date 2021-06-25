@@ -42,6 +42,9 @@ type List struct {
 	// The text color for selected items.
 	selectedTextColor tcell.Color
 
+	// The style attributes for selected items.
+	selectedTextAttributes tcell.AttrMask
+
 	// The background color for selected items.
 	selectedBackgroundColor tcell.Color
 
@@ -215,6 +218,12 @@ func (l *List) SetShortcutColor(color tcell.Color) *List {
 // SetSelectedTextColor sets the text color of selected items.
 func (l *List) SetSelectedTextColor(color tcell.Color) *List {
 	l.selectedTextColor = color
+	return l
+}
+
+// SetSelectedTextAttributes sets the style attributes of selected items.
+func (l *List) SetSelectedTextAttributes(attr tcell.AttrMask) *List {
+	l.selectedTextAttributes = attr
 	return l
 }
 
@@ -500,7 +509,7 @@ func (l *List) Draw(screen tcell.Screen) {
 				if fg == l.mainTextColor {
 					fg = l.selectedTextColor
 				}
-				style = style.Background(l.selectedBackgroundColor).Foreground(fg)
+				style = style.Background(l.selectedBackgroundColor).Foreground(fg) | tcell.Style(l.selectedTextAttributes)
 				screen.SetContent(x+bx, y, m, c, style)
 			}
 		}
