@@ -1,6 +1,6 @@
 module github.com/rivo/tview
 
-go 1.12
+go 1.16
 
 require (
 	github.com/gdamore/tcell/v2 v2.3.3
