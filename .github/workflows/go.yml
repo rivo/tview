@@ -11,6 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: golangci-lint
+      continue-on-error: true
       uses: golangci/golangci-lint-action@v2
       with:
         version: latest
