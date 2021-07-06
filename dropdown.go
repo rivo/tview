@@ -29,7 +29,7 @@ type DropDown struct {
 	// currently selected.
 	currentOption int
 
-	// Strings to be placed beefore and after the current option.
+	// Strings to be placed before and after the current option.
 	currentOptionPrefix, currentOptionSuffix string
 
 	// The text to be displayed when no option has yet been selected.
