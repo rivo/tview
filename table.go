@@ -187,12 +187,13 @@ func (c *TableCell) SetClickedFunc(clicked func() bool) *TableCell {
 	return c
 }
 
-// TableContent provides access to a Table's data. You may replace the Table
-// class's default implementation with your own using the Table.SetContent()
-// function. This will allow you to turn Table into a view of your own data
-// structure. The Table.Draw() function which is called when the screen is
-// updated, will then use the (read-only) functions of this interface to update
-// the table.
+// TableContent defines a Table's data. You may replace a Table's default
+// implementation with your own using the Table.SetContent() function. This will
+// allow you to turn Table into a view of your own data structure. The
+// Table.Draw() function, which is called when the screen is updated, will then
+// use the (read-only) functions of this interface to update the table. The
+// write functions are only called when the corresponding functions of Table are
+// called.
 //
 // The interface's read-only functions are not called concurrently by the
 // package (provided that users of the package don't call Table.Draw() in a
@@ -213,8 +214,8 @@ type TableContent interface {
 	// original Table implementation was not read-only. If you do not wish to
 	// forward modifying operations to your data, you may opt to leave these
 	// functions empty. To make this easier, you can include the
-	// TableContentReadOnly type in your struct. See also the demos/virtualtable
-	// example.
+	// TableContentReadOnly type in your struct. See also the
+	// demos/table/virtualtable example.
 
 	// Set the cell at the given position to the provided cell.
 	SetCell(row, column int, cell *TableCell)
@@ -242,10 +243,10 @@ type TableContent interface {
 }
 
 // TableContentReadOnly is an empty struct which implements the write operations
-// if the TableContent interface. None of the implemented functions do anything.
-// You can embed this struct into your own structs to free you from implementing
-// the empty write functions of TableContent. See demos/virtualtable for an
-// example.
+// of the TableContent interface. None of the implemented functions do anything.
+// You can embed this struct into your own structs to free yourself from having
+// to implement the empty write functions of TableContent. See
+// demos/table/virtualtable for an example.
 type TableContentReadOnly struct{}
 
 // SetCell does not do anything.
@@ -1317,14 +1318,15 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 					}
 					t.selectedColumn--
 					if t.selectedColumn < 0 {
+						t.selectedColumn = lastColumn
 						t.selectedRow--
 						if t.selectedRow < 0 {
 							t.selectedRow = rowCount - 1
 						}
 					}
 					if t.selectedColumn == startColumn && t.selectedRow == startRow {
-						t.selectedColumn = -1
-						t.selectedRow = -1
+						t.selectedColumn = 0
+						t.selectedRow = 0
 						return
 					}
 				}
@@ -1351,8 +1353,8 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 						t.selectedColumn++
 					}
 					if t.selectedColumn == startColumn && t.selectedRow == startRow {
-						t.selectedColumn = -1
-						t.selectedRow = -1
+						t.selectedColumn = 0
+						t.selectedRow = 0
 						return
 					}
 				}
@@ -1387,7 +1389,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				if t.rowsSelectable {
 					t.selectedRow++
 					if t.selectedRow >= rowCount {
-						t.selectedRow = rowCount - 1
+						t.selectedRow = 0
 					}
 					t.clampToSelection = true
 					next()
