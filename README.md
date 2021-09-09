@@ -94,6 +94,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [Go How Much? a Crypto coin price tracking from terminal](https://github.com/ledongthuc/gohowmuch)
 - [dbui: Universal CLI for Database Connections](https://github.com/KenanBek/dbui)
 - [ssmbrowse: Simple and elegant cli AWS SSM parameter browser](https://github.com/bnaydenov/ssmbrowse)
+- [viddy: A modern watch command](https://github.com/sachaos/viddy)
 
 ## Documentation
 
