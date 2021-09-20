@@ -116,3 +116,7 @@ I try really hard to keep this project backwards compatible. Your software shoul
 ## Your Feedback
 
 Add your issue here on GitHub. Feel free to get in touch if you have any questions.
+
+## Code of Conduct
+
+We follow Golang's Code of Conduct which you can find [here](https://golang.org/conduct).
