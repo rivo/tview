@@ -456,6 +456,11 @@ type Table struct {
 	// current selection to remain visible. Set to false afterwards.
 	clampToSelection bool
 
+	// If set to true, moving the selection will wrap around horizontally (last
+	// to first column and vice versa) or vertically (last to first row and vice
+	// versa).
+	wrapHorizontally, wrapVertically bool
+
 	// The number of rows/columns by which the table is scrolled down/to the
 	// right.
 	rowOffset, columnOffset int
@@ -804,6 +809,22 @@ func (t *Table) ScrollToEnd() *Table {
 	t.trackEnd = true
 	t.columnOffset = 0
 	t.rowOffset = t.content.GetRowCount()
+	return t
+}
+
+// SetWrapSelection determines whether a selection wraps vertically or
+// horizontally when moved. Vertically wrapping selections will jump from the
+// last selectable row to the first selectable row and vice versa. Horizontally
+// wrapping selections will jump from the last selectable column to the first
+// selectable column (on the next selectable row) or from the first selectable
+// column to the last selectable column (on the previous selectable row). If set
+// to false, the selection is not moved when it is already on the first/last
+// selectable row/column.
+//
+// The default is for both values to be false.
+func (t *Table) SetWrapSelection(vertical, horizontal bool) *Table {
+	t.wrapHorizontally = horizontal
+	t.wrapVertically = vertical
 	return t
 }
 
@@ -1387,12 +1408,18 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 
 			down = func() {
 				if t.rowsSelectable {
+					startRow := t.selectedRow
 					t.selectedRow++
 					if t.selectedRow >= rowCount {
 						t.selectedRow = 0
 					}
 					t.clampToSelection = true
 					next()
+					if !t.wrapVertically && t.selectedRow < startRow {
+						t.selectedRow = rowCount - 1
+						t.selectedColumn = lastColumn
+						previous()
+					}
 				} else {
 					t.rowOffset++
 				}
@@ -1400,12 +1427,18 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 
 			up = func() {
 				if t.rowsSelectable {
+					startRow := t.selectedRow
 					t.selectedRow--
 					if t.selectedRow < 0 {
-						t.selectedRow = 0
+						t.selectedRow = rowCount - 1
 					}
 					t.clampToSelection = true
 					previous()
+					if !t.wrapVertically && t.selectedRow > startRow {
+						t.selectedRow = 0
+						t.selectedColumn = 0
+						next()
+					}
 				} else {
 					t.trackEnd = false
 					t.rowOffset--
@@ -1414,6 +1447,8 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 
 			left = func() {
 				if t.columnsSelectable {
+					startRow := t.selectedRow
+					startColumn := t.selectedColumn
 					t.selectedColumn--
 					if t.selectedColumn < 0 {
 						t.selectedColumn = lastColumn
@@ -1424,6 +1459,11 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 					}
 					t.clampToSelection = true
 					previous()
+					if !t.wrapHorizontally && (t.selectedRow != startRow || t.selectedColumn > startColumn) ||
+						!t.wrapVertically && t.selectedRow > startRow {
+						t.selectedRow = startRow
+						t.selectedColumn = startColumn
+					}
 				} else {
 					t.columnOffset--
 				}
@@ -1431,9 +1471,16 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 
 			right = func() {
 				if t.columnsSelectable {
+					startRow := t.selectedRow
+					startColumn := t.selectedColumn
 					t.selectedColumn++
 					t.clampToSelection = true
 					next()
+					if !t.wrapHorizontally && (t.selectedRow != startRow || t.selectedColumn < startColumn) ||
+						!t.wrapVertically && t.selectedRow < startRow {
+						t.selectedRow = startRow
+						t.selectedColumn = startColumn
+					}
 				} else {
 					t.columnOffset++
 				}
@@ -1446,12 +1493,18 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				}
 
 				if t.rowsSelectable {
+					startRow := t.selectedRow
 					t.selectedRow += offsetAmount
 					if t.selectedRow >= rowCount {
 						t.selectedRow = rowCount - 1
 					}
 					t.clampToSelection = true
 					next()
+					if !t.wrapVertically && t.selectedRow < startRow {
+						t.selectedRow = rowCount - 1
+						t.selectedColumn = lastColumn
+						previous()
+					}
 				} else {
 					t.rowOffset += offsetAmount
 				}
@@ -1464,12 +1517,18 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				}
 
 				if t.rowsSelectable {
+					startRow := t.selectedRow
 					t.selectedRow -= offsetAmount
 					if t.selectedRow < 0 {
 						t.selectedRow = 0
 					}
 					t.clampToSelection = true
 					previous()
+					if !t.wrapVertically && t.selectedRow > startRow {
+						t.selectedRow = 0
+						t.selectedColumn = 0
+						next()
+					}
 				} else {
 					t.trackEnd = false
 					t.rowOffset -= offsetAmount
