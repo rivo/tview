@@ -637,7 +637,7 @@ func (t *Table) GetOffset() (row, column int) {
 // are evaluated. When true, all rows in the table are evaluated.
 //
 // Set this flag to true to avoid shifting column widths when the table is
-// scrolled. (May be slower for large tables.)
+// scrolled. (May come with a performance penalty for large tables.)
 //
 // Use with caution on very large tables, especially those not backed by the
 // default TableContent data structure.
