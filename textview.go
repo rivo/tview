@@ -281,7 +281,10 @@ func (t *TextView) SetTextColor(color tcell.Color) *TextView {
 // SetText sets the text of this text view to the provided string. Previously
 // contained text will be removed.
 func (t *TextView) SetText(text string) *TextView {
-	t.Clear()
+	t.Lock()
+	defer t.Unlock()
+
+	t.clear()
 	fmt.Fprint(t, text)
 	return t
 }
