@@ -96,6 +96,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [ssmbrowse: Simple and elegant cli AWS SSM parameter browser](https://github.com/bnaydenov/ssmbrowse)
 - [gobit: binance intelligence terminal](https://github.com/infl00p/gobit)
 - [viddy: A modern watch command](https://github.com/sachaos/viddy)
+- [s3surfer: CLI tool for browsing S3 bucket and download objects interactively](https://github.com/hirose31/s3surfer)
 
 ## Documentation
 
