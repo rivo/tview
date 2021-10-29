@@ -281,7 +281,10 @@ func (t *TextView) SetTextColor(color tcell.Color) *TextView {
 // SetText sets the text of this text view to the provided string. Previously
 // contained text will be removed.
 func (t *TextView) SetText(text string) *TextView {
-	t.Clear()
+	t.Lock()
+	defer t.Unlock()
+
+	t.clear()
 	fmt.Fprint(t, text)
 	return t
 }
@@ -419,10 +422,20 @@ func (t *TextView) GetScrollOffset() (row, column int) {
 
 // Clear removes all text from the buffer.
 func (t *TextView) Clear() *TextView {
+	t.Lock()
+	defer t.Unlock()
+
+	t.clear()
+	return t
+}
+
+// clear is the internal implementaton of clear.
+// It is used by TextViewWriter and anywhere that we need to perform a write
+// without locking the buffer.
+func (t *TextView) clear() {
 	t.buffer = nil
 	t.recentBytes = nil
 	t.index = nil
-	return t
 }
 
 // Highlight specifies which regions should be highlighted. If highlight
@@ -622,10 +635,18 @@ func (t *TextView) HasFocus() bool {
 // replaced with TabSize space characters. A "\n" or "\r\n" will be interpreted
 // as a new line.
 func (t *TextView) Write(p []byte) (n int, err error) {
-	// Notify at the end.
 	t.Lock()
+	defer t.Unlock()
+
+	return t.write(p)
+}
+
+// write is the internal implementation of Write.
+// It is used by TextViewWriter and anywhere that we need to perform a write
+// without locking the buffer.
+func (t *TextView) write(p []byte) (n int, err error) {
+	// Notify at the end.
 	changed := t.changed
-	t.Unlock()
 	if changed != nil {
 		defer func() {
 			// We always call the "changed" function in a separate goroutine to avoid
@@ -633,9 +654,6 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 			go changed()
 		}()
 	}
-
-	t.Lock()
-	defer t.Unlock()
 
 	// Copy data over.
 	newBytes := append(t.recentBytes, p...)
@@ -1258,4 +1276,46 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 
 		return
 	})
+}
+
+// TextViewWriter is a writer that can be used to write and clear a TextView in
+// batches (ie. multiple writes with the lock only being aquired once).
+// It should not be instantiated directly and should instead only be created by
+// TextView's BatchWriter method.
+type TextViewWriter struct {
+	t *TextView
+}
+
+// Close implements io.Closer for the writer by unlocking the original TextView.
+func (w TextViewWriter) Close() error {
+	w.t.Unlock()
+	return nil
+}
+
+// Clear removes all text from the buffer.
+func (w TextViewWriter) Clear() {
+	w.t.clear()
+}
+
+// Write implements the io.Writer interface.
+// It behaves like the TextView's Write method except that it does not aquire
+// the lock.
+func (w TextViewWriter) Write(p []byte) (n int, err error) {
+	return w.t.write(p)
+}
+
+// HasFocus returns whether the underlying TextView has focus.
+func (w TextViewWriter) HasFocus() bool {
+	return w.t.hasFocus
+}
+
+// BatchWriter returns a new writer that can be used to write into the buffer
+// but without Locking/Unlocking the buffer on every write.
+// The lock will only be aquired once when BatchWriter is called, and will be
+// released when the returned writer is Closed.
+func (t *TextView) BatchWriter() TextViewWriter {
+	t.Lock()
+	return TextViewWriter{
+		t: t,
+	}
 }
