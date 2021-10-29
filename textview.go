@@ -311,11 +311,11 @@ func (t *TextView) SetTextColor(color tcell.Color) *TextView {
 // SetText sets the text of this text view to the provided string. Previously
 // contained text will be removed.
 func (t *TextView) SetText(text string) *TextView {
-	t.Lock()
-	defer t.Unlock()
+	batch := t.BatchWriter()
+	defer batch.Close()
 
-	t.clear()
-	fmt.Fprint(t, text)
+	batch.Clear()
+	fmt.Fprint(batch, text)
 	return t
 }
 
