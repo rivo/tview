@@ -6,8 +6,10 @@ import (
 
 // Configuration values.
 const (
-	FlexRow = iota
-	FlexColumn
+	FlexRow       = 0 // One item per row.
+	FlexColumn    = 1 // One item per column.
+	FlexRowCSS    = 1 // As defined in CSS, items distributed along a row.
+	FlexColumnCSS = 0 // As defined in CSS, items distributed within a column.
 )
 
 // flexItem holds layout options for one item.
@@ -58,7 +60,9 @@ func NewFlex() *Flex {
 }
 
 // SetDirection sets the direction in which the contained primitives are
-// distributed. This can be either FlexColumn (default) or FlexRow.
+// distributed. This can be either FlexColumn (default) or FlexRow. Note that
+// these are the opposite of what you would expect coming from CSS. You may also
+// use FlexColumnCSS or FlexRowCSS, to remain in line with the CSS definition.
 func (f *Flex) SetDirection(direction int) *Flex {
 	f.direction = direction
 	return f
