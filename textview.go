@@ -45,6 +45,36 @@ type textViewRegion struct {
 	FromX, FromY, ToX, ToY int
 }
 
+// TextViewWriter is a writer that can be used to write to and clear a TextView
+// in batches, i.e. multiple writes with the lock only being aquired once. Don't
+// instantiated this class directly but use the TextView's BatchWriter method
+// instead.
+type TextViewWriter struct {
+	t *TextView
+}
+
+// Close implements io.Closer for the writer by unlocking the original TextView.
+func (w TextViewWriter) Close() error {
+	w.t.Unlock()
+	return nil
+}
+
+// Clear removes all text from the buffer.
+func (w TextViewWriter) Clear() {
+	w.t.clear()
+}
+
+// Write implements the io.Writer interface. It behaves like the TextView's
+// Write() method except that it does not aquire the lock.
+func (w TextViewWriter) Write(p []byte) (n int, err error) {
+	return w.t.write(p)
+}
+
+// HasFocus returns whether the underlying TextView has focus.
+func (w TextViewWriter) HasFocus() bool {
+	return w.t.hasFocus
+}
+
 // TextView is a box which displays text. It implements the io.Writer interface
 // so you can stream text to it. This does not trigger a redraw automatically
 // but if a handler is installed via SetChangedFunc(), you can cause it to be
@@ -429,9 +459,8 @@ func (t *TextView) Clear() *TextView {
 	return t
 }
 
-// clear is the internal implementaton of clear.
-// It is used by TextViewWriter and anywhere that we need to perform a write
-// without locking the buffer.
+// clear is the internal implementaton of clear. It is used by TextViewWriter
+// and anywhere that we need to perform a write without locking the buffer.
 func (t *TextView) clear() {
 	t.buffer = nil
 	t.recentBytes = nil
@@ -641,9 +670,8 @@ func (t *TextView) Write(p []byte) (n int, err error) {
 	return t.write(p)
 }
 
-// write is the internal implementation of Write.
-// It is used by TextViewWriter and anywhere that we need to perform a write
-// without locking the buffer.
+// write is the internal implementation of Write. It is used by TextViewWriter
+// and anywhere that we need to perform a write without locking the buffer.
 func (t *TextView) write(p []byte) (n int, err error) {
 	// Notify at the end.
 	changed := t.changed
@@ -701,6 +729,30 @@ func (t *TextView) write(p []byte) (n int, err error) {
 	t.index = nil
 
 	return len(p), nil
+}
+
+// BatchWriter returns a new writer that can be used to write into the buffer
+// but without Locking/Unlocking the buffer on every write, as TextView's
+// Write() and Clear() functions do. The lock will be aquired once when
+// BatchWriter is called, and will be released when the returned writer is
+// closed. Example:
+//
+//   tv := tview.NewTextView()
+//   w := tv.BatchWriter()
+//   defer w.Close()
+//   w.Clear()
+//   fmt.Fprintln(w, "To sit in solemn silence")
+//   fmt.Fprintln(w, "on a dull, dark, dock")
+//   fmt.Println(tv.GetText(false))
+//
+// Note that using the batch writer requires you to manage any issues that may
+// arise from concurrency yourself. See
+// https://github.com/rivo/tview/wiki/Concurrency for details.
+func (t *TextView) BatchWriter() TextViewWriter {
+	t.Lock()
+	return TextViewWriter{
+		t: t,
+	}
 }
 
 // reindexBuffer re-indexes the buffer such that we can use it to easily draw
@@ -1276,46 +1328,4 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 
 		return
 	})
-}
-
-// TextViewWriter is a writer that can be used to write and clear a TextView in
-// batches (ie. multiple writes with the lock only being aquired once).
-// It should not be instantiated directly and should instead only be created by
-// TextView's BatchWriter method.
-type TextViewWriter struct {
-	t *TextView
-}
-
-// Close implements io.Closer for the writer by unlocking the original TextView.
-func (w TextViewWriter) Close() error {
-	w.t.Unlock()
-	return nil
-}
-
-// Clear removes all text from the buffer.
-func (w TextViewWriter) Clear() {
-	w.t.clear()
-}
-
-// Write implements the io.Writer interface.
-// It behaves like the TextView's Write method except that it does not aquire
-// the lock.
-func (w TextViewWriter) Write(p []byte) (n int, err error) {
-	return w.t.write(p)
-}
-
-// HasFocus returns whether the underlying TextView has focus.
-func (w TextViewWriter) HasFocus() bool {
-	return w.t.hasFocus
-}
-
-// BatchWriter returns a new writer that can be used to write into the buffer
-// but without Locking/Unlocking the buffer on every write.
-// The lock will only be aquired once when BatchWriter is called, and will be
-// released when the returned writer is Closed.
-func (t *TextView) BatchWriter() TextViewWriter {
-	t.Lock()
-	return TextViewWriter{
-		t: t,
-	}
 }
