@@ -746,8 +746,8 @@ func (t *TextView) write(p []byte) (n int, err error) {
 //   fmt.Println(tv.GetText(false))
 //
 // Note that using the batch writer requires you to manage any issues that may
-// arise from concurrency yourself. See
-// https://github.com/rivo/tview/wiki/Concurrency for details.
+// arise from concurrency yourself. See package description for details on
+// dealing with concurrency.
 func (t *TextView) BatchWriter() TextViewWriter {
 	t.Lock()
 	return TextViewWriter{
