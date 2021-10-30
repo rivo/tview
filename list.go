@@ -54,6 +54,9 @@ type List struct {
 	// Whether or not navigating the list will wrap around.
 	wrapAround bool
 
+	// If true, odd indexed list items will be bold
+	alternateBold bool
+
 	// The number of list items skipped at the top before the first item is
 	// drawn.
 	itemOffset int
@@ -356,6 +359,30 @@ func (l *List) GetItemCount() int {
 	return len(l.items)
 }
 
+// GetAlternateBold returns true if the list items will alternate between
+// not bold and bold.
+//
+// For example, when enabled, the list will be rendered as (text with *asterisks around*
+// represents bold text):
+//
+// (1) item1
+//
+// *(2) item2*
+//
+// (3) item3
+//
+// *(4) item4*
+func (l *List) GetAlternateBold() bool {
+	return l.alternateBold
+}
+
+// SetAlternateBold sets whether or not the list items should alternate
+// between not bold and bold. See also GetAlternateBold() for more details.
+func (l *List) SetAlternateBold(alternate bool) *List {
+	l.alternateBold = alternate
+	return l
+}
+
 // GetItemText returns an item's texts (main and secondary). Panics if the index
 // is out of range.
 func (l *List) GetItemText(index int) (main, secondary string) {
@@ -471,13 +498,15 @@ func (l *List) Draw(screen tcell.Screen) {
 			break
 		}
 
+		bold := l.alternateBold && index%2 == 1
+
 		// Shortcuts.
 		if showShortcuts && item.Shortcut != 0 {
-			Print(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 4, AlignRight, l.shortcutColor)
+			printWithStyle(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 0, 4, AlignRight, tcell.StyleDefault.Foreground(l.shortcutColor).Bold(bold), true)
 		}
 
 		// Main text.
-		_, printedWidth, _, end := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.mainTextColor), true)
+		_, printedWidth, _, end := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.mainTextColor).Bold(bold), true)
 		if printedWidth > maxWidth {
 			maxWidth = printedWidth
 		}
@@ -513,7 +542,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Secondary text.
 		if l.showSecondaryText {
-			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.secondaryTextColor), true)
+			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, tcell.StyleDefault.Foreground(l.secondaryTextColor).Bold(bold), true)
 			if printedWidth > maxWidth {
 				maxWidth = printedWidth
 			}
