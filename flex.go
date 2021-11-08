@@ -105,6 +105,19 @@ func (f *Flex) RemoveItem(p Primitive) *Flex {
 	return f
 }
 
+// GetItemCount returns the number of items in this container.
+func (f *Flex) GetItemCount() int {
+	return len(f.items)
+}
+
+// GetItem returns the primitive at the given index, starting with 0 for the
+// first primitive in this container.
+//
+// This function will panic for out of range indices.
+func (f *Flex) GetItem(index int) Primitive {
+	return f.items[index].Item
+}
+
 // Clear removes all items from the container.
 func (f *Flex) Clear() *Flex {
 	f.items = nil
