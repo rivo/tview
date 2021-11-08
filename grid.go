@@ -253,11 +253,6 @@ func (g *Grid) Focus(delegate func(p Primitive)) {
 	g.hasFocus = true
 }
 
-// Blur is called when this primitive loses focus.
-func (g *Grid) Blur() {
-	g.hasFocus = false
-}
-
 // HasFocus returns whether or not this primitive has focus.
 func (g *Grid) HasFocus() bool {
 	for _, item := range g.items {

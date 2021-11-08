@@ -588,7 +588,7 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 	} else {
 		// We're selecting a button.
 		button := f.buttons[f.focusedElement-len(f.items)]
-		button.SetBlurFunc(handler)
+		button.SetExitFunc(handler)
 		delegate(button)
 	}
 }
