@@ -45,8 +45,14 @@ type Box struct {
 	// The alignment of the title.
 	titleAlign int
 
-	// Whether or not this box has focus.
+	// Whether or not this box has focus. This is typically ignored for
+	// container primitives (e.g. Flex, Grid, Pages), as they will delegate
+	// focus to their children.
 	hasFocus bool
+
+	// Optional callback functions invoked when the primitive receives or loses
+	// focus.
+	focus, blur func()
 
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the primitive's default input handler (nil if
@@ -398,13 +404,39 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 	}
 }
 
+// SetFocusFunc sets a callback function which is invoked when this primitive
+// receives focus. Container primitives such as Flex or Grid may not be notified
+// if one of their descendents receive focus directly.
+//
+// Set to nil to remove the callback function.
+func (b *Box) SetFocusFunc(callback func()) *Box {
+	b.focus = callback
+	return b
+}
+
+// SetBlurFunc sets a callback function which is invoked when this primitive
+// loses focus. This does not apply to container primitives such as Flex or
+// Grid.
+//
+// Set to nil to remove the callback function.
+func (b *Box) SetBlurFunc(callback func()) *Box {
+	b.blur = callback
+	return b
+}
+
 // Focus is called when this primitive receives focus.
 func (b *Box) Focus(delegate func(p Primitive)) {
 	b.hasFocus = true
+	if b.focus != nil {
+		b.focus()
+	}
 }
 
 // Blur is called when this primitive loses focus.
 func (b *Box) Blur() {
+	if b.blur != nil {
+		b.blur()
+	}
 	b.hasFocus = false
 }
 

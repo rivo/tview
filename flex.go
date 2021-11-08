@@ -207,6 +207,7 @@ func (f *Flex) Focus(delegate func(p Primitive)) {
 			return
 		}
 	}
+	f.Box.Focus(delegate)
 }
 
 // HasFocus returns whether or not this primitive has focus.
@@ -216,7 +217,7 @@ func (f *Flex) HasFocus() bool {
 			return true
 		}
 	}
-	return false
+	return f.Box.HasFocus()
 }
 
 // MouseHandler returns the mouse handler for this primitive.

@@ -550,7 +550,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 // Focus is called by the application when the primitive receives focus.
 func (f *Form) Focus(delegate func(p Primitive)) {
 	if len(f.items)+len(f.buttons) == 0 {
-		f.hasFocus = true
+		f.Box.Focus(delegate)
 		return
 	}
 	f.hasFocus = false
@@ -595,10 +595,10 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 
 // HasFocus returns whether or not this primitive has focus.
 func (f *Form) HasFocus() bool {
-	if f.hasFocus {
+	if f.focusIndex() >= 0 {
 		return true
 	}
-	return f.focusIndex() >= 0
+	return f.Box.HasFocus()
 }
 
 // focusIndex returns the index of the currently focused item, counting form

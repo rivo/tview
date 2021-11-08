@@ -648,7 +648,7 @@ func (t *TextView) Focus(delegate func(p Primitive)) {
 	// Implemented here with locking because this is used by layout primitives.
 	t.Lock()
 	defer t.Unlock()
-	t.hasFocus = true
+	t.Box.Focus(delegate)
 }
 
 // HasFocus returns whether or not this primitive has focus.
@@ -657,7 +657,7 @@ func (t *TextView) HasFocus() bool {
 	// callback.
 	t.Lock()
 	defer t.Unlock()
-	return t.hasFocus
+	return t.Box.HasFocus()
 }
 
 // Write lets us implement the io.Writer interface. Tab characters will be

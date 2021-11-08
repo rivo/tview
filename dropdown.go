@@ -507,9 +507,10 @@ func (d *DropDown) closeList(setFocus func(Primitive)) {
 
 // Focus is called by the application when the primitive receives focus.
 func (d *DropDown) Focus(delegate func(p Primitive)) {
-	d.Box.Focus(delegate)
 	if d.open {
 		delegate(d.list)
+	} else {
+		d.Box.Focus(delegate)
 	}
 }
 
@@ -518,7 +519,7 @@ func (d *DropDown) HasFocus() bool {
 	if d.open {
 		return d.list.HasFocus()
 	}
-	return d.hasFocus
+	return d.Box.HasFocus()
 }
 
 // MouseHandler returns the mouse handler for this primitive.
