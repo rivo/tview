@@ -199,7 +199,7 @@ func (i *InputField) SetPlaceholderStyle(style tcell.Style) *InputField {
 	return i
 }
 
-// SetPlaceholderStyle returns the style of the input area (when a placeholder
+// GetPlaceholderStyle returns the style of the input area (when a placeholder
 // is shown).
 func (i *InputField) GetPlaceholderStyle() tcell.Style {
 	return i.placeholderStyle
