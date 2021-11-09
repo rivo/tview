@@ -42,17 +42,14 @@ type InputField struct {
 	// The text to be displayed in the input area when "text" is empty.
 	placeholder string
 
-	// The label color.
-	labelColor tcell.Color
+	// The label style.
+	labelStyle tcell.Style
 
-	// The background color of the input area.
-	fieldBackgroundColor tcell.Color
+	// The style of the input area with input text.
+	fieldStyle tcell.Style
 
-	// The text color of the input area.
-	fieldTextColor tcell.Color
-
-	// The text color of the placeholder.
-	placeholderTextColor tcell.Color
+	// The style of the input area with placeholder text.
+	placeholderStyle tcell.Style
 
 	// The screen width of the label area. A value of 0 means use the width of
 	// the label text.
@@ -101,11 +98,10 @@ type InputField struct {
 // NewInputField returns a new input field.
 func NewInputField() *InputField {
 	return &InputField{
-		Box:                  NewBox(),
-		labelColor:           Styles.SecondaryTextColor,
-		fieldBackgroundColor: Styles.ContrastBackgroundColor,
-		fieldTextColor:       Styles.PrimaryTextColor,
-		placeholderTextColor: Styles.ContrastSecondaryTextColor,
+		Box:              NewBox(),
+		labelStyle:       tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
+		fieldStyle:       tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		placeholderStyle: tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
 	}
 }
 
@@ -148,37 +144,74 @@ func (i *InputField) SetPlaceholder(text string) *InputField {
 	return i
 }
 
-// SetLabelColor sets the color of the label.
+// SetLabelColor sets the text color of the label.
 func (i *InputField) SetLabelColor(color tcell.Color) *InputField {
-	i.labelColor = color
+	i.labelStyle = i.labelStyle.Foreground(color)
 	return i
+}
+
+// SetLabelStyle sets the style of the label.
+func (i *InputField) SetLabelStyle(style tcell.Style) *InputField {
+	i.labelStyle = style
+	return i
+}
+
+// GetLabelStyle returns the style of the label.
+func (i *InputField) GetLabelStyle() tcell.Style {
+	return i.labelStyle
 }
 
 // SetFieldBackgroundColor sets the background color of the input area.
 func (i *InputField) SetFieldBackgroundColor(color tcell.Color) *InputField {
-	i.fieldBackgroundColor = color
+	i.fieldStyle = i.fieldStyle.Background(color)
 	return i
 }
 
 // SetFieldTextColor sets the text color of the input area.
 func (i *InputField) SetFieldTextColor(color tcell.Color) *InputField {
-	i.fieldTextColor = color
+	i.fieldStyle = i.fieldStyle.Foreground(color)
 	return i
+}
+
+// SetFieldStyle sets the style of the input area (when no placeholder is
+// shown).
+func (i *InputField) SetFieldStyle(style tcell.Style) *InputField {
+	i.fieldStyle = style
+	return i
+}
+
+// GetFieldStyle returns the style of the input area (when no placeholder is
+// shown).
+func (i *InputField) GetFieldStyle() tcell.Style {
+	return i.fieldStyle
 }
 
 // SetPlaceholderTextColor sets the text color of placeholder text.
 func (i *InputField) SetPlaceholderTextColor(color tcell.Color) *InputField {
-	i.placeholderTextColor = color
+	i.placeholderStyle = i.placeholderStyle.Foreground(color)
 	return i
+}
+
+// SetPlaceholderStyle sets the style of the input area (when a placeholder is
+// shown).
+func (i *InputField) SetPlaceholderStyle(style tcell.Style) *InputField {
+	i.placeholderStyle = style
+	return i
+}
+
+// SetPlaceholderStyle returns the style of the input area (when a placeholder
+// is shown).
+func (i *InputField) GetPlaceholderStyle() tcell.Style {
+	return i.placeholderStyle
 }
 
 // SetFormAttributes sets attributes shared by all form items.
 func (i *InputField) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
 	i.labelWidth = labelWidth
-	i.labelColor = labelColor
 	i.backgroundColor = bgColor
-	i.fieldTextColor = fieldTextColor
-	i.fieldBackgroundColor = fieldBgColor
+	i.SetLabelColor(labelColor).
+		SetFieldTextColor(fieldTextColor).
+		SetFieldBackgroundColor(fieldBgColor)
 	return i
 }
 
@@ -320,33 +353,37 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		if labelWidth > rightLimit-x {
 			labelWidth = rightLimit - x
 		}
-		Print(screen, i.label, x, y, labelWidth, AlignLeft, i.labelColor)
+		printWithStyle(screen, i.label, x, y, 0, labelWidth, AlignLeft, i.labelStyle, false)
 		x += labelWidth
 	} else {
-		_, drawnWidth := Print(screen, i.label, x, y, rightLimit-x, AlignLeft, i.labelColor)
+		_, drawnWidth, _, _ := printWithStyle(screen, i.label, x, y, 0, rightLimit-x, AlignLeft, i.labelStyle, false)
 		x += drawnWidth
 	}
 
 	// Draw input area.
 	i.fieldX = x
 	fieldWidth := i.fieldWidth
+	text := i.text
+	placeholder := text == "" && i.placeholder != ""
 	if fieldWidth == 0 {
 		fieldWidth = math.MaxInt32
 	}
 	if rightLimit-x < fieldWidth {
 		fieldWidth = rightLimit - x
 	}
-	fieldStyle := tcell.StyleDefault.Background(i.fieldBackgroundColor)
 	for index := 0; index < fieldWidth; index++ {
-		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
+		if placeholder {
+			screen.SetContent(x+index, y, ' ', nil, i.placeholderStyle)
+		} else {
+			screen.SetContent(x+index, y, ' ', nil, i.fieldStyle)
+		}
 	}
 
 	// Text.
 	var cursorScreenPos int
-	text := i.text
-	if text == "" && i.placeholder != "" {
+	if placeholder {
 		// Draw placeholder text.
-		Print(screen, Escape(i.placeholder), x, y, fieldWidth, AlignLeft, i.placeholderTextColor)
+		printWithStyle(screen, Escape(i.placeholder), x, y, 0, fieldWidth, AlignLeft, i.placeholderStyle, false)
 		i.offset = 0
 	} else {
 		// Draw entered text.
@@ -355,7 +392,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		}
 		if fieldWidth >= stringWidth(text) {
 			// We have enough space for the full text.
-			Print(screen, Escape(text), x, y, fieldWidth, AlignLeft, i.fieldTextColor)
+			printWithStyle(screen, Escape(text), x, y, 0, fieldWidth, AlignLeft, i.fieldStyle, false)
 			i.offset = 0
 			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
 				if textPos >= i.cursorPos {
@@ -393,7 +430,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 				}
 				return false
 			})
-			Print(screen, Escape(text[i.offset:]), x, y, fieldWidth, AlignLeft, i.fieldTextColor)
+			printWithStyle(screen, Escape(text[i.offset:]), x, y, 0, fieldWidth, AlignLeft, i.fieldStyle, false)
 		}
 	}
 
