@@ -348,15 +348,16 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
+	_, labelBg, _ := i.labelStyle.Decompose()
 	if i.labelWidth > 0 {
 		labelWidth := i.labelWidth
 		if labelWidth > rightLimit-x {
 			labelWidth = rightLimit - x
 		}
-		printWithStyle(screen, i.label, x, y, 0, labelWidth, AlignLeft, i.labelStyle, false)
+		printWithStyle(screen, i.label, x, y, 0, labelWidth, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
 		x += labelWidth
 	} else {
-		_, drawnWidth, _, _ := printWithStyle(screen, i.label, x, y, 0, rightLimit-x, AlignLeft, i.labelStyle, false)
+		_, drawnWidth, _, _ := printWithStyle(screen, i.label, x, y, 0, rightLimit-x, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
 		x += drawnWidth
 	}
 
@@ -364,18 +365,21 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	i.fieldX = x
 	fieldWidth := i.fieldWidth
 	text := i.text
+	inputStyle := i.fieldStyle
 	placeholder := text == "" && i.placeholder != ""
+	if placeholder {
+		inputStyle = i.placeholderStyle
+	}
+	_, inputBg, _ := inputStyle.Decompose()
 	if fieldWidth == 0 {
 		fieldWidth = math.MaxInt32
 	}
 	if rightLimit-x < fieldWidth {
 		fieldWidth = rightLimit - x
 	}
-	for index := 0; index < fieldWidth; index++ {
-		if placeholder {
-			screen.SetContent(x+index, y, ' ', nil, i.placeholderStyle)
-		} else {
-			screen.SetContent(x+index, y, ' ', nil, i.fieldStyle)
+	if inputBg != tcell.ColorDefault {
+		for index := 0; index < fieldWidth; index++ {
+			screen.SetContent(x+index, y, ' ', nil, inputStyle)
 		}
 	}
 
@@ -383,7 +387,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	var cursorScreenPos int
 	if placeholder {
 		// Draw placeholder text.
-		printWithStyle(screen, Escape(i.placeholder), x, y, 0, fieldWidth, AlignLeft, i.placeholderStyle, false)
+		printWithStyle(screen, Escape(i.placeholder), x, y, 0, fieldWidth, AlignLeft, i.placeholderStyle, true)
 		i.offset = 0
 	} else {
 		// Draw entered text.
@@ -392,7 +396,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		}
 		if fieldWidth >= stringWidth(text) {
 			// We have enough space for the full text.
-			printWithStyle(screen, Escape(text), x, y, 0, fieldWidth, AlignLeft, i.fieldStyle, false)
+			printWithStyle(screen, Escape(text), x, y, 0, fieldWidth, AlignLeft, i.fieldStyle, true)
 			i.offset = 0
 			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
 				if textPos >= i.cursorPos {
@@ -430,7 +434,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 				}
 				return false
 			})
-			printWithStyle(screen, Escape(text[i.offset:]), x, y, 0, fieldWidth, AlignLeft, i.fieldStyle, false)
+			printWithStyle(screen, Escape(text[i.offset:]), x, y, 0, fieldWidth, AlignLeft, i.fieldStyle, true)
 		}
 	}
 
