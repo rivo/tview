@@ -76,6 +76,18 @@ type InputField struct {
 	autocompleteList      *List
 	autocompleteListMutex sync.Mutex
 
+	// Main Text Color of the Autocomplete List
+	autocompleteMainTextColor tcell.Color
+
+	// Selected Text Color of the Autocomplete List
+	autocompleteSelectedTextColor tcell.Color
+
+	// Selected Background Color of the Autocomplete List
+	autocompleteSelectedBackgroundColor tcell.Color
+
+	// Background Color of the Autocomplete List
+	autocompleteBackgroundColor tcell.Color
+
 	// An optional function which may reject the last character that was entered.
 	accept func(text string, ch rune) bool
 
@@ -98,10 +110,14 @@ type InputField struct {
 // NewInputField returns a new input field.
 func NewInputField() *InputField {
 	return &InputField{
-		Box:              NewBox(),
-		labelStyle:       tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
-		fieldStyle:       tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
-		placeholderStyle: tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
+		Box:                                 NewBox(),
+		labelStyle:                          tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
+		fieldStyle:                          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		placeholderStyle:                    tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
+		autocompleteMainTextColor:           Styles.PrimitiveBackgroundColor,
+		autocompleteSelectedTextColor:       Styles.PrimitiveBackgroundColor,
+		autocompleteSelectedBackgroundColor: Styles.PrimaryTextColor,
+		autocompleteBackgroundColor:         Styles.MoreContrastBackgroundColor,
 	}
 }
 
@@ -164,6 +180,30 @@ func (i *InputField) GetLabelStyle() tcell.Style {
 // SetFieldBackgroundColor sets the background color of the input area.
 func (i *InputField) SetFieldBackgroundColor(color tcell.Color) *InputField {
 	i.fieldStyle = i.fieldStyle.Background(color)
+	return i
+}
+
+// SetAutocompleteBackgroundColor sets the background color of the autocompleteList
+func (i *InputField) SetAutocompleteBackgroundColor(color tcell.Color) *InputField {
+	i.autocompleteBackgroundColor = color
+	return i
+}
+
+// SetAutocompleteSelectBackgroundColor sets the background color of the Selection in autocompleteList
+func (i *InputField) SetAutocompleteSelectBackgroundColor(color tcell.Color) *InputField {
+	i.autocompleteSelectedBackgroundColor = color
+	return i
+}
+
+// SetAutocompleteMainTextColor sets the color of the Main Text in autocompleteList
+func (i *InputField) SetAutocompleteMainTextColor(color tcell.Color) *InputField {
+	i.autocompleteMainTextColor = color
+	return i
+}
+
+// SetAutocompleteSelectedTextColor sets the text color of Selection in the autocompleteList
+func (i *InputField) SetAutocompleteSelectedTextColor(color tcell.Color) *InputField {
+	i.autocompleteSelectedTextColor = color
 	return i
 }
 
@@ -273,11 +313,11 @@ func (i *InputField) Autocomplete() *InputField {
 	if i.autocompleteList == nil {
 		i.autocompleteList = NewList()
 		i.autocompleteList.ShowSecondaryText(false).
-			SetMainTextColor(Styles.PrimitiveBackgroundColor).
-			SetSelectedTextColor(Styles.PrimitiveBackgroundColor).
-			SetSelectedBackgroundColor(Styles.PrimaryTextColor).
+			SetMainTextColor(i.autocompleteMainTextColor).
+			SetSelectedTextColor(i.autocompleteSelectedTextColor).
+			SetSelectedBackgroundColor(i.autocompleteSelectedBackgroundColor).
 			SetHighlightFullLine(true).
-			SetBackgroundColor(Styles.MoreContrastBackgroundColor)
+			SetBackgroundColor(i.autocompleteBackgroundColor)
 	}
 
 	// Fill it with the entries.
