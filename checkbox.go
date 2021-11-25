@@ -126,7 +126,7 @@ func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 
 // GetFieldWidth returns this primitive's field width.
 func (c *Checkbox) GetFieldWidth() int {
-	return 1
+	return stringWidth(c.checkedString)
 }
 
 // SetChangedFunc sets a handler which is called when the checked state of this
