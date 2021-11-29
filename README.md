@@ -97,6 +97,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [gobit: binance intelligence terminal](https://github.com/infl00p/gobit)
 - [viddy: A modern watch command](https://github.com/sachaos/viddy)
 - [s3surfer: CLI tool for browsing S3 bucket and download objects interactively](https://github.com/hirose31/s3surfer)
+- [libgen-tui: A terminal UI for downloading books from Library Genesis](https://github.com/audstanley/libgen-tui)
 
 ## Documentation
 
