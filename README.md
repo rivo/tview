@@ -98,6 +98,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [viddy: A modern watch command](https://github.com/sachaos/viddy)
 - [s3surfer: CLI tool for browsing S3 bucket and download objects interactively](https://github.com/hirose31/s3surfer)
 - [libgen-tui: A terminal UI for downloading books from Library Genesis](https://github.com/audstanley/libgen-tui)
+- [kubectl-lazy: kubectl plugin to easy to view pod](https://github.com/togettoyou/kubectl-lazy)
 
 ## Documentation
 
