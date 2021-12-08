@@ -470,6 +470,7 @@ func (f *Finder) Draw(screen tcell.Screen) {
 	}
 }
 
+// drawInputField draws the input field.
 func (f *Finder) drawInputField(screen tcell.Screen) {
 
 	// Prepare
@@ -587,10 +588,12 @@ func (f *Finder) handleInputList(event *tcell.EventKey, setFocus func(p Primitiv
 			f.currentItem = len(f.matched) - 1
 		} else {
 			f.currentItem = 0
+			f.itemOffset = 0
 		}
 	} else if f.currentItem >= len(f.matched) {
 		if f.wrapAround {
 			f.currentItem = 0
+			f.itemOffset = 0
 		} else {
 			f.currentItem = len(f.matched) - 1
 		}
