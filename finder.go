@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -12,27 +13,38 @@ const (
 	finderPlaceholderDefault = "Type here..."
 )
 
-type MatcherFunction func(item string, filter string) (int, int, bool)
+// MatcherFunction is called in order to check if parts of an item cam be matched
+// to the passed filter string. It returns a slice of all successive matches, the
+// sore to sort items according to their similarity and a boolean value indicating
+// if there was a match at all. [2]int represents the start position (inclusive)
+// and end position (exclusive) within the item string.
+type MatcherFunction func(item string, filter string) ([][2]int, int, bool)
 
+// ItemNameProviderFunction is called in order to retrieve the name of the item
+// at the passed index. The string value returned from this function will be
+// displayed in the finder list.
 type ItemNameProviderFunction func(index int) string
 
-// TODO: Support multiple pos
+// matched is used internally to describe matches between an Item and filter string
 type matched struct {
-	// Idx is the index of an item of the original slice which was used to
+	// idx is the index of an item of the original slice which was used to
 	// search matched strings.
-	Idx int
-	// Pos is the range of matched position.
-	// [2]int represents an open interval of a position.
-	Pos [2]int
+	idx int
+	// matches is a slice of all successive matches
+	// [2]int represents an interval of the match position.
+	matches [][2]int
+	// score indicates how similar the match is to the actual item. This
+	// can be used to sort matches.
+	score int
 }
 
 type Finder struct {
 	*Box
 
-	// The totoal number of items available.
+	// The total number of items available.
 	itemCount int
 
-	// The function to be invoked when matching items against the entered updateFilteredItems text.
+	// The function to be invoked when matching items against the entered updateMatches text.
 	matcherFunction MatcherFunction
 
 	// The text to be displayed before the input area.
@@ -62,7 +74,7 @@ type Finder struct {
 	// The style of the counter.
 	counterStyle tcell.Style
 
-	// The style used to highlight matches between items and the updateFilteredItems text
+	// The style used to highlight matches between items and the updateMatches text
 	highlightMatchStyle tcell.Style
 
 	// If true, the entire row is highlighted when selected.
@@ -99,7 +111,7 @@ type Finder struct {
 	// The number of list items skipped at the top before the first item is  drawn.
 	itemOffset int
 
-	// The text that was entered to updateFilteredItems the entries
+	// The text that was entered to updateMatches the entries
 	filterText string
 
 	// The cursor position as a byte index into the text string.
@@ -109,6 +121,7 @@ type Finder struct {
 	offset int
 }
 
+// NewFinder returns a new finder.
 func NewFinder() *Finder {
 
 	search := &Finder{
@@ -141,7 +154,7 @@ func (f *Finder) SetItems(itemCount int, provider ItemNameProviderFunction) *Fin
 	f.rawItems = make([]string, itemCount)
 
 	for i := 0; i < itemCount; i++ {
-		f.allItems[i] = matched{Idx: i}
+		f.allItems[i] = matched{idx: i}
 		f.rawItems[i] = provider(i)
 	}
 
@@ -251,15 +264,19 @@ func (f *Finder) SetCurrentItem(index int) *Finder {
 	if index < 0 {
 		index = f.itemCount + index
 	}
-	if index >= f.itemCount {
-		index = f.itemCount - 1
+	if index >= len(f.matched) {
+		index = len(f.matched) - 1
 	}
-	if index < 0 {
+	if index < 0 && index > len(f.matched) {
 		index = 0
 	}
 
 	if index != f.currentItem && f.changed != nil {
-		f.changed(f.matched[index].Idx)
+		if index >= 0 {
+			f.changed(f.matched[index].idx)
+		} else {
+			f.changed(-1)
+		}
 	}
 
 	f.currentItem = index
@@ -274,13 +291,20 @@ func (f *Finder) GetCurrentItem() int {
 	return f.currentItem
 }
 
+// SetMatcherFunc sets the function which is called in order to match the
+// filter string with all available items.
+func (f *Finder) SetMatcherFunc(matcher MatcherFunction) *Finder {
+	f.matcherFunction = matcher
+	return f
+}
+
 // SetChangedFunc sets the function which is called when the user navigates to
 // an item. The function receives the item's index in the list of items
 // (starting with 0, -1 when no item is selected).
 func (f *Finder) SetChangedFunc(handler func(index int)) *Finder {
 	f.changed = handler
 	if f.changed != nil {
-		f.changed(f.matched[f.currentItem].Idx)
+		f.changed(f.matched[f.currentItem].idx)
 	}
 	return f
 }
@@ -293,29 +317,46 @@ func (f *Finder) SetDoneFunc(handler func(index int)) *Finder {
 	return f
 }
 
-// updateFilteredItems refreshes matched according to the present filterText.
-func (f *Finder) updateFilteredItems() {
+// updateMatches refreshes matched according to the current filterText.
+func (f *Finder) updateMatches() {
+	scoresProvided := false
 	if f.filterText != "" {
-
 		var newMatched []matched
 		for i := range f.rawItems {
-			if start, end, ok := f.matcherFunction(f.rawItems[i], f.filterText); ok {
-				newMatched = append(newMatched, matched{Idx: i, Pos: [2]int{start, end}})
+			if matches, score, ok := f.matcherFunction(f.rawItems[i], f.filterText); ok && len(matches) > 0 {
+				newMatched = append(newMatched, matched{idx: i, score: score, matches: matches})
+				if !scoresProvided && score > 0 {
+					scoresProvided = true
+				}
 			}
+		}
+
+		if scoresProvided {
+			sort.Slice(newMatched, func(i, j int) bool {
+				return newMatched[i].score > newMatched[j].score
+			})
 		}
 
 		f.matched = newMatched
 	} else {
 		f.matched = f.allItems
 	}
+
+	if f.currentItem < 0 && len(f.matched) > 0 {
+		f.SetCurrentItem(0)
+	} else if s := len(f.matched) - 1; s < f.currentItem {
+		f.SetCurrentItem(s)
+	}
 }
 
-// defaultMatcher is a default implementation for MatcherFunction.
-func defaultMatcher(text string, filter string) (int, int, bool) {
+// defaultMatcher is a simple default implementation for MatcherFunction. It just
+// returns the first substring indices of text matching filter (case-insensitive). Score is
+// always 0.
+func defaultMatcher(text string, filter string) ([][2]int, int, bool) {
 	if index := strings.Index(strings.ToLower(text), strings.ToLower(filter)); index >= 0 {
-		return index, index + len(filter), true
+		return [][2]int{{index, index + len(filter)}}, 0, true
 	}
-	return 0, 0, false
+	return [][2]int{}, 0, false
 }
 
 // Draw draws this primitive onto the screen.
@@ -357,7 +398,7 @@ func (f *Finder) Draw(screen tcell.Screen) {
 	// Draw the list items.
 	for index, matchItem := range f.matched {
 
-		item := f.rawItems[matchItem.Idx]
+		item := f.rawItems[matchItem.idx]
 		if currentY < 0 {
 			continue
 		}
@@ -410,16 +451,19 @@ func (f *Finder) Draw(screen tcell.Screen) {
 		}
 
 		if f.filterText != "" {
-			printWithStyle(
-				screen,
-				item[matchItem.Pos[0]:matchItem.Pos[1]],
-				x+len(f.selectedItemLabel)+matchItem.Pos[0],
-				currentY,
-				0,
-				width, AlignLeft,
-				f.highlightMatchStyle,
-				true,
-			)
+			for _, m := range matchItem.matches {
+				printWithStyle(
+					screen,
+					item[m[0]:m[1]],
+					x+len(f.selectedItemLabel)+m[0],
+					currentY,
+					0,
+					width, AlignLeft,
+					f.highlightMatchStyle,
+					true,
+				)
+			}
+
 		}
 
 		currentY--
@@ -526,6 +570,7 @@ func (f *Finder) InputHandler() func(event *tcell.EventKey, setFocus func(p Prim
 	})
 }
 
+// handleInputList handles the input events for the list (moving the selection up and down)
 func (f *Finder) handleInputList(event *tcell.EventKey, setFocus func(p Primitive)) {
 
 	previousItem := f.currentItem
@@ -552,17 +597,18 @@ func (f *Finder) handleInputList(event *tcell.EventKey, setFocus func(p Primitiv
 	}
 
 	if f.currentItem != previousItem && f.currentItem < f.itemCount && f.changed != nil {
-		f.changed(f.matched[f.currentItem].Idx)
+		f.changed(f.matched[f.currentItem].idx)
 	}
 }
 
+// handleInputTextField handles the input events for the input field.
 func (f *Finder) handleInputTextField(event *tcell.EventKey, setFocus func(p Primitive)) {
 
 	// Trigger changed events.
 	currentText := f.filterText
 	defer func() {
 		if f.filterText != currentText {
-			f.updateFilteredItems()
+			f.updateMatches()
 		}
 	}()
 
@@ -600,7 +646,7 @@ func (f *Finder) handleInputTextField(event *tcell.EventKey, setFocus func(p Pri
 	// Finish up.
 	finish := func(key tcell.Key) {
 		if f.done != nil {
-			f.done(f.matched[f.currentItem].Idx)
+			f.done(f.matched[f.currentItem].idx)
 		}
 	}
 

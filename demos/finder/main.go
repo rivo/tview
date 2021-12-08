@@ -38,7 +38,7 @@ func main() {
 		}).
 		SetDoneFunc(func(index int) {
 			app.Stop()
-			fmt.Printf(items[index].preview())
+			fmt.Printf("Selected index: %d", index)
 		}).
 		SetChangedFunc(func(index int) {
 			if index >= 0 {
