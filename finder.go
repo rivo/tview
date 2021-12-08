@@ -86,8 +86,11 @@ type Finder struct {
 	// Whether navigating the list will wrap around.
 	wrapAround bool
 
-	// The index of the currently selected item.
-	currentItem int
+	// The index of the currently selected item in matched.
+	selectedIndex int
+
+	// The currently selected matched entry.
+	selectedMatch *matched
 
 	// An optional function which is called when the user has navigated to a new item.
 	changed func(index int)
@@ -111,7 +114,7 @@ type Finder struct {
 	// The number of list items skipped at the top before the first item is  drawn.
 	itemOffset int
 
-	// The text that was entered to updateMatches the entries
+	// The text that was entered to updateMatches the entries.
 	filterText string
 
 	// The cursor position as a byte index into the text string.
@@ -137,7 +140,7 @@ func NewFinder() *Finder {
 		inputLabel:          finderLabelDefault,
 		selectedItemLabel:   finderLabelDefault,
 		placeholder:         finderPlaceholderDefault,
-		currentItem:         -1,
+		selectedIndex:       -1,
 		highlightFullLine:   false,
 		selectedFocusOnly:   true,
 		wrapAround:          true,
@@ -271,16 +274,24 @@ func (f *Finder) SetCurrentItem(index int) *Finder {
 		index = 0
 	}
 
-	if index != f.currentItem && f.changed != nil {
+	var selected *matched
+	if index >= 0 && index < len(f.matched) {
+		selected = &f.matched[index]
+	}
+	prevSelected := f.selectedMatch
+
+	if selected != prevSelected && f.changed != nil {
 		if index >= 0 {
+			f.selectedMatch = selected
 			f.changed(f.matched[index].idx)
 		} else {
+			f.selectedMatch = nil
 			f.changed(-1)
 		}
 	}
 
-	f.currentItem = index
-
+	f.selectedIndex = index
+	f.selectedMatch = selected
 	return f
 }
 
@@ -288,7 +299,7 @@ func (f *Finder) SetCurrentItem(index int) *Finder {
 // starting at 0 for the first item. Returns -1 if no item is selected (this
 // only occurs when the list is empty).
 func (f *Finder) GetCurrentItem() int {
-	return f.currentItem
+	return f.selectedIndex
 }
 
 // SetMatcherFunc sets the function which is called in order to match the
@@ -304,7 +315,7 @@ func (f *Finder) SetMatcherFunc(matcher MatcherFunction) *Finder {
 func (f *Finder) SetChangedFunc(handler func(index int)) *Finder {
 	f.changed = handler
 	if f.changed != nil {
-		f.changed(f.matched[f.currentItem].idx)
+		f.changed(f.matched[f.selectedIndex].idx)
 	}
 	return f
 }
@@ -342,10 +353,12 @@ func (f *Finder) updateMatches() {
 		f.matched = f.allItems
 	}
 
-	if f.currentItem < 0 && len(f.matched) > 0 {
+	if f.selectedIndex < 0 && len(f.matched) > 0 {
 		f.SetCurrentItem(0)
-	} else if s := len(f.matched) - 1; s < f.currentItem {
+	} else if s := len(f.matched) - 1; s < f.selectedIndex {
 		f.SetCurrentItem(s)
+	} else {
+		f.SetCurrentItem(f.selectedIndex)
 	}
 }
 
@@ -387,9 +400,9 @@ func (f *Finder) Draw(screen tcell.Screen) {
 	availableSlots := height - 2
 	currentUpperRange := f.itemOffset + availableSlots - 1
 
-	if f.currentItem >= currentUpperRange {
-		f.itemOffset = f.currentItem - availableSlots + 1
-	} else if f.currentItem < f.itemOffset {
+	if f.selectedIndex >= currentUpperRange {
+		f.itemOffset = f.selectedIndex - availableSlots + 1
+	} else if f.selectedIndex < f.itemOffset {
 		f.itemOffset--
 	}
 
@@ -414,7 +427,7 @@ func (f *Finder) Draw(screen tcell.Screen) {
 			return text
 		}
 
-		if index == f.currentItem && (!f.selectedFocusOnly || f.HasFocus()) {
+		if index == f.selectedIndex && (!f.selectedFocusOnly || f.HasFocus()) {
 
 			// print label
 			_, _, _, itemEndPrint := printWithStyle(
@@ -574,34 +587,31 @@ func (f *Finder) InputHandler() func(event *tcell.EventKey, setFocus func(p Prim
 // handleInputList handles the input events for the list (moving the selection up and down)
 func (f *Finder) handleInputList(event *tcell.EventKey, setFocus func(p Primitive)) {
 
-	previousItem := f.currentItem
-
+	newSelectedIndex := f.selectedIndex
 	switch key := event.Key(); key {
 	case tcell.KeyDown:
-		f.currentItem--
+		newSelectedIndex--
 	case tcell.KeyUp:
-		f.currentItem++
+		newSelectedIndex++
 	}
 
-	if f.currentItem < 0 {
+	if f.selectedIndex < 0 {
 		if f.wrapAround {
-			f.currentItem = len(f.matched) - 1
+			newSelectedIndex = len(f.matched) - 1
 		} else {
-			f.currentItem = 0
+			newSelectedIndex = 0
 			f.itemOffset = 0
 		}
-	} else if f.currentItem >= len(f.matched) {
+	} else if f.selectedIndex >= len(f.matched) {
 		if f.wrapAround {
-			f.currentItem = 0
+			newSelectedIndex = 0
 			f.itemOffset = 0
 		} else {
-			f.currentItem = len(f.matched) - 1
+			newSelectedIndex = len(f.matched) - 1
 		}
 	}
 
-	if f.currentItem != previousItem && f.currentItem < f.itemCount && f.changed != nil {
-		f.changed(f.matched[f.currentItem].idx)
-	}
+	f.SetCurrentItem(newSelectedIndex)
 }
 
 // handleInputTextField handles the input events for the input field.
@@ -649,7 +659,7 @@ func (f *Finder) handleInputTextField(event *tcell.EventKey, setFocus func(p Pri
 	// Finish up.
 	finish := func(key tcell.Key) {
 		if f.done != nil {
-			f.done(f.matched[f.currentItem].idx)
+			f.done(f.matched[f.selectedIndex].idx)
 		}
 	}
 
