@@ -9,8 +9,11 @@ import (
 )
 
 const (
-	finderLabelDefault       = "-> "
-	finderPlaceholderDefault = "Type here..."
+	finderLabelDefault                = " "
+	finderSelectedLabelDefault        = "->"
+	finderSelectedLabelPaddingDefault = 1
+
+	finderInputPlaceholderDefault = "Type here..."
 )
 
 // MatcherFunction is called in order to check if parts of an item cam be matched
@@ -50,6 +53,9 @@ type Finder struct {
 	// The text to be displayed before the input area.
 	inputLabel string
 
+	// The right padding of the inputLabel (space between label and input field)
+	inputLabelPadding int
+
 	// The inputLabel style.
 	inputLabelStyle tcell.Style
 
@@ -62,14 +68,29 @@ type Finder struct {
 	// The style of the input area with input text.
 	fieldStyle tcell.Style
 
+	// The text to be displayed before an item which is not selected.
+	itemLabel string
+
+	// The right padding of the itemLabel (space between label and item text)
+	itemLabelPadding int
+
 	// The style of a default list item which is not selected.
-	itemStile tcell.Style
+	itemStyle tcell.Style
+
+	// The style of the label to be displayed before a (not selected) item.
+	itemLabelStyle tcell.Style
 
 	// The style of list item which is selected.
 	selectedItemStyle tcell.Style
 
 	// The text to be displayed before a selected item.
 	selectedItemLabel string
+
+	// The right padding of the selectedItemLabel (space between label and item text)
+	selectedItemLabelPadding int
+
+	// The style of the label to be displayed before a selected item.
+	selectedItemLabelStyle tcell.Style
 
 	// The style of the counter.
 	counterStyle tcell.Style
@@ -128,22 +149,28 @@ type Finder struct {
 func NewFinder() *Finder {
 
 	search := &Finder{
-		Box:                 NewBox(),
-		matcherFunction:     defaultMatcher,
-		inputLabelStyle:     tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.SecondaryTextColor),
-		placeholderStyle:    tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
-		fieldStyle:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
-		itemStile:           tcell.StyleDefault.Background(tcell.ColorReset).Foreground(Styles.PrimaryTextColor),
-		selectedItemStyle:   tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.PrimitiveBackgroundColor),
-		counterStyle:        tcell.StyleDefault.Background(tcell.ColorReset).Foreground(Styles.SecondaryTextColor),
-		highlightMatchStyle: tcell.StyleDefault.Background(tcell.ColorReset).Foreground(Styles.TertiaryTextColor).Bold(true),
-		inputLabel:          finderLabelDefault,
-		selectedItemLabel:   finderLabelDefault,
-		placeholder:         finderPlaceholderDefault,
-		selectedIndex:       -1,
-		highlightFullLine:   false,
-		selectedFocusOnly:   true,
-		wrapAround:          true,
+		Box:                      NewBox(),
+		matcherFunction:          defaultMatcher,
+		inputLabelStyle:          tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.SecondaryTextColor),
+		placeholderStyle:         tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
+		fieldStyle:               tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		itemLabelStyle:           tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.SecondaryTextColor),
+		itemStyle:                tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		selectedItemStyle:        tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.PrimitiveBackgroundColor),
+		selectedItemLabelStyle:   tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.TertiaryTextColor),
+		counterStyle:             tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.SecondaryTextColor),
+		highlightMatchStyle:      tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.TertiaryTextColor).Bold(true),
+		inputLabel:               finderSelectedLabelDefault,
+		selectedItemLabel:        finderSelectedLabelDefault,
+		itemLabel:                finderLabelDefault,
+		placeholder:              finderInputPlaceholderDefault,
+		inputLabelPadding:        finderSelectedLabelPaddingDefault,
+		itemLabelPadding:         len(finderSelectedLabelDefault) + finderSelectedLabelPaddingDefault - len(finderLabelDefault),
+		selectedItemLabelPadding: finderSelectedLabelPaddingDefault,
+		selectedIndex:            -1,
+		highlightFullLine:        false,
+		selectedFocusOnly:        true,
+		wrapAround:               true,
 	}
 
 	return search
@@ -174,6 +201,12 @@ func (f *Finder) SetInputLabel(inputLabel string) *Finder {
 	return f
 }
 
+// SetInputPadding sets the right padding of the inputLabel (space between label and input field),
+func (f *Finder) SetInputPadding(padding int) *Finder {
+	f.inputLabelPadding = padding
+	return f
+}
+
 // SetInputLabelStyle sets the style of the input label.
 func (f *Finder) SetInputLabelStyle(style tcell.Style) *Finder {
 	f.inputLabelStyle = style
@@ -200,9 +233,27 @@ func (f *Finder) SetFieldStyle(style tcell.Style) *Finder {
 	return f
 }
 
+// SetItemLabel sets the text to be displayed before an item which is not selected.
+func (f *Finder) SetItemLabel(label string) *Finder {
+	f.itemLabel = label
+	return f
+}
+
+// SetItemLabelPadding sets the right padding of the itemLabel (space between label and item text),
+func (f *Finder) SetItemLabelPadding(itemLabelPadding int) *Finder {
+	f.itemLabelPadding = itemLabelPadding
+	return f
+}
+
+// SetItemLabelStyle sets the style of the label to be displayed before a (not selected) item.
+func (f *Finder) SetItemLabelStyle(style tcell.Style) *Finder {
+	f.itemLabelStyle = style
+	return f
+}
+
 // SetItemStyle sets the style of a list item when not selected.
 func (f *Finder) SetItemStyle(style tcell.Style) *Finder {
-	f.itemStile = style
+	f.itemStyle = style
 	return f
 }
 
@@ -215,6 +266,18 @@ func (f *Finder) SetSelectedItemStyle(style tcell.Style) *Finder {
 // SetSelectedItemLabel sets the text to be displayed before the currently selected item.
 func (f *Finder) SetSelectedItemLabel(label string) *Finder {
 	f.selectedItemLabel = label
+	return f
+}
+
+// SetSelectedItemLabelPadding sets the right padding of the selectedItemLabel (space between label and item text),
+func (f *Finder) SetSelectedItemLabelPadding(padding int) *Finder {
+	f.selectedItemLabelPadding = padding
+	return f
+}
+
+// SetSelectedItemLabelStyle sets the style of the label to be displayed before a selected item.
+func (f *Finder) SetSelectedItemLabelStyle(style tcell.Style) *Finder {
+	f.selectedItemLabelStyle = style
 	return f
 }
 
@@ -378,35 +441,40 @@ func (f *Finder) Draw(screen tcell.Screen) {
 
 	// Determine the dimensions.
 	x, y, width, height := f.GetInnerRect()
-	currentY := y + height - 1
-
-	_, totalHeight := screen.Size()
-	if totalHeight < height {
+	if _, totalHeight := screen.Size(); totalHeight < height {
 		height = totalHeight
 	}
 
+	maxX := x + width - 1
+	// Start drawing at the bottom of the scree
+	currentY := y + height - 1
+	drawnLines := 0
+
+	// Draw the input field & decrease currentY by 1 since the input field was draw right at the bottom
 	f.drawInputField(screen)
 	currentY--
+	drawnLines += 1
 
-	// Draw counter
+	// Draw the counter
 	printWithStyle(
 		screen,
 		fmt.Sprintf("%d/%d", len(f.matched), f.itemCount),
-		x+len(f.selectedItemLabel), currentY, 0, width, AlignLeft, f.counterStyle, true,
+		f.inputOffset(), currentY, 0, width, AlignLeft, f.counterStyle, true,
 	)
+	drawnLines += 1
 	currentY--
 
 	// Adjust offset to keep the current selection in view.
-	availableSlots := height - 2
-	currentUpperRange := f.itemOffset + availableSlots - 1
+	availableSlots := height - drawnLines             // number of items that can be drawn
+	maxItemIndex := f.itemOffset + availableSlots - 1 // max item index
 
-	if f.selectedIndex >= currentUpperRange {
+	if f.selectedIndex >= maxItemIndex {
 		f.itemOffset = f.selectedIndex - availableSlots + 1
 	} else if f.selectedIndex < f.itemOffset {
 		f.itemOffset--
 	}
 
-	currentUpperRange = f.itemOffset + availableSlots - 1
+	maxItemIndex = f.itemOffset + availableSlots - 1
 
 	// Draw the list items.
 	for index, matchItem := range f.matched {
@@ -416,7 +484,7 @@ func (f *Finder) Draw(screen tcell.Screen) {
 			continue
 		}
 
-		if index < f.itemOffset || index > currentUpperRange {
+		if index < f.itemOffset || index > maxItemIndex {
 			continue
 		}
 
@@ -427,48 +495,67 @@ func (f *Finder) Draw(screen tcell.Screen) {
 			return text
 		}
 
+		label := f.itemLabel
+		labelStyle := f.itemLabelStyle
+		itemStyle := f.itemStyle
+		labelPadding := f.itemLabelPadding
+		selected := false
 		if index == f.selectedIndex && (!f.selectedFocusOnly || f.HasFocus()) {
+			label = f.selectedItemLabel
+			labelStyle = f.selectedItemLabelStyle
+			itemStyle = f.selectedItemStyle
+			labelPadding = f.selectedItemLabelPadding
+			selected = true
+		}
 
-			// print label
-			_, _, _, itemEndPrint := printWithStyle(
-				screen, f.selectedItemLabel, x, currentY, 0, width, AlignLeft, f.selectedItemStyle, true,
-			)
-			maxTitleWidth := width - itemEndPrint - 1
-			// print title
-			printWithStyle(
-				screen,
-				truncate(item, maxTitleWidth),
-				x+itemEndPrint,
-				currentY, 0, maxTitleWidth, AlignLeft, f.itemStile, true,
-			)
-			// print background
-			textWidth := width
-			if !f.highlightFullLine {
-				if lw, tw := TaggedStringWidth(f.selectedItemLabel), TaggedStringWidth(item); lw+tw < textWidth {
-					textWidth = lw + tw
-				}
-			}
-			for bx := 0; bx < textWidth; bx++ {
-				m, c, _, _ := screen.GetContent(x+bx, currentY)
-				screen.SetContent(x+bx, currentY, m, c, f.selectedItemStyle)
-			}
+		currentX := x
 
-		} else {
-			// Print item (not selected)
+		// print label
+		printWithStyle(
+			screen, label, x, currentY, 0, width, AlignLeft, labelStyle, false,
+		)
+		currentX += len(label)
+
+		if selected {
 			printWithStyle(
-				screen,
-				truncate(item, width-len(f.selectedItemLabel)),
-				x+len(f.selectedItemLabel),
-				currentY, 0, width, AlignLeft, f.itemStile, true,
+				screen, " ", currentX, currentY, 0, width, AlignLeft, labelStyle, false,
 			)
 		}
 
+		// set a gap between label and item title
+		currentX += labelPadding
+
+		maxTitleWidth := width - currentX - 1
+
+		// print title && don't increase currentX any further since we still need to draw the background
+		itemTitle := truncate(item, maxTitleWidth)
+		itemTitleLen := TaggedStringWidth(itemTitle)
+		printWithStyle(
+			screen,
+			itemTitle,
+			currentX,
+			currentY, 0, maxTitleWidth, AlignLeft, itemStyle, true,
+		)
+
+		// print background
+		textWidth := width
+		if !f.highlightFullLine {
+			if tw := TaggedStringWidth(item); tw < textWidth {
+				textWidth = tw
+			}
+		}
+		for bx := currentX; bx < minInt(currentX+itemTitleLen, maxX); bx++ {
+			m, c, _, _ := screen.GetContent(bx, currentY)
+			screen.SetContent(bx, currentY, m, c, itemStyle)
+		}
+
+		// draw match highlighting
 		if f.filterText != "" {
 			for _, m := range matchItem.matches {
 				printWithStyle(
 					screen,
 					item[m[0]:m[1]],
-					x+len(f.selectedItemLabel)+m[0],
+					currentX+m[0],
 					currentY,
 					0,
 					width, AlignLeft,
@@ -487,19 +574,20 @@ func (f *Finder) Draw(screen tcell.Screen) {
 func (f *Finder) drawInputField(screen tcell.Screen) {
 
 	// Prepare
-	x, y, width, height := f.GetInnerRect()
-	y = y + height - 1
+	x, currentY, width, height := f.GetInnerRect()
+	currentY = currentY + height - 1
 	rightLimit := x + width
 	if height < 1 || rightLimit <= x {
 		return
 	}
 
 	// Draw inputLabel.
-	_, drawnWidth, _, _ := printWithStyle(screen, f.inputLabel, x, y, 0, rightLimit-x, AlignLeft, f.inputLabelStyle, false)
+	_, drawnWidth, _, _ := printWithStyle(screen, f.inputLabel, x, currentY, 0, rightLimit-x, AlignLeft, f.inputLabelStyle, false)
 	x += drawnWidth
+	x += f.inputLabelPadding
 
 	// Draw input area.
-	fieldWidth := width - len(f.inputLabel)
+	fieldWidth := width - TaggedStringWidth(f.inputLabel) - f.inputLabelPadding
 	text := f.filterText
 	inputStyle := f.fieldStyle
 	showPlaceholder := text == ""
@@ -507,7 +595,7 @@ func (f *Finder) drawInputField(screen tcell.Screen) {
 
 	if inputBg != tcell.ColorDefault {
 		for index := 0; index < fieldWidth; index++ {
-			screen.SetContent(x+index, y, ' ', nil, inputStyle)
+			screen.SetContent(x+index, currentY, ' ', nil, inputStyle)
 		}
 	}
 
@@ -515,13 +603,13 @@ func (f *Finder) drawInputField(screen tcell.Screen) {
 	var cursorScreenPos int
 	if showPlaceholder {
 		// Draw showPlaceholder text.
-		printWithStyle(screen, Escape(f.placeholder), x, y, 0, fieldWidth, AlignLeft, f.placeholderStyle, true)
+		printWithStyle(screen, Escape(f.placeholder), x, currentY, 0, fieldWidth, AlignLeft, f.placeholderStyle, true)
 		f.offset = 0
 	} else {
 		// Draw entered text.
 		if fieldWidth >= stringWidth(text) {
 			// We have enough space for the full text.
-			printWithStyle(screen, Escape(text), x, y, 0, fieldWidth, AlignLeft, inputStyle, true)
+			printWithStyle(screen, Escape(text), x, currentY, 0, fieldWidth, AlignLeft, inputStyle, true)
 			f.offset = 0
 			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
 				if textPos >= f.cursorPos {
@@ -559,13 +647,13 @@ func (f *Finder) drawInputField(screen tcell.Screen) {
 				}
 				return false
 			})
-			printWithStyle(screen, Escape(text[f.offset:]), x, y, 0, fieldWidth, AlignLeft, inputStyle, true)
+			printWithStyle(screen, Escape(text[f.offset:]), x, currentY, 0, fieldWidth, AlignLeft, inputStyle, true)
 		}
 	}
 
 	// Set cursor.
 	if f.HasFocus() {
-		screen.ShowCursor(x+cursorScreenPos, y)
+		screen.ShowCursor(x+cursorScreenPos, currentY)
 	}
 }
 
@@ -579,13 +667,13 @@ func (f *Finder) InputHandler() func(event *tcell.EventKey, setFocus func(p Prim
 			return
 		}
 
-		f.handleInputList(event, setFocus)
-		f.handleInputTextField(event, setFocus)
+		f.handleInputList(event)
+		f.handleInputTextField(event)
 	})
 }
 
 // handleInputList handles the input events for the list (moving the selection up and down)
-func (f *Finder) handleInputList(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (f *Finder) handleInputList(event *tcell.EventKey) {
 
 	newSelectedIndex := f.selectedIndex
 	switch key := event.Key(); key {
@@ -595,14 +683,14 @@ func (f *Finder) handleInputList(event *tcell.EventKey, setFocus func(p Primitiv
 		newSelectedIndex++
 	}
 
-	if f.selectedIndex < 0 {
+	if newSelectedIndex < 0 {
 		if f.wrapAround {
 			newSelectedIndex = len(f.matched) - 1
 		} else {
 			newSelectedIndex = 0
 			f.itemOffset = 0
 		}
-	} else if f.selectedIndex >= len(f.matched) {
+	} else if newSelectedIndex >= len(f.matched) {
 		if f.wrapAround {
 			newSelectedIndex = 0
 			f.itemOffset = 0
@@ -615,7 +703,7 @@ func (f *Finder) handleInputList(event *tcell.EventKey, setFocus func(p Primitiv
 }
 
 // handleInputTextField handles the input events for the input field.
-func (f *Finder) handleInputTextField(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (f *Finder) handleInputTextField(event *tcell.EventKey) {
 
 	// Trigger changed events.
 	currentText := f.filterText
@@ -734,4 +822,17 @@ func (f *Finder) handleInputTextField(event *tcell.EventKey, setFocus func(p Pri
 	case tcell.KeyEnter:
 		finish(key)
 	}
+}
+
+func (f *Finder) inputOffset() int {
+	labelPaddingMax := f.itemLabelPadding
+	if f.selectedItemLabelPadding > labelPaddingMax {
+		labelPaddingMax = f.selectedItemLabelPadding
+	}
+	labelWidthMax := len(f.itemLabel)
+	if labelWidthMax < len(f.selectedItemLabel) {
+		labelWidthMax = len(f.selectedItemLabel)
+	}
+
+	return labelWidthMax + labelPaddingMax
 }

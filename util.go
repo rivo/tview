@@ -661,3 +661,10 @@ func stripTags(text string) string {
 	})
 	return escapePattern.ReplaceAllString(stripped, `[$1$2]`)
 }
+
+func minInt(first, second int) int {
+	if first < second {
+		return first
+	}
+	return second
+}
