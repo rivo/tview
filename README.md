@@ -100,6 +100,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [libgen-tui: A terminal UI for downloading books from Library Genesis](https://github.com/audstanley/libgen-tui)
 - [kubectl-lazy: kubectl plugin to easy to view pod](https://github.com/togettoyou/kubectl-lazy)
 - [podman-tui: podman user interface](https://github.com/navidys/podman-tui)
+- [tvxwidgets: tview extra widgets](https://github.com/navidys/tvxwidgets)
 
 ## Documentation
 
