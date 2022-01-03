@@ -99,6 +99,8 @@ For a presentation highlighting this package, compile and run the program found 
 - [s3surfer: CLI tool for browsing S3 bucket and download objects interactively](https://github.com/hirose31/s3surfer)
 - [libgen-tui: A terminal UI for downloading books from Library Genesis](https://github.com/audstanley/libgen-tui)
 - [kubectl-lazy: kubectl plugin to easy to view pod](https://github.com/togettoyou/kubectl-lazy)
+- [podman-tui: podman user interface](https://github.com/navidys/podman-tui)
+- [tvxwidgets: tview extra widgets](https://github.com/navidys/tvxwidgets)
 - [Domino card game on terminal](https://github.com/gusti-andika/card-domino.git)
 
 ## Documentation
