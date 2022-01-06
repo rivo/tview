@@ -102,6 +102,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [podman-tui: podman user interface](https://github.com/navidys/podman-tui)
 - [tvxwidgets: tview extra widgets](https://github.com/navidys/tvxwidgets)
 - [Domino card game on terminal](https://github.com/gusti-andika/card-domino.git)
+- [goaround: Query stackoverflow API and get results on terminal](https://github.com/glendsoza/goaround)
 
 ## Documentation
 
