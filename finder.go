@@ -98,6 +98,9 @@ type Finder struct {
 	// The style used to highlight matches between items and the updateMatches text
 	highlightMatchStyle tcell.Style
 
+	// If false, the background color of highlightMatchStyle will be applied.
+	highlightMatchMaintainBackgroundColor bool
+
 	// If true, the entire row is highlighted when selected.
 	highlightFullLine bool
 
@@ -293,6 +296,14 @@ func (f *Finder) SetHighlightMatchStyle(style tcell.Style) *Finder {
 	return f
 }
 
+// SetHighlightMatchMaintainBackgroundColor defines whether the background color of highlightMatchStyle
+// will be applied. If set to true, the background color of itemStyle or selectedItemStyle will be
+// maintained. If false, the background color of highlightMatchStyle will be applied.
+func (f *Finder) SetHighlightMatchMaintainBackgroundColor(maintainBackgroundColor bool) *Finder {
+	f.highlightMatchMaintainBackgroundColor = maintainBackgroundColor
+	return f
+}
+
 // SetHighlightFullLine sets a flag which determines whether the colored
 // background of selected items spans the entire width of the view. If set to
 // true, the highlight spans the entire view. If set to false, only the text of
@@ -464,9 +475,15 @@ func (f *Finder) Draw(screen tcell.Screen) {
 	drawnLines += 1
 	currentY--
 
+	if f.itemOffset > len(f.matched) {
+		// the matched items have been updated while scrolling
+		// adjust the offset so that the selected items are still in view
+		f.itemOffset = len(f.matched) - 1
+	}
+
 	// Adjust offset to keep the current selection in view.
 	availableSlots := height - drawnLines             // number of items that can be drawn
-	maxItemIndex := f.itemOffset + availableSlots - 1 // max item index
+	maxItemIndex := f.itemOffset + availableSlots - 1 // max item inde
 
 	if f.selectedIndex >= maxItemIndex {
 		f.itemOffset = f.selectedIndex - availableSlots + 1
@@ -560,7 +577,7 @@ func (f *Finder) Draw(screen tcell.Screen) {
 					0,
 					width, AlignLeft,
 					f.highlightMatchStyle,
-					true,
+					f.highlightMatchMaintainBackgroundColor,
 				)
 			}
 
