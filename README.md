@@ -103,6 +103,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [tvxwidgets: tview extra widgets](https://github.com/navidys/tvxwidgets)
 - [Domino card game on terminal](https://github.com/gusti-andika/card-domino.git)
 - [goaround: Query stackoverflow API and get results on terminal](https://github.com/glendsoza/goaround)
+- [resto: 🔗 a CLI app can send pretty HTTP & API requests with TUI](https://github.com/abdfnx/resto)
 - [twad: a WAD launcher for the terminal](https://github.com/zmnpl/twad)
 
 ## Documentation
