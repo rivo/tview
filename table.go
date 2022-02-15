@@ -453,7 +453,7 @@ type Table struct {
 	selectedRow, selectedColumn int
 
 	// A temporary flag which causes the next call to Draw() to force the
-	// current selection to remain visible. Set to false afterwards.
+	// current selection to remain visible. It is set to false afterwards.
 	clampToSelection bool
 
 	// If set to true, moving the selection will wrap around horizontally (last
@@ -609,6 +609,7 @@ func (t *Table) GetSelection() (row, column int) {
 // if cells are not selectable).
 func (t *Table) Select(row, column int) *Table {
 	t.selectedRow, t.selectedColumn = row, column
+	t.clampToSelection = true
 	if t.selectionChanged != nil {
 		t.selectionChanged(row, column)
 	}
