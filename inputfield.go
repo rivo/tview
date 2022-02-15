@@ -76,6 +76,13 @@ type InputField struct {
 	autocompleteList      *List
 	autocompleteListMutex sync.Mutex
 
+	// The styles of the autocomplete entries.
+	autocompleteStyles struct {
+		main       tcell.Style
+		selected   tcell.Style
+		background tcell.Color
+	}
+
 	// An optional function which may reject the last character that was entered.
 	accept func(text string, ch rune) bool
 
@@ -97,12 +104,16 @@ type InputField struct {
 
 // NewInputField returns a new input field.
 func NewInputField() *InputField {
-	return &InputField{
+	i := &InputField{
 		Box:              NewBox(),
 		labelStyle:       tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
 		fieldStyle:       tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		placeholderStyle: tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
 	}
+	i.autocompleteStyles.main = tcell.StyleDefault.Foreground(Styles.PrimitiveBackgroundColor)
+	i.autocompleteStyles.selected = tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.PrimitiveBackgroundColor)
+	i.autocompleteStyles.background = Styles.MoreContrastBackgroundColor
+	return i
 }
 
 // SetText sets the current text of the input field.
@@ -205,6 +216,16 @@ func (i *InputField) GetPlaceholderStyle() tcell.Style {
 	return i.placeholderStyle
 }
 
+// SetAutocompleteStyles sets the colors and style of the autocomplete entries.
+// For details, see List.SetMainTextStyle(), List.SetSelectedStyle(), and
+// Box.SetBackgroundColor().
+func (i *InputField) SetAutocompleteStyles(background tcell.Color, main, selected tcell.Style) *InputField {
+	i.autocompleteStyles.background = background
+	i.autocompleteStyles.main = main
+	i.autocompleteStyles.selected = selected
+	return i
+}
+
 // SetFormAttributes sets attributes shared by all form items.
 func (i *InputField) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
 	i.labelWidth = labelWidth
@@ -273,11 +294,10 @@ func (i *InputField) Autocomplete() *InputField {
 	if i.autocompleteList == nil {
 		i.autocompleteList = NewList()
 		i.autocompleteList.ShowSecondaryText(false).
-			SetMainTextColor(Styles.PrimitiveBackgroundColor).
-			SetSelectedTextColor(Styles.PrimitiveBackgroundColor).
-			SetSelectedBackgroundColor(Styles.PrimaryTextColor).
+			SetMainTextStyle(i.autocompleteStyles.main).
+			SetSelectedStyle(i.autocompleteStyles.selected).
 			SetHighlightFullLine(true).
-			SetBackgroundColor(Styles.MoreContrastBackgroundColor)
+			SetBackgroundColor(i.autocompleteStyles.background)
 	}
 
 	// Fill it with the entries.
