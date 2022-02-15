@@ -323,9 +323,10 @@ func (t *TextView) SetText(text string) *TextView {
 // to true, any region/color tags are stripped from the text.
 func (t *TextView) GetText(stripAllTags bool) string {
 	// Get the buffer.
-	buffer := make([]string, len(t.buffer), len(t.buffer)+1)
-	copy(buffer, t.buffer)
+	buffer := t.buffer
 	if !stripAllTags {
+		buffer = make([]string, len(t.buffer), len(t.buffer)+1)
+		copy(buffer, t.buffer)
 		buffer = append(buffer, string(t.recentBytes))
 	}
 
@@ -346,6 +347,12 @@ func (t *TextView) GetText(stripAllTags bool) string {
 	}
 
 	return text
+}
+
+// GetOriginalLineCount returns the number of lines in the original text buffer,
+// i.e. the number of newline characters plus one.
+func (t *TextView) GetOriginalLineCount() int {
+	return len(t.buffer)
 }
 
 // SetDynamicColors sets the flag that allows the text color to be changed
