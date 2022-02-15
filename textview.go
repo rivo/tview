@@ -127,6 +127,13 @@ func (w TextViewWriter) HasFocus() bool {
 // The ScrollToHighlight() function can be used to jump to the currently
 // highlighted region once when the text view is drawn the next time.
 //
+// Large Texts
+//
+// This widget is not designed for very large texts as word wrapping, color and
+// region tag handling, and proper Unicode handling will result in a significant
+// performance hit the longer your text gets. Consider using SetMaxLines() to
+// limit the number of lines in the text view.
+//
 // See https://github.com/rivo/tview/wiki/TextView for an example.
 type TextView struct {
 	sync.Mutex
