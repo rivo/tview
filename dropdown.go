@@ -267,6 +267,19 @@ func (d *DropDown) SetOptions(texts []string, selected func(text string, index i
 	return d
 }
 
+// GetOptionCount returns the number of options in the drop-down.
+func (d *DropDown) GetOptionCount() int {
+	return len(d.options)
+}
+
+// RemoveOption removes the specified option from the drop-down. Panics if the
+// index is out of range.
+func (d *DropDown) RemoveOption(index int) *DropDown {
+	d.options = append(d.options[:index], d.options[index+1:]...)
+	d.list.RemoveItem(index)
+	return d
+}
+
 // SetSelectedFunc sets a handler which is called when the user changes the
 // drop-down's option. This handler will be called in addition and prior to
 // an option's optional individual handler. The handler is provided with the
