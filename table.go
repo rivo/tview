@@ -1335,9 +1335,15 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				startColumn := t.selectedColumn
 				for {
 					cell := t.content.GetCell(t.selectedRow, t.selectedColumn)
+
 					if cell != nil && !cell.NotSelectable {
 						return
 					}
+
+					if lastColumn < 0 || (rowCount-1) < 0 {
+						return
+					}
+
 					t.selectedColumn--
 					if t.selectedColumn < 0 {
 						t.selectedColumn = lastColumn
@@ -1346,6 +1352,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 							t.selectedRow = rowCount - 1
 						}
 					}
+
 					if t.selectedColumn == startColumn && t.selectedRow == startRow {
 						t.selectedColumn = 0
 						t.selectedRow = 0
