@@ -1329,6 +1329,9 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 		previouslySelectedRow, previouslySelectedColumn := t.selectedRow, t.selectedColumn
 		lastColumn := t.content.GetColumnCount() - 1
 		rowCount := t.content.GetRowCount()
+		if rowCount == 0 {
+			return // No movement on empty tables.
+		}
 		var (
 			previous = func() {
 				startRow := t.selectedRow
