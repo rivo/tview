@@ -10,9 +10,6 @@ import (
 const (
 	// The size of the event/update/redraw channels.
 	queueSize = 100
-
-	// The minimum time between two consecutive redraws.
-	redrawPause = 50 * time.Millisecond
 )
 
 // DoubleClickInterval specifies the maximum time between clicks to register a
@@ -118,6 +115,7 @@ type Application struct {
 	mouseDownX, mouseDownY  int              // The position of the mouse when its button was last pressed.
 	lastMouseClick          time.Time        // The time when a mouse button was last clicked.
 	lastMouseButtons        tcell.ButtonMask // The last mouse button state.
+	redrawPause             time.Duration
 }
 
 // NewApplication creates and returns a new application.
@@ -126,7 +124,13 @@ func NewApplication() *Application {
 		events:            make(chan tcell.Event, queueSize),
 		updates:           make(chan queuedUpdate, queueSize),
 		screenReplacement: make(chan tcell.Screen, 1),
+		redrawPause:       50 * time.Millisecond,
 	}
+}
+
+// SetRedrawPause changes the minimum time between two consecutive redraws.
+func (a *Application) SetRedrawPause(t time.Duration) {
+	a.redrawPause = t
 }
 
 // SetInputCapture sets a function which captures all key events before they are
@@ -344,11 +348,11 @@ EventLoop:
 					a.draw()
 				}
 			case *tcell.EventResize:
-				if time.Since(lastRedraw) < redrawPause {
+				if time.Since(lastRedraw) < a.redrawPause {
 					if redrawTimer != nil {
 						redrawTimer.Stop()
 					}
-					redrawTimer = time.AfterFunc(redrawPause, func() {
+					redrawTimer = time.AfterFunc(a.redrawPause, func() {
 						a.events <- event
 					})
 				}
