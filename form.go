@@ -208,8 +208,9 @@ func (f *Form) AddPasswordField(label, value string, fieldWidth int, mask rune, 
 func (f *Form) AddDropDown(label string, options []string, initialOption int, selected func(option string, optionIndex int)) *Form {
 	f.items = append(f.items, NewDropDown().
 		SetLabel(label).
-		SetOptions(options, selected).
-		SetCurrentOption(initialOption))
+		SetOptions(options, nil).
+		SetCurrentOption(initialOption).
+		SetSelectedFunc(selected))
 	return f
 }
 
