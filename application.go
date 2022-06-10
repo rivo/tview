@@ -696,9 +696,9 @@ func (a *Application) ResizeToFullScreen(p Primitive) *Application {
 	return a
 }
 
-// SetFocus sets the focus on a new primitive. All key events will be redirected
-// to that primitive. Callers must ensure that the primitive will handle key
-// events.
+// SetFocus sets the focus to a new primitive. All key events will be directed
+// down the hierarchy (starting at the root) until a primitive handles them,
+// which per default goes towards the focused primitive.
 //
 // Blur() will be called on the previously focused primitive. Focus() will be
 // called on the new primitive.
