@@ -688,18 +688,19 @@ func (a *Application) draw() *Application {
 // the screen.
 func (a *Application) Sync() *Application {
 	// check to see if the Application.Run is still valid
+	msg := queuedUpdate{
+		f: func() {
+			a.RLock()
+			screen := a.screen
+			a.RUnlock()
+			if screen == nil {
+				return
+			}
+			screen.Sync()
+		},
+	}
 	if a.runContext.Err() == nil {
-		a.updates <- queuedUpdate{
-			f: func() {
-				a.RLock()
-				screen := a.screen
-				a.RUnlock()
-				if screen == nil {
-					return
-				}
-				screen.Sync()
-			},
-		}
+		a.updates <- msg
 	}
 	return a
 }
@@ -815,13 +816,20 @@ func (a *Application) GetFocus() Primitive {
 //
 // This function returns after f has executed.
 func (a *Application) QueueUpdate(f func()) *Application {
-	// check to see if the Application.Run is still valid
-	if a.runContext.Err() == nil {
-		ch := make(chan struct{})
-		a.updates <- queuedUpdate{
-			f:    f,
-			done: ch,
+	defer func() {
+		if err := recover(); err != nil {
+			d := 2
+			d++
 		}
+	}()
+	// check to see if the Application.Run is still valid
+	ch := make(chan struct{})
+	msg := queuedUpdate{
+		f:    f,
+		done: ch,
+	}
+	if a.runContext.Err() == nil {
+		a.updates <- msg
 		<-ch
 	}
 	return a
