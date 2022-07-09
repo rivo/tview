@@ -106,6 +106,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [resto: 🔗 a CLI app can send pretty HTTP & API requests with TUI](https://github.com/abdfnx/resto)
 - [twad: a WAD launcher for the terminal](https://github.com/zmnpl/twad)
 - [pacseek: A TUI for searching and installing Arch Linux packages](https://github.com/moson-mo/pacseek)
+- [7GUIs demo](https://github.com/letientai299/7guis/tree/master/tui)
 
 ## Documentation
 
