@@ -13,8 +13,8 @@ type listItem struct {
 	SecondaryText      string      // A secondary text to be shown underneath the main text.
 	Shortcut           rune        // The key to select the list item directly, 0 if there is no shortcut.
 	Selected           func()      // The optional function which is called when the item is selected.
-	MainTextStyle      tcell.Style // The style for the main text
-	SecondarytextStyle tcell.Style // The style for the secondary text
+	MainTextStyle      tcell.Style // The style for the main text.
+	SecondarytextStyle tcell.Style // The style for the secondary text.
 }
 
 // List displays rows of items, each of which can be selected.
@@ -363,7 +363,7 @@ func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut ru
 	return l
 }
 
-// insert an item in the list
+// insert an item in the list.
 func (l *List) insertItem(index int, mainText, secondaryText string, shortcut rune, selected func(), mainTextStyle, secondaryTextStyle tcell.Style) *List {
 	item := &listItem{
 		MainText:           mainText,
