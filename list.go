@@ -9,10 +9,12 @@ import (
 
 // listItem represents one item in a List.
 type listItem struct {
-	MainText      string // The main text of the list item.
-	SecondaryText string // A secondary text to be shown underneath the main text.
-	Shortcut      rune   // The key to select the list item directly, 0 if there is no shortcut.
-	Selected      func() // The optional function which is called when the item is selected.
+	MainText           string      // The main text of the list item.
+	SecondaryText      string      // A secondary text to be shown underneath the main text.
+	Shortcut           rune        // The key to select the list item directly, 0 if there is no shortcut.
+	Selected           func()      // The optional function which is called when the item is selected.
+	MainTextStyle      tcell.Style // The style for the main text
+	SecondarytextStyle tcell.Style // The style for the secondary text
 }
 
 // List displays rows of items, each of which can be selected.
@@ -320,6 +322,20 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 	return l
 }
 
+// AddItemWithStyle calls InsertItemWithStyle() with an index of -1.
+func (l *List) AddItemWithStyle(mainText, secondaryText string, shortcut rune, selected func(), mainTextStyle, secondaryTextStyle tcell.Style) *List {
+	l.insertItem(-1, mainText, secondaryText, shortcut, selected, mainTextStyle, secondaryTextStyle)
+	return l
+}
+
+// InsertItemWithStyle inserts an item like InsertItem but adds a foreground color to it
+// Note that the background color is ignored in order not to override the background color of
+// the list itself.
+func (l *List) InsertItemWithStyle(index int, mainText, secondaryText string, shortcut rune, selected func(), mainTextStyle, secondaryTextStyle tcell.Style) *List {
+	l.insertItem(index, mainText, secondaryText, shortcut, selected, mainTextStyle, secondaryTextStyle)
+	return l
+}
+
 // InsertItem adds a new item to the list at the specified index. An index of 0
 // will insert the item at the beginning, an index of 1 before the second item,
 // and so on. An index of GetItemCount() or higher will insert the item at the
@@ -343,11 +359,19 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 // was previously empty, a "changed" event is fired because the new item becomes
 // selected.
 func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut rune, selected func()) *List {
+	l.insertItem(index, mainText, secondaryText, shortcut, selected, tcell.StyleDefault, tcell.StyleDefault)
+	return l
+}
+
+// insert an item in the list
+func (l *List) insertItem(index int, mainText, secondaryText string, shortcut rune, selected func(), mainTextStyle, secondaryTextStyle tcell.Style) *List {
 	item := &listItem{
-		MainText:      mainText,
-		SecondaryText: secondaryText,
-		Shortcut:      shortcut,
-		Selected:      selected,
+		MainText:           mainText,
+		SecondaryText:      secondaryText,
+		Shortcut:           shortcut,
+		Selected:           selected,
+		MainTextStyle:      mainTextStyle,
+		SecondarytextStyle: secondaryTextStyle,
 	}
 
 	// Shift index to range.
@@ -507,7 +531,11 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 
 		// Main text.
-		_, printedWidth, _, end := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, l.mainTextStyle, true)
+		style := l.mainTextStyle
+		if item.MainTextStyle != tcell.StyleDefault {
+			style = item.MainTextStyle
+		}
+		_, printedWidth, _, end := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, style, true)
 		if printedWidth > maxWidth {
 			maxWidth = printedWidth
 		}
@@ -544,7 +572,11 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Secondary text.
 		if l.showSecondaryText {
-			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, l.secondaryTextStyle, true)
+			style := l.mainTextStyle
+			if item.SecondarytextStyle != tcell.StyleDefault {
+				style = item.SecondarytextStyle
+			}
+			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, style, true)
 			if printedWidth > maxWidth {
 				maxWidth = printedWidth
 			}
