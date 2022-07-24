@@ -817,7 +817,7 @@ func (a *Application) GetFocus() Primitive {
 // This function returns after f has executed.
 func (a *Application) QueueUpdate(
 	f func(),
-) *Application {
+) bool {
 	defer func() {
 		if err := recover(); err != nil {
 			// dealing with panic, as we can still get a closed channel
@@ -832,27 +832,25 @@ func (a *Application) QueueUpdate(
 	if a.runContext.Err() == nil {
 		select {
 		case a.updates <- msg:
-			break
+			return true
 		default:
-			break
+			return false
 		}
-
 	}
-	return a
+	return true
 }
 
 // QueueUpdateDraw works like QueueUpdate() except it refreshes the screen
 // immediately after executing f.
 func (a *Application) QueueUpdateDraw(
 	f func(),
-) *Application {
-	a.QueueUpdate(
+) bool {
+	return a.QueueUpdate(
 		func() {
 			f()
 			a.draw()
 		},
 	)
-	return a
 }
 
 // QueueEvent sends an event to the Application event loop.
