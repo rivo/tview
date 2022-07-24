@@ -48,8 +48,8 @@ const (
 // Application.QueueUpdate(). If "done" is not nil, it receives exactly one
 // element after f has executed.
 type queuedUpdate struct {
-	f    func()
-	done chan struct{}
+	f func()
+	//done chan struct{}
 }
 
 // Application represents the top node of an application.
@@ -142,9 +142,9 @@ func (a *Application) Close() error {
 	}()
 	// flush updates channel
 	go func() {
-		for up := range a.updates {
+		for range a.updates {
 			// important  to set done for calling channel to be able to return
-			up.done <- struct{}{}
+			//up.done <- struct{}{}
 		}
 	}()
 
@@ -440,9 +440,9 @@ EventLoop:
 				break EventLoop
 			}
 			update.f()
-			if update.done != nil {
-				update.done <- struct{}{}
-			}
+			//if update.done != nil {
+			//	update.done <- struct{}{}
+			//}
 		}
 	}
 	// call the runCancelFunc when exiting eventLoop.
@@ -815,32 +815,43 @@ func (a *Application) GetFocus() Primitive {
 // up with an immediate refresh of the screen.
 //
 // This function returns after f has executed.
-func (a *Application) QueueUpdate(f func()) *Application {
+func (a *Application) QueueUpdate(
+	f func(),
+) *Application {
 	defer func() {
 		if err := recover(); err != nil {
 			// dealing with panic, as we can still get a closed channel
 		}
 	}()
 	// check to see if the Application.Run is still valid
-	ch := make(chan struct{})
+	//ch := make(chan struct{})
 	msg := queuedUpdate{
-		f:    f,
-		done: ch,
+		f: f,
+		//done: ch,
 	}
 	if a.runContext.Err() == nil {
-		a.updates <- msg
-		<-ch
+		select {
+		case a.updates <- msg:
+			break
+		default:
+			break
+		}
+
 	}
 	return a
 }
 
 // QueueUpdateDraw works like QueueUpdate() except it refreshes the screen
 // immediately after executing f.
-func (a *Application) QueueUpdateDraw(f func()) *Application {
-	a.QueueUpdate(func() {
-		f()
-		a.draw()
-	})
+func (a *Application) QueueUpdateDraw(
+	f func(),
+) *Application {
+	a.QueueUpdate(
+		func() {
+			f()
+			a.draw()
+		},
+	)
 	return a
 }
 
