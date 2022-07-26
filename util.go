@@ -460,17 +460,16 @@ func stringWidth(text string) (width int) {
 }
 
 // WordWrap splits a text such that each resulting line does not exceed the
-// given screen width. Possible split points are after any punctuation or
-// whitespace. Whitespace after split points will be dropped.
+// given screen width. Split points are defined by a regular expression
 //
 // This function considers color tags to have no width.
 //
 // Text is always split at newline characters ('\n').
-func WordWrap(text string, width int) (lines []string) {
+func WordWrapWithPattern(text string, width int, pattern *regexp.Regexp) (lines []string) {
 	colorTagIndices, _, _, _, escapeIndices, strippedText, _ := decomposeString(text, true, false)
 
 	// Find candidate breakpoints.
-	breakpoints := boundaryPattern.FindAllStringSubmatchIndex(strippedText, -1)
+	breakpoints := pattern.FindAllStringSubmatchIndex(strippedText, -1)
 	// Results in one entry for each candidate. Each entry is an array a of
 	// indices into strippedText where a[6] < 0 for newline/punctuation matches
 	// and a[4] < 0 for whitespace matches.
@@ -561,6 +560,17 @@ func WordWrap(text string, width int) (lines []string) {
 	}
 
 	return
+}
+
+// WordWrap splits a text such that each resulting line does not exceed the
+// given screen width. Possible split points are after any punctuation or
+// whitespace. Whitespace after split points will be dropped.
+//
+// This function considers color tags to have no width.
+//
+// Text is always split at newline characters ('\n').
+func WordWrap(text string, width int) (lines []string) {
+	return WordWrapWithPattern(text, width, boundaryPattern)
 }
 
 // Escape escapes the given text such that color and/or region tags are not
