@@ -75,8 +75,12 @@ func (w TextViewWriter) HasFocus() bool {
 	return w.t.hasFocus
 }
 
-// TextView is a box which displays text. It implements the io.Writer interface
-// so you can stream text to it. This does not trigger a redraw automatically
+// TextView is a box which displays text. While the text to be displayed can be
+// changed or appended to, there is no functionality that allows the user to
+// edit text. For that, TextArea should be used.
+//
+// TextView implements the io.Writer interface so you can stream text to it,
+// appending to the existing text. This does not trigger a redraw automatically
 // but if a handler is installed via SetChangedFunc(), you can cause it to be
 // redrawn. (See SetChangedFunc() for more details.)
 //
@@ -179,7 +183,8 @@ type TextView struct {
 	// If set to true, the text view will always remain at the end of the content.
 	trackEnd bool
 
-	// The number of characters to be skipped on each line (not in wrap mode).
+	// The number of characters to be skipped on each line (not used in wrap
+	// mode).
 	columnOffset int
 
 	// The maximum number of lines kept in the line index, effectively the
