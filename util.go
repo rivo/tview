@@ -451,7 +451,7 @@ func stringWidth(text string) (width int) {
 			chWidth int
 			cl      string
 		)
-		cl, text, state = uniseg.FirstGraphemeClusterInString(text, state)
+		cl, text, _, state = uniseg.FirstGraphemeClusterInString(text, state)
 		for _, r := range cl {
 			chWidth = runewidth.RuneWidth(r)
 			if chWidth > 0 {
@@ -591,7 +591,7 @@ func iterateString(text string, callback func(main rune, comb []rune, textPos, t
 	state := -1
 	for len(text) > 0 {
 		var cluster string
-		cluster, text, state = uniseg.FirstGraphemeClusterInString(text, state)
+		cluster, text, _, state = uniseg.FirstGraphemeClusterInString(text, state)
 
 		var width int
 		runes := make([]rune, 0, len(cluster))
