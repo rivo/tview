@@ -26,8 +26,12 @@ var (
 //   - Ctrl-E, End: Move to the end of the current line.
 //   - Ctrl-F, page down: Move down by one page.
 //   - Ctrl-B, page up: Move up by one page.
-//   - TODO (Shift+Ctrl-/Alt-Up arrow): Scroll the page up, leaving the cursor in its position.
-//   - TODO (Shift+Ctrl-/Alt-Down arrow): Scroll the page down, leaving the cursor in its position.
+//   - Alt-Up arrow: Scroll the page up, leaving the cursor in its position.
+//   - Alt-Down arrow: Scroll the page down, leaving the cursor in its position.
+//   - Alt-Left arrow: Scroll the page to the right, leaving the cursor in its
+//     position. Ignored if wrapping is enabled.
+//   - Alt-Right arrow: Scroll the page to the left, leaving the cursor in its
+//     position. Ignored if wrapping is enabled.
 //
 // If the mouse is enabled, clicking on a screen cell will move the cursor to
 // that location or to the end of the line if past the last character. Turning
@@ -74,6 +78,9 @@ var (
 // the key binds for copy, cut, and paste. The GetSelection(), ReplaceText(),
 // and SetSelection() provide all the functionality needed for your own
 // clipboard.
+//
+//    - Ctrl-Z: Undo the last change.
+//    - Ctrl-Y: Redo the last change.
 type TextArea struct {
 	*Box
 
