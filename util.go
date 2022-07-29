@@ -445,10 +445,14 @@ func TaggedStringWidth(text string) int {
 // text. It splits the text into its grapheme clusters, calculates each
 // cluster's width, and adds them up to a total.
 func stringWidth(text string) (width int) {
-	g := uniseg.NewGraphemes(text)
-	for g.Next() {
-		var chWidth int
-		for _, r := range g.Runes() {
+	state := -1
+	for len(text) > 0 {
+		var (
+			chWidth int
+			cl      string
+		)
+		cl, text, _, state = uniseg.FirstGraphemeClusterInString(text, state)
+		for _, r := range cl {
 			chWidth = runewidth.RuneWidth(r)
 			if chWidth > 0 {
 				break // Our best guess at this point is to use the width of the first non-zero-width rune.
@@ -582,23 +586,34 @@ func Escape(text string) string {
 // returns true. This function returns true if the iteration was stopped before
 // the last character.
 func iterateString(text string, callback func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool) bool {
-	var screenPos int
+	var screenPos, textPos int
 
-	gr := uniseg.NewGraphemes(text)
-	for gr.Next() {
-		r := gr.Runes()
-		from, to := gr.Positions()
-		width := stringWidth(gr.Str())
-		var comb []rune
-		if len(r) > 1 {
-			comb = r[1:]
+	state := -1
+	for len(text) > 0 {
+		var cluster string
+		cluster, text, _, state = uniseg.FirstGraphemeClusterInString(text, state)
+
+		var width int
+		runes := make([]rune, 0, len(cluster))
+		for _, r := range cluster {
+			runes = append(runes, r)
+			w := runewidth.RuneWidth(r)
+			if width == 0 && w > 0 {
+				width = w // Our best guess at this point is to use the width of the first non-zero-width rune.
+			}
 		}
 
-		if callback(r[0], comb, from, to-from, screenPos, width) {
+		var comb []rune
+		if len(runes) > 1 {
+			comb = runes[1:]
+		}
+
+		if callback(runes[0], comb, textPos, len(cluster), screenPos, width) {
 			return true
 		}
 
 		screenPos += width
+		textPos += len(cluster)
 	}
 
 	return false

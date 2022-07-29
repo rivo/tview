@@ -812,10 +812,7 @@ func (t *TextView) reindexBuffer(width int) {
 				extract := runewidth.Truncate(str, width, "")
 				if len(extract) == 0 {
 					// We'll extract at least one grapheme cluster.
-					gr := uniseg.NewGraphemes(str)
-					gr.Next()
-					_, to := gr.Positions()
-					extract = str[:to]
+					extract, _, _, _ = uniseg.FirstGraphemeClusterInString(str, -1)
 				}
 				if t.wordWrap && len(extract) < len(str) {
 					// Add any spaces from the next line.
