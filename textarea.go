@@ -187,7 +187,7 @@ type TextArea struct {
 	wordWrap bool
 
 	// The index of the first line shown in the text area.
-	lineOffset int
+	rowOffset int
 
 	// The number of cells to be skipped on each line (not used in wrap mode).
 	columnOffset int
@@ -205,8 +205,10 @@ type TextArea struct {
 	// be placed. This is the row (index 0) and column (index 1) in screen space
 	// but relative to the start of the text which may be outside the text
 	// area's box. The column value may be larger than where the cursor actually
-	// is if the line the cursor is on is shorter. The remaining values (indices
-	// 2-4) is a textAreaSpan position with state for the actual next character.
+	// is if the line the cursor is on is shorter. These two values may be
+	// determined yet. The remaining values (indices 2-4) is a textAreaSpan
+	// temporarily negative if the cursor's screen position hasn't been
+	// position with state for the actual next character.
 	cursor [5]int
 }
 
@@ -235,6 +237,9 @@ func NewTextArea(text string) *TextArea {
 		t.spans[0].next = 2
 		t.spans[1].previous = 2
 		t.length = len(text)
+		t.cursor = [5]int{-1, -1, 1, 0, -1}
+	} else {
+		t.cursor = [5]int{0, 0, 1, 0, -1}
 	}
 	return t
 }
@@ -288,14 +293,14 @@ func (t *TextArea) SetPlaceholderStyle(style tcell.Style) *TextArea {
 // skipped during drawing at the top or on the left, respectively. Note that the
 // column offset is ignored if wrapping is enabled.
 func (t *TextArea) GetOffset() (row, column int) {
-	return t.lineOffset, t.columnOffset
+	return t.rowOffset, t.columnOffset
 }
 
 // SetOffset sets the text's offset, that is, the number of rows and columns
 // skipped during drawing at the top or on the left, respectively. If wrapping
 // is enabled, the column offset is ignored.
 func (t *TextArea) SetOffset(row, column int) *TextArea {
-	t.lineOffset, t.columnOffset = row, column
+	t.rowOffset, t.columnOffset = row, column
 	return t
 }
 
@@ -489,21 +494,30 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	if t.lastWidth != width && t.lineStarts != nil {
 		t.lineStarts = t.lineStarts[:0]
 		t.lastWidth = width
+		t.cursor[0], t.cursor[1] = -1, -1
 	}
-	t.extendLines(width, t.lineOffset+height)
-	if len(t.lineStarts) <= t.lineOffset {
+	t.extendLines(width, t.rowOffset+height)
+	if len(t.lineStarts) <= t.rowOffset {
 		return // It's scrolled out of view.
 	}
 
 	// Print the text.
-	var cluster, text string
-	line := t.lineOffset
+	var (
+		cluster, text string
+		cursorVisible bool
+	)
+	line := t.rowOffset
 	pos := t.lineStarts[line]
 	endPos := pos
 	posX, posY := 0, 0
 	columnOffset := t.columnOffset
 	if t.wrap {
 		columnOffset = 0
+	}
+	if t.cursor[0] < 0 && t.cursor[2] == pos[0] && t.cursor[3] == pos[1] {
+		// The cursor is in the first cell.
+		t.cursor[0], t.cursor[1], t.cursor[4] = line, columnOffset, pos[2]
+		cursorVisible = true
 	}
 	for pos[0] != 1 {
 		cluster, text, _, pos, endPos = t.step(text, pos, endPos)
@@ -522,6 +536,15 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 			posX = 0
 			line++
 		}
+		if t.cursor[0] < 0 && t.cursor[2] == pos[0] && t.cursor[3] == pos[1] {
+			// We hit the cursor.
+			t.cursor[0], t.cursor[1], t.cursor[4] = posY+t.rowOffset, posX, pos[2]
+			cursorVisible = t.cursor[0]-t.rowOffset < height && t.cursor[1]-columnOffset < width
+		}
+	}
+
+	if t.HasFocus() && cursorVisible {
+		screen.ShowCursor(x+t.cursor[1]-columnOffset, y+t.cursor[0]-t.rowOffset)
 	}
 }
 
@@ -707,7 +730,11 @@ func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, 
 	pos[1] += len(cluster)
 	for pos[0] != 1 && (span.length < 0 && pos[1] >= -span.length || span.length >= 0 && pos[1] >= span.length) {
 		pos[0] = span.next
-		pos[1] -= span.length
+		if span.length < 0 {
+			pos[1] += span.length
+		} else {
+			pos[1] -= span.length
+		}
 		span = t.spans[pos[0]]
 	}
 
