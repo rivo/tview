@@ -36,13 +36,14 @@ var (
 // two-element int array. The first element is the index of the referenced span
 // in the piece chain. The second element is the offset into the span's
 // referenced text (relative to the span's start), its value is always >= 0 and
-// < span.length.
+// < span.length. Sometimes, we may use a three-element int array which also
+// contains the corresponding text parser's state in the third position.
 //
 // A range of text is represented by a span range which is a starting position
-// ([2]int) and an ending position ([2]int). The starting position references
-// the first character of the range, the ending position references the position
-// after the last character of the range. The end of the text therefore always
-// [2]int{1, 0}, position 0 of the ending sentinel.
+// (int array) and an ending position (int array). The starting position
+// references the first character of the range, the ending position references
+// the position after the last character of the range. The end of the text is
+// therefore always [2]int{1, 0}, position 0 of the ending sentinel.
 type textAreaSpan struct {
 	// Links to the previous and next textAreaSpan objects as indices into the
 	// TextArea.spans slice. The sentinel spans (index 0 and 1) have -1 as their
@@ -199,6 +200,14 @@ type TextArea struct {
 	// all lines of the text may be contained at any time, extend as needed with
 	// the TextArea.extendLines() function.
 	lineStarts [][3]int
+
+	// The cursor always points to the next position where a new character would
+	// be placed. This is the row (index 0) and column (index 1) in screen space
+	// but relative to the start of the text which may be outside the text
+	// area's box. The column value may be larger than where the cursor actually
+	// is if the line the cursor is on is shorter. The remaining values (indices
+	// 2-4) is a textAreaSpan position with state for the actual next character.
+	cursor [5]int
 }
 
 // NewTextArea returns a new text area. For an empty text area, provide an empty
@@ -272,6 +281,21 @@ func (t *TextArea) SetTextStyle(style tcell.Style) *TextArea {
 // SetPlaceholderStyle sets the style of the placeholder text.
 func (t *TextArea) SetPlaceholderStyle(style tcell.Style) *TextArea {
 	t.placeholderStyle = style
+	return t
+}
+
+// GetOffset returns the text's offset, that is, the number of rows and columns
+// skipped during drawing at the top or on the left, respectively. Note that the
+// column offset is ignored if wrapping is enabled.
+func (t *TextArea) GetOffset() (row, column int) {
+	return t.lineOffset, t.columnOffset
+}
+
+// SetOffset sets the text's offset, that is, the number of rows and columns
+// skipped during drawing at the top or on the left, respectively. If wrapping
+// is enabled, the column offset is ignored.
+func (t *TextArea) SetOffset(row, column int) *TextArea {
+	t.lineOffset, t.columnOffset = row, column
 	return t
 }
 
@@ -476,22 +500,26 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	line := t.lineOffset
 	pos := t.lineStarts[line]
 	endPos := pos
-	posX, posY := x, y
+	posX, posY := 0, 0
+	columnOffset := t.columnOffset
+	if t.wrap {
+		columnOffset = 0
+	}
 	for pos[0] != 1 {
 		cluster, text, _, pos, endPos = t.step(text, pos, endPos)
 		clusterWidth := stringWidth(cluster)
 		runes := []rune(cluster)
-		if posX+clusterWidth <= x+width {
-			screen.SetContent(posX, posY, runes[0], runes[1:], t.textStyle)
+		if posX+clusterWidth-columnOffset <= width && posX-columnOffset >= 0 && clusterWidth > 0 {
+			screen.SetContent(x+posX-columnOffset, y+posY, runes[0], runes[1:], t.textStyle)
 		}
 		posX += clusterWidth
 		if line+1 < len(t.lineStarts) && t.lineStarts[line+1] == pos {
 			// We must break over.
 			posY++
-			if posY >= y+height {
-				break // Done.
+			if posY >= height {
+				break // Don&& x+posX->=olumnOffset<0
 			}
-			posX = x
+			posX = 0
 			line++
 		}
 	}
