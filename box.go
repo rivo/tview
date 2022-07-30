@@ -125,7 +125,7 @@ func (b *Box) GetInnerRect() (int, int, int, int) {
 // if this primitive is part of a layout (e.g. Flex, Grid) or if it was added
 // like this:
 //
-//   application.SetRoot(b, true)
+//   application.SetRoot(p, true)
 func (b *Box) SetRect(x, y, width, height int) {
 	b.x = x
 	b.y = y

@@ -1143,7 +1143,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		// Print the line.
 		if y+line-t.lineOffset >= 0 {
 			var colorPos, regionPos, escapePos, tagOffset, skipped int
-			iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+			iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
 				// Process tags.
 				for {
 					if colorPos < len(colorTags) && textPos+tagOffset >= colorTagIndices[colorPos][0] && textPos+tagOffset < colorTagIndices[colorPos][1] {
