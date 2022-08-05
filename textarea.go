@@ -202,14 +202,19 @@ type TextArea struct {
 	lineStarts [][3]int
 
 	// The cursor always points to the next position where a new character would
-	// be placed. This is the row (index 0) and column (index 1) in screen space
-	// but relative to the start of the text which may be outside the text
-	// area's box. The column value may be larger than where the cursor actually
-	// is if the line the cursor is on is shorter. These two values may be
-	// determined yet. The remaining values (indices 2-4) is a textAreaSpan
-	// temporarily negative if the cursor's screen position hasn't been
-	// position with state for the actual next character.
-	cursor [5]int
+	// be placed.
+	cursor struct {
+		// The row and column in screen space but relative to the start of the
+		// text which may be outside the text area's box. The column value may
+		// be larger than where the cursor actually is if the line the cursor
+		// is on is shorter. The actualColumn is the position as it is seen on
+		// screen. These three values may not be determined yet, in which case
+		// the row is negative.
+		row, column, actualColumn int
+
+		// The textAreaSpan position with state for the actual next character.
+		pos [3]int
+	}
 }
 
 // NewTextArea returns a new text area. For an empty text area, provide an empty
@@ -227,6 +232,7 @@ func NewTextArea(text string) *TextArea {
 	t.editText.Grow(editBufferMinCap)
 	t.spans[0] = textAreaSpan{previous: -1, next: 1}
 	t.spans[1] = textAreaSpan{previous: 0, next: -1}
+	t.cursor.pos = [3]int{1, 0, -1}
 	if len(text) > 0 {
 		t.spans = append(t.spans, textAreaSpan{
 			previous: 0,
@@ -237,9 +243,7 @@ func NewTextArea(text string) *TextArea {
 		t.spans[0].next = 2
 		t.spans[1].previous = 2
 		t.length = len(text)
-		t.cursor = [5]int{-1, -1, 1, 0, -1}
-	} else {
-		t.cursor = [5]int{0, 0, 1, 0, -1}
+		t.cursor.row = -1
 	}
 	return t
 }
@@ -494,31 +498,37 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	if t.lastWidth != width && t.lineStarts != nil {
 		t.lineStarts = t.lineStarts[:0]
 		t.lastWidth = width
-		t.cursor[0], t.cursor[1] = -1, -1
+		t.cursor.row = -1
 	}
 	t.extendLines(width, t.rowOffset+height)
 	if len(t.lineStarts) <= t.rowOffset {
 		return // It's scrolled out of view.
 	}
 
-	// Print the text.
-	var (
-		cluster, text string
-		cursorVisible bool
-	)
-	line := t.rowOffset
-	pos := t.lineStarts[line]
-	endPos := pos
-	posX, posY := 0, 0
+	// Helper function which completes missing cursor information.
+	var cursorVisible bool
 	columnOffset := t.columnOffset
 	if t.wrap {
 		columnOffset = 0
 	}
-	if t.cursor[0] < 0 && t.cursor[2] == pos[0] && t.cursor[3] == pos[1] {
-		// The cursor is in the first cell.
-		t.cursor[0], t.cursor[1], t.cursor[4] = line, columnOffset, pos[2]
-		cursorVisible = true
+	updateCursor := func(row, column int, pos [3]int) {
+		if t.cursor.row < 0 && t.cursor.pos[0] == pos[0] && t.cursor.pos[1] == pos[1] {
+			// The screen location is unknown but we've hit the span position.
+			t.cursor.row, t.cursor.column, t.cursor.actualColumn = row, column, column
+			t.cursor.pos = pos
+		}
+		cursorVisible = t.cursor.row >= 0 &&
+			t.cursor.row-t.rowOffset >= 0 && t.cursor.row-t.rowOffset < height &&
+			t.cursor.actualColumn-columnOffset >= 0 && t.cursor.actualColumn-columnOffset < width
 	}
+
+	// Print the text.
+	var cluster, text string
+	line := t.rowOffset
+	pos := t.lineStarts[line]
+	endPos := pos
+	posX, posY := 0, 0
+	updateCursor(line, columnOffset, pos)
 	for pos[0] != 1 {
 		cluster, text, _, pos, endPos = t.step(text, pos, endPos)
 		clusterWidth := stringWidth(cluster)
@@ -531,20 +541,21 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 			// We must break over.
 			posY++
 			if posY >= height {
-				break // Don&& x+posX->=olumnOffset<0
+				break // Done.
 			}
 			posX = 0
 			line++
 		}
-		if t.cursor[0] < 0 && t.cursor[2] == pos[0] && t.cursor[3] == pos[1] {
-			// We hit the cursor.
-			t.cursor[0], t.cursor[1], t.cursor[4] = posY+t.rowOffset, posX, pos[2]
-			cursorVisible = t.cursor[0]-t.rowOffset < height && t.cursor[1]-columnOffset < width
-		}
+		updateCursor(posY+t.rowOffset, posX, pos)
 	}
 
-	if t.HasFocus() && cursorVisible {
-		screen.ShowCursor(x+t.cursor[1]-columnOffset, y+t.cursor[0]-t.rowOffset)
+	// Make cursor visible.
+	if t.HasFocus() {
+		if cursorVisible {
+			screen.ShowCursor(x+t.cursor.actualColumn-columnOffset, y+t.cursor.row-t.rowOffset)
+		} else {
+			screen.HideCursor()
+		}
 	}
 }
 
@@ -739,4 +750,79 @@ func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, 
 	}
 
 	return cluster, text, boundaries, pos, endPos
+}
+
+// moveCursor sets the cursor's screen position and span position for the given
+// row and column which are screen space coordinates relative to the top-left
+// corner of the text area's full text (visible or not). The column value may be
+// negative, in which case, the cursor will be placed at the end of the line.
+func (t *TextArea) moveCursor(row, column int) {
+	// Are we within the range of rows?
+	if len(t.lineStarts) <= row {
+		// No. Extent the line buffer.
+		t.extendLines(t.lastWidth, row)
+	}
+	if row < 0 {
+		// We're at the start of the text.
+		row = 0
+		column = 0
+	} else if row >= len(t.lineStarts) || row < 0 {
+		// We're already past the end.
+		row = len(t.lineStarts) - 1
+		column = -1
+	}
+
+	// Iterate through this row until we find the position.
+	t.cursor.row, t.cursor.actualColumn = row, t.columnOffset
+	if t.wrap {
+		t.cursor.actualColumn = 0
+	}
+	pos := t.lineStarts[row]
+	endPos := pos
+	var cluster, text string
+	for pos[0] != 1 {
+		oldPos := pos // We may have to revert to this position.
+		cluster, text, _, pos, endPos = t.step(text, pos, endPos)
+		clusterWidth := stringWidth(cluster)
+		if len(t.lineStarts) > row+1 && pos == t.lineStarts[row+1] || // We've reached the end of the line.
+			column >= 0 && t.cursor.actualColumn+clusterWidth > column { // We're past the requested column.
+			pos = oldPos
+			break
+		}
+		t.cursor.actualColumn += clusterWidth
+	}
+
+	if column < 0 {
+		t.cursor.column = t.cursor.actualColumn
+	} else {
+		t.cursor.column = column
+	}
+	t.cursor.pos = pos
+}
+
+// InputHandler returns the handler for this primitive.
+func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		switch key := event.Key(); key {
+		case tcell.KeyLeft: // Move one grapheme cluster to the left.
+			if t.cursor.actualColumn == 0 {
+				// Move to the end of the previous row.
+				if t.cursor.row > 0 {
+					t.moveCursor(t.cursor.row-1, -1)
+				}
+			} else {
+				// Move one grapheme cluster to the left.
+				t.moveCursor(t.cursor.row, t.cursor.actualColumn-1)
+			}
+		case tcell.KeyRight: // Move one grapheme cluster to the right.
+			if t.cursor.pos[0] != 1 {
+				_, _, _, t.cursor.pos, _ = t.step("", t.cursor.pos, t.cursor.pos)
+				t.cursor.row = -1
+			}
+		case tcell.KeyDown: // Move one row down.
+			t.moveCursor(t.cursor.row+1, t.cursor.column)
+		case tcell.KeyUp: // Move one row up.
+			t.moveCursor(t.cursor.row-1, t.cursor.column)
+		}
+	})
 }
