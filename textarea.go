@@ -17,6 +17,12 @@ const (
 	// The maximum number of bytes making up a grapheme cluster. In theory, this
 	// could be longer but it would be highly unusual.
 	maxGraphemeClusterSize = 40
+
+	// The minimum width of text (if available) to be shown left of the cursor.
+	minCursorPrefix = 5
+
+	// The minimum width of text (if available) to be shown right of the cursor.
+	minCursorSuffix = 3
 )
 
 var (
@@ -192,8 +198,12 @@ type TextArea struct {
 	// The number of cells to be skipped on each line (not used in wrap mode).
 	columnOffset int
 
-	// The inner width of the text area the last time it was drawn.
-	lastWidth int
+	// The inner height and width of the text area the last time it was drawn.
+	lastHeight, lastWidth int
+
+	// The width of the currently known widest line, as determined by
+	// [extendLines].
+	widestLine int
 
 	// Text positions and states of the start of lines. Each element is a span
 	// position (see textAreaSpan) and a state as returned by uniseg.Step(). Not
@@ -214,6 +224,10 @@ type TextArea struct {
 
 		// The textAreaSpan position with state for the actual next character.
 		pos [3]int
+
+		// If set to true, [Draw] will attempt to keep the cursor in the
+		// viewport.
+		clamp bool
 	}
 }
 
@@ -244,6 +258,7 @@ func NewTextArea(text string) *TextArea {
 		t.spans[1].previous = 2
 		t.length = len(text)
 		t.cursor.row = -1
+		t.cursor.clamp = true
 	}
 	return t
 }
@@ -496,10 +511,9 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 
 	// Make sure the visible lines are broken over.
 	if t.lastWidth != width && t.lineStarts != nil {
-		t.lineStarts = t.lineStarts[:0]
-		t.lastWidth = width
-		t.cursor.row = -1
+		t.resetLines()
 	}
+	t.lastHeight, t.lastWidth = height, width
 	t.extendLines(width, t.rowOffset+height)
 	if len(t.lineStarts) <= t.rowOffset {
 		return // It's scrolled out of view.
@@ -512,7 +526,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 		columnOffset = 0
 	}
 	updateCursor := func(row, column int, pos [3]int) {
-		if t.cursor.row < 0 && t.cursor.pos[0] == pos[0] && t.cursor.pos[1] == pos[1] {
+		if t.cursor.row < 0 && t.cursor.pos == pos {
 			// The screen location is unknown but we've hit the span position.
 			t.cursor.row, t.cursor.column, t.cursor.actualColumn = row, column, column
 			t.cursor.pos = pos
@@ -554,6 +568,13 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 		if cursorVisible {
 			screen.ShowCursor(x+t.cursor.actualColumn-columnOffset, y+t.cursor.row-t.rowOffset)
 		} else {
+			// Are we required to make the cursor visible?
+			if t.cursor.clamp {
+				t.cursor.clamp = false // Just one more attempt.
+				t.clampToCursor()
+				t.Draw(screen) // Draw again.
+				return
+			}
 			screen.HideCursor()
 		}
 	}
@@ -608,6 +629,14 @@ func (t *TextArea) drawPlaceholder(screen tcell.Screen, x, y, width, height int)
 	})
 }
 
+// resetLines resets the [lineStarts] array so [extendLines] has to be called
+// again to access text information.
+func (t *TextArea) resetLines() {
+	t.lineStarts = t.lineStarts[:0]
+	t.cursor.row = -1
+	t.widestLine = 0
+}
+
 // extendLines traverses the current text and extends t.lineStarts such that it
 // describes at least maxLines+1 lines (or less if the text is shorter). Text is
 // laid out for the given width while respecting the wrapping settings. It is
@@ -646,9 +675,12 @@ func (t *TextArea) extendLines(width, maxLines int) {
 
 		// Any line breaks?
 		if !t.wrap || lineWidth <= width {
-			if pos[0] != 1 && boundaries&uniseg.MaskLine == uniseg.LineMustBreak {
+			if text != "" && boundaries&uniseg.MaskLine == uniseg.LineMustBreak {
 				// We must break over.
 				t.lineStarts = append(t.lineStarts, pos)
+				if lineWidth > t.widestLine {
+					t.widestLine = lineWidth
+				}
 				lineWidth = 0
 				lastGraphemeBreak = [3]int{}
 				lastLineBreak = [3]int{}
@@ -663,12 +695,18 @@ func (t *TextArea) extendLines(width, maxLines int) {
 				if lastGraphemeBreak != [3]int{} { // We have at least one character on each line.
 					// Break after last grapheme.
 					t.lineStarts = append(t.lineStarts, lastGraphemeBreak)
+					if lineWidth > t.widestLine {
+						t.widestLine = lineWidth
+					}
 					lineWidth = clusterWidth
 					lastLineBreak = [3]int{}
 				}
 			} else { // t.wordWrap && lastLineBreak != [3]int{}
 				// Break after last line break opportunity.
 				t.lineStarts = append(t.lineStarts, lastLineBreak)
+				if lineWidth > t.widestLine {
+					t.widestLine = lineWidth
+				}
 				lineWidth = widthSinceLineBreak
 				lastLineBreak = [3]int{}
 			}
@@ -685,6 +723,126 @@ func (t *TextArea) extendLines(width, maxLines int) {
 		if len(t.lineStarts) > maxLines {
 			break
 		}
+	}
+}
+
+// clampToCursor ensures that the cursor is visible in the text area.
+func (t *TextArea) clampToCursor() {
+	if t.cursor.row >= 0 {
+		// This is the simple case because the current cursor position is known.
+		if t.cursor.row < t.rowOffset {
+			// We're above the viewport.
+			t.rowOffset = t.cursor.row
+		} else if t.cursor.row >= t.rowOffset+t.lastHeight {
+			// We're below the viewport.
+			t.rowOffset = t.cursor.row - t.lastHeight + 1
+			if t.rowOffset >= len(t.lineStarts) {
+				t.extendLines(t.lastWidth, t.rowOffset)
+				if t.rowOffset >= len(t.lineStarts) {
+					t.rowOffset = len(t.lineStarts) - 1
+					if t.rowOffset < 0 {
+						t.rowOffset = 0
+					}
+				}
+			}
+		}
+		if !t.wrap {
+			if t.cursor.actualColumn < t.columnOffset+minCursorPrefix {
+				// We're left of the viewport.
+				t.columnOffset = t.cursor.actualColumn - minCursorPrefix
+				if t.columnOffset < 0 {
+					t.columnOffset = 0
+				}
+			} else if t.cursor.actualColumn >= t.columnOffset+t.lastWidth-minCursorSuffix {
+				// We're right of the viewport.
+				t.columnOffset = t.cursor.actualColumn - t.lastWidth + minCursorSuffix
+				if t.columnOffset >= t.widestLine {
+					t.columnOffset = t.widestLine - 1
+					if t.columnOffset < 0 {
+						t.columnOffset = 0
+					}
+				}
+			}
+		}
+		return
+	}
+
+	// The screen position of the cursor is unknown. Find it. This is expensive.
+	// First, find the row.
+	row := 0
+RowLoop:
+	for {
+		// Examine the current row.
+		if row+1 >= len(t.lineStarts) {
+			t.extendLines(t.lastWidth, row+1)
+		}
+		if row >= len(t.lineStarts) {
+			t.cursor.row, t.cursor.actualColumn, t.cursor.pos = row, 0, [3]int{1, 0, -11}
+			break // It's the end of the text.
+		}
+
+		// Check this row's spans to see if the cursor is in this row.
+		pos := t.lineStarts[row]
+		for pos[0] != 1 {
+			if row+1 >= len(t.lineStarts) {
+				break // It's the last row so the cursor must be in this row.
+			}
+			if t.cursor.pos[0] == pos[0] {
+				// The cursor is in this span.
+				if t.lineStarts[row+1][0] == pos[0] {
+					// The next row starts with the same span.
+					if t.cursor.pos[1] >= t.lineStarts[row+1][1] {
+						// The cursor is not in this row.
+						row++
+						continue RowLoop
+					} else {
+						// The cursor is in this row.
+						break
+					}
+				} else {
+					// The next row starts with a different span. The cursor
+					// must be in this row.
+					break
+				}
+			} else {
+				// The cursor is in a different span.
+				if t.lineStarts[row+1][0] == pos[0] {
+					// The next row starts with the same span. This row is
+					// irrelevant.
+					row++
+					continue RowLoop
+				} else {
+					// The next row starts with a different span. Move towards it.
+					pos = [3]int{t.spans[pos[0]].next, 0, -1}
+				}
+			}
+		}
+
+		// Try to find the screen position in this row.
+		pos = t.lineStarts[row]
+		endPos := pos
+		column := 0
+		var cluster, text string
+		for {
+			if pos[0] == 1 || t.cursor.pos[0] == pos[0] && t.cursor.pos[1] == pos[1] {
+				// We found the position. We're done.
+				t.cursor.row, t.cursor.actualColumn, t.cursor.pos = row, column, pos
+				break RowLoop
+			}
+			cluster, text, _, pos, endPos = t.step(text, pos, endPos)
+			if row+1 < len(t.lineStarts) && t.lineStarts[row+1] == pos {
+				// We reached the end of the line. Go to the next one.
+				row++
+				continue RowLoop
+			}
+			clusterWidth := stringWidth(cluster)
+			column += clusterWidth
+		}
+	}
+
+	if t.cursor.row >= 0 {
+		// We know the position now. Adapt offsets.
+		t.clampToCursor()
 	}
 }
 
@@ -756,6 +914,7 @@ func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, 
 // row and column which are screen space coordinates relative to the top-left
 // corner of the text area's full text (visible or not). The column value may be
 // negative, in which case, the cursor will be placed at the end of the line.
+// The next call to [Draw] will attempt to keep the cursor in the viewport.
 func (t *TextArea) moveCursor(row, column int) {
 	// Are we within the range of rows?
 	if len(t.lineStarts) <= row {
@@ -773,7 +932,7 @@ func (t *TextArea) moveCursor(row, column int) {
 	}
 
 	// Iterate through this row until we find the position.
-	t.cursor.row, t.cursor.actualColumn = row, t.columnOffset
+	t.cursor.row, t.cursor.actualColumn = row, 0
 	if t.wrap {
 		t.cursor.actualColumn = 0
 	}
@@ -798,6 +957,7 @@ func (t *TextArea) moveCursor(row, column int) {
 		t.cursor.column = column
 	}
 	t.cursor.pos = pos
+	t.cursor.clamp = true
 }
 
 // InputHandler returns the handler for this primitive.
@@ -805,24 +965,92 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		switch key := event.Key(); key {
 		case tcell.KeyLeft: // Move one grapheme cluster to the left.
-			if t.cursor.actualColumn == 0 {
-				// Move to the end of the previous row.
-				if t.cursor.row > 0 {
-					t.moveCursor(t.cursor.row-1, -1)
+			if event.Modifiers()&tcell.ModAlt == 0 {
+				// Regular movement.
+				if t.cursor.actualColumn == 0 {
+					// Move to the end of the previous row.
+					if t.cursor.row > 0 {
+						t.moveCursor(t.cursor.row-1, -1)
+					}
+				} else {
+					// Move one grapheme cluster to the left.
+					t.moveCursor(t.cursor.row, t.cursor.actualColumn-1)
 				}
-			} else {
-				// Move one grapheme cluster to the left.
-				t.moveCursor(t.cursor.row, t.cursor.actualColumn-1)
+			} else if !t.wrap {
+				//TODO: Maybe this should be a word jump?
+				// Just scroll.
+				t.columnOffset--
+				if t.columnOffset < 0 {
+					t.columnOffset = 0
+				}
 			}
 		case tcell.KeyRight: // Move one grapheme cluster to the right.
-			if t.cursor.pos[0] != 1 {
-				_, _, _, t.cursor.pos, _ = t.step("", t.cursor.pos, t.cursor.pos)
-				t.cursor.row = -1
+			if event.Modifiers()&tcell.ModAlt == 0 {
+				// Regular movement.
+				if t.cursor.pos[0] != 1 {
+					var cluster string
+					cluster, _, _, t.cursor.pos, _ = t.step("", t.cursor.pos, t.cursor.pos)
+					if len(t.lineStarts) <= t.cursor.row+1 {
+						t.extendLines(t.lastWidth, t.cursor.row+1)
+					}
+					if t.cursor.row+1 < len(t.lineStarts) && t.lineStarts[t.cursor.row+1] == t.cursor.pos {
+						// We've reached the end of the line.
+						t.cursor.row++
+						t.cursor.actualColumn = 0
+						t.cursor.column = 0
+						t.cursor.clamp = true
+					} else {
+						// Move one character to the right.
+						t.moveCursor(t.cursor.row, t.cursor.actualColumn+stringWidth(cluster))
+					}
+				}
+			} else if !t.wrap {
+				//TODO: Maybe this should be a word jump?
+				// Just scroll.
+				t.columnOffset++
+				if t.columnOffset >= t.widestLine {
+					t.columnOffset = t.widestLine - 1
+					if t.columnOffset < 0 {
+						t.columnOffset = 0
+					}
+				}
 			}
 		case tcell.KeyDown: // Move one row down.
-			t.moveCursor(t.cursor.row+1, t.cursor.column)
+			if event.Modifiers()&tcell.ModAlt == 0 {
+				// Regular movement.
+				t.moveCursor(t.cursor.row+1, t.cursor.column)
+			} else {
+				// Just scroll.
+				t.rowOffset++
+				if t.rowOffset >= len(t.lineStarts) {
+					t.extendLines(t.lastWidth, t.rowOffset)
+					if t.rowOffset >= len(t.lineStarts) {
+						t.rowOffset = len(t.lineStarts) - 1
+						if t.rowOffset < 0 {
+							t.rowOffset = 0
+						}
+					}
+				}
+			}
 		case tcell.KeyUp: // Move one row up.
-			t.moveCursor(t.cursor.row-1, t.cursor.column)
+			if event.Modifiers()&tcell.ModAlt == 0 {
+				// Regular movement.
+				t.moveCursor(t.cursor.row-1, t.cursor.column)
+			} else {
+				// Just scroll.
+				t.rowOffset--
+				if t.rowOffset < 0 {
+					t.rowOffset = 0
+				}
+			}
+		case tcell.KeyHome, tcell.KeyCtrlA: // Move to the start of the line.
+			t.moveCursor(t.cursor.row, 0)
+		case tcell.KeyEnd, tcell.KeyCtrlE: // Move to the end of the line.
+			t.moveCursor(t.cursor.row, -1)
+		case tcell.KeyPgDn, tcell.KeyCtrlF: // Move one page down.
+			t.moveCursor(t.cursor.row+t.lastHeight, t.cursor.column)
+		case tcell.KeyPgUp, tcell.KeyCtrlB: // Move one page up.
+			t.moveCursor(t.cursor.row-t.lastHeight, t.cursor.column)
 		}
 	})
 }
