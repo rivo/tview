@@ -107,6 +107,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [twad: a WAD launcher for the terminal](https://github.com/zmnpl/twad)
 - [pacseek: A TUI for searching and installing Arch Linux packages](https://github.com/moson-mo/pacseek)
 - [7GUIs demo](https://github.com/letientai299/7guis/tree/master/tui)
+- [tuihub: A utility hub/dashboard for personal use](https://github.com/ashis0013/tuihub)
 
 ## Documentation
 
