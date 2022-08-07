@@ -2,6 +2,8 @@ package tview
 
 import (
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/uniseg"
@@ -83,22 +85,28 @@ type textAreaSpan struct {
 //   - Ctrl-B, page up: Move up by one page.
 //   - Alt-Up arrow: Scroll the page up, leaving the cursor in its position.
 //   - Alt-Down arrow: Scroll the page down, leaving the cursor in its position.
-//   - Alt-Left arrow: Scroll the page to the right, leaving the cursor in its
+//   - Alt-Left arrow: Scroll the page to the left, leaving the cursor in its
 //     position. Ignored if wrapping is enabled.
-//   - Alt-Right arrow: Scroll the page to the left, leaving the cursor in its
+//   - Alt-Right arrow:  Scroll the page to the right, leaving the cursor in its
 //     position. Ignored if wrapping is enabled.
+//   - Alt-B: Jump to the beginning of the current or previous word.
+//   - Alt-F: Jump to the end of the current or next word.
+//
+// Words are defined according to Unicode Standard Annex #29. We skip any words
+// that contain only spaces or punctuation.
 //
 // Entering a character (rune) will insert it at the current cursor location.
 // Subsequent characters are moved accordingly. If the cursor is outside the
 // visible area, any changes to the text will move it into the visible area. The
 // following keys can also be used to modify the text:
 //
-//   - Enter: Insert a newline character (see NewLine).
-//   - Tab: Insert TabSize spaces.
+//   - Enter: Insert a newline character (see [NewLine]).
+//   - Tab: Insert [TabSize] spaces.
 //   - Ctrl-H, Backspace: Delete one character to the left of the cursor.
 //   - Ctrl-D, Delete: Delete the character under the cursor (or the first
 //     character on the next line if the cursor is at the end of a line).
-//   - Ctrl-K: Delete everything under and to the right of the cursor.
+//   - Ctrl-K: Delete everything under and to the right of the cursor until the
+//     next newline character.
 //   - Ctrl-W: Delete from the start of the current word to the left of the
 //     cursor.
 //   - Ctrl-U: Delete the current line, i.e. everything after the last newline
@@ -226,7 +234,8 @@ type TextArea struct {
 		pos [3]int
 
 		// If set to true, [Draw] will attempt to keep the cursor in the
-		// viewport.
+		// viewport. If you set this to true, you should make sure the cursor
+		// position is known or else finding it will be expensive.
 		clamp bool
 	}
 }
@@ -571,7 +580,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 			// Are we required to make the cursor visible?
 			if t.cursor.clamp {
 				t.cursor.clamp = false // Just one more attempt.
-				t.clampToCursor()
+				t.clampToCursor(0)
 				t.Draw(screen) // Draw again.
 				return
 			}
@@ -675,7 +684,7 @@ func (t *TextArea) extendLines(width, maxLines int) {
 
 		// Any line breaks?
 		if !t.wrap || lineWidth <= width {
-			if text != "" && boundaries&uniseg.MaskLine == uniseg.LineMustBreak {
+			if boundaries&uniseg.MaskLine == uniseg.LineMustBreak && (len(text) > 0 || uniseg.HasTrailingLineBreakInString(cluster)) {
 				// We must break over.
 				t.lineStarts = append(t.lineStarts, pos)
 				if lineWidth > t.widestLine {
@@ -726,8 +735,11 @@ func (t *TextArea) extendLines(width, maxLines int) {
 	}
 }
 
-// clampToCursor ensures that the cursor is visible in the text area.
-func (t *TextArea) clampToCursor() {
+// clampToCursor ensures that the cursor is visible in the text area. If the
+// cursor position is unknown, "startRow" helps reduce processing time by
+// indicating the lowest row in which searching should start. Set this to 0 if
+// you don't have any information where the cursor might be.
+func (t *TextArea) clampToCursor(startRow int) {
 	if t.cursor.row >= 0 {
 		// This is the simple case because the current cursor position is known.
 		if t.cursor.row < t.rowOffset {
@@ -769,7 +781,10 @@ func (t *TextArea) clampToCursor() {
 
 	// The screen position of the cursor is unknown. Find it. This is expensive.
 	// First, find the row.
-	row := 0
+	row := startRow
+	if row < 0 {
+		row = 0
+	}
 RowLoop:
 	for {
 		// Examine the current row.
@@ -777,7 +792,7 @@ RowLoop:
 			t.extendLines(t.lastWidth, row+1)
 		}
 		if row >= len(t.lineStarts) {
-			t.cursor.row, t.cursor.actualColumn, t.cursor.pos = row, 0, [3]int{1, 0, -11}
+			t.cursor.row, t.cursor.actualColumn, t.cursor.pos = row, 0, [3]int{1, 0, -1}
 			break // It's the end of the text.
 		}
 
@@ -842,7 +857,7 @@ RowLoop:
 
 	if t.cursor.row >= 0 {
 		// We know the position now. Adapt offsets.
-		t.clampToCursor()
+		t.clampToCursor(startRow)
 	}
 }
 
@@ -960,6 +975,95 @@ func (t *TextArea) moveCursor(row, column int) {
 	t.cursor.clamp = true
 }
 
+// moveWordRight moves the cursor to the end of the current or next word. The
+// next call to [Draw] will attempt to keep the cursor in the viewport.
+func (t *TextArea) moveWordRight() {
+	// Because we rely on clampToCursor to calculate the new screen position,
+	// this is an expensive operation for large texts.
+	pos := t.cursor.pos
+	endPos := pos
+	var (
+		cluster, text string
+		inWord        bool
+	)
+	for pos[0] != 0 {
+		var boundaries int
+		oldPos := pos
+		cluster, text, boundaries, pos, endPos = t.step(text, pos, endPos)
+		if oldPos == t.cursor.pos {
+			continue // Skip the first character.
+		}
+		firstRune, _ := utf8.DecodeRuneInString(cluster)
+		if !unicode.IsSpace(firstRune) && !unicode.IsPunct(firstRune) {
+			inWord = true
+		}
+		if inWord && boundaries&uniseg.MaskWord != 0 {
+			pos = oldPos
+			break
+		}
+	}
+	startRow := t.cursor.row
+	t.cursor.row, t.cursor.column, t.cursor.actualColumn = -1, 0, 0
+	t.cursor.pos = pos
+	t.clampToCursor(startRow)
+}
+
+// moveWordLeft moves the cursor to the beginning of the current or previous
+// word. The next call to [Draw] will attempt to keep the cursor in the
+// viewport.
+func (t *TextArea) moveWordLeft() {
+	// We go back row by row, trying to find the last word boundary before the
+	// cursor.
+	row := t.cursor.row
+	if row+1 < len(t.lineStarts) {
+		t.extendLines(t.lastWidth, row+1)
+	}
+	if row >= len(t.lineStarts) {
+		row = len(t.lineStarts) - 1
+	}
+	for row >= 0 {
+		pos := t.lineStarts[row]
+		endPos := pos
+		var lastWordBoundary [3]int
+		var (
+			cluster, text string
+			inWord        bool
+			boundaries    int
+		)
+		for pos[0] != 1 && pos != t.cursor.pos {
+			oldBoundaries := boundaries
+			oldPos := pos
+			cluster, text, boundaries, pos, endPos = t.step(text, pos, endPos)
+			firstRune, _ := utf8.DecodeRuneInString(cluster)
+			wordRune := !unicode.IsSpace(firstRune) && !unicode.IsPunct(firstRune)
+			if oldBoundaries&uniseg.MaskWord != 0 {
+				if pos != t.cursor.pos && !inWord && wordRune {
+					// A boundary transitioning from a space/punctuation word to
+					// a letter word.
+					lastWordBoundary = oldPos
+				}
+				inWord = false
+			}
+			if wordRune {
+				inWord = true
+			}
+		}
+		if lastWordBoundary[0] != 0 {
+			// We found something.
+			t.cursor.pos = lastWordBoundary
+			break
+		}
+		row--
+	}
+	if row < 0 {
+		// We didn't find anything. We're at the start of the text.
+		t.cursor.pos = [3]int{t.spans[0].next, 0, -1}
+		row = 0
+	}
+	t.cursor.row, t.cursor.column, t.cursor.actualColumn = -1, 0, 0
+	t.clampToCursor(row)
+}
+
 // InputHandler returns the handler for this primitive.
 func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
@@ -977,7 +1081,6 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 					t.moveCursor(t.cursor.row, t.cursor.actualColumn-1)
 				}
 			} else if !t.wrap {
-				//TODO: Maybe this should be a word jump?
 				// Just scroll.
 				t.columnOffset--
 				if t.columnOffset < 0 {
@@ -1005,7 +1108,6 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 					}
 				}
 			} else if !t.wrap {
-				//TODO: Maybe this should be a word jump?
 				// Just scroll.
 				t.columnOffset++
 				if t.columnOffset >= t.widestLine {
@@ -1051,6 +1153,18 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.moveCursor(t.cursor.row+t.lastHeight, t.cursor.column)
 		case tcell.KeyPgUp, tcell.KeyCtrlB: // Move one page up.
 			t.moveCursor(t.cursor.row-t.lastHeight, t.cursor.column)
+		case tcell.KeyRune:
+			if event.Modifiers()&tcell.ModAlt > 0 {
+				// We accept some Alt- key combinations.
+				switch event.Rune() {
+				case 'f':
+					t.moveWordRight()
+				case 'b':
+					t.moveWordLeft()
+				}
+			} else {
+				// Other keys are simply accepted as regular characters.
+			}
 		}
 	})
 }
