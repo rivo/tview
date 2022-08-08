@@ -41,17 +41,16 @@ var (
 // text in the editor as part of a doubly-linked list.
 //
 // In most places where we reference a position in the text, we use a
-// two-element int array. The first element is the index of the referenced span
-// in the piece chain. The second element is the offset into the span's
+// three-element int array. The first element is the index of the referenced
+// span in the piece chain. The second element is the offset into the span's
 // referenced text (relative to the span's start), its value is always >= 0 and
-// < span.length. Sometimes, we may use a three-element int array which also
-// contains the corresponding text parser's state in the third position.
+// < span.length. The third elements is the corresponding text parser's state.
 //
 // A range of text is represented by a span range which is a starting position
 // (int array) and an ending position (int array). The starting position
 // references the first character of the range, the ending position references
 // the position after the last character of the range. The end of the text is
-// therefore always [2]int{1, 0}, position 0 of the ending sentinel.
+// therefore always [3]int{1, 0, 0}, position 0 of the ending sentinel.
 type textAreaSpan struct {
 	// Links to the previous and next textAreaSpan objects as indices into the
 	// TextArea.spans slice. The sentinel spans (index 0 and 1) have -1 as their
@@ -128,12 +127,12 @@ type textAreaSpan struct {
 // clipboard is not used. The Ctrl-Q key was chosen for the "copy" function
 // because the Ctrl-C key is the default key to stop the application. If your
 // application frees up the global Ctrl-C key and you want to bind it to the
-// "copy to clipboard" function, you may use SetInputCapture() to override the
-// Ctrl-Q key to implement copying to the clipboard.
+// "copy to clipboard" function, you may use [Box.SetInputCapture] to override
+// the Ctrl-Q key to implement copying to the clipboard.
 //
 // Similarly, if you want to implement your own clipboard (or make use of your
-// operating system's clipboard), you can also use SetInputCapture() to override
-// the key binds for copy, cut, and paste. The GetSelection(), ReplaceText(),
+// operating system's clipboard), you can also use [Box.SetInputCapture] to
+// override the key binds for copy, cut, and paste. The GetSelection(), ReplaceText(),
 // and SetSelection() provide all the functionality needed for your own
 // clipboard. TODO: This will need to be reviewed.
 //
@@ -334,12 +333,17 @@ func (t *TextArea) SetOffset(row, column int) *TextArea {
 
 // replace deletes a range of text and inserts the given text at that position.
 // If the resulting text would exceed the maximum length, the function does not
-// do anything. See textAreaSpan for information about text positions and span
-// ranges.
+// do anything. The function returns the new position of the deleted/inserted
+// range (with an undefined state).
+//
+// The function can hang if "deleteStart" is located after "deleteEnd".
 //
 // This function does not generate Undo events. Undo events are generated
-// elsewhere, when the user changes their type of edit.
-func (t *TextArea) replace(deleteStart, deleteEnd [2]int, insert string) {
+// elsewhere, when the user changes their type of edit. It also does not modify
+// [TextArea.lineStarts].
+func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string) (end [3]int) {
+	end = deleteEnd
+
 	// Check max length.
 	if t.maxLength > 0 && t.length+len(insert) > t.maxLength {
 		return
@@ -367,22 +371,24 @@ func (t *TextArea) replace(deleteStart, deleteEnd [2]int, insert string) {
 		}
 	} // At this point, deleteStart[0] == deleteEnd[0].
 	if deleteEnd[1] > deleteStart[1] {
-		if deleteStart[1] == 0 {
-			// Delete a partial span at the beginning.
-			t.length -= deleteEnd[1]
-			if t.spans[deleteEnd[0]].length < 0 {
-				// Initial text span. Has negative length.
-				t.spans[deleteEnd[0]].length += deleteEnd[1]
-			} else {
-				// Edit buffer span. Has positive length.
-				t.spans[deleteEnd[0]].length -= deleteEnd[1]
-			}
-			t.spans[deleteEnd[0]].offset += deleteEnd[1]
-		} else {
+		if deleteStart[1] != 0 {
 			// Delete in the middle by splitting the span.
+			deleteEnd[1] -= deleteStart[1]
 			deleteStart[0] = t.splitSpan(deleteStart[0], deleteStart[1])
 			deleteStart[1] = 0
 		}
+		// Delete a partial span at the beginning.
+		t.length -= deleteEnd[1]
+		if t.spans[deleteEnd[0]].length < 0 {
+			// Initial text span. Has negative length.
+			t.spans[deleteEnd[0]].length += deleteEnd[1]
+		} else {
+			// Edit buffer span. Has positive length.
+			t.spans[deleteEnd[0]].length -= deleteEnd[1]
+		}
+		t.spans[deleteEnd[0]].offset += deleteEnd[1]
+		deleteEnd[1] = 0
+		end[1] = 0
 	}
 
 	// Insert.
@@ -395,7 +401,7 @@ func (t *TextArea) replace(deleteStart, deleteEnd [2]int, insert string) {
 			if previousSpan.length > 0 && previousSpan.offset+previousSpan.length == t.editText.Len() {
 				// We can simply append to the edit buffer.
 				length, _ := t.editText.WriteString(insert)
-				previousSpan.length += length
+				t.spans[span.previous].length += length
 				t.length += length
 			} else {
 				// Insert a new span.
@@ -405,15 +411,18 @@ func (t *TextArea) replace(deleteStart, deleteEnd [2]int, insert string) {
 			// Split and insert.
 			spanIndex = t.splitSpan(spanIndex, offset)
 			t.insertSpan(insert, spanIndex)
+			end = [3]int{spanIndex, 0, 0}
 		}
 	}
+
+	return
 }
 
 // deleteSpan removes the span with the given index from the piece chain. It
 // returns the index of the span after the deleted span (or the provided index
 // if no span was deleted due to an invalid span index).
 //
-// This function also adjusts TextArea.length.
+// This function also adjusts [TextArea.length].
 func (t *TextArea) deleteSpan(index int) int {
 	if index < 2 || index >= len(t.spans) {
 		return index
@@ -440,7 +449,9 @@ func (t *TextArea) deleteSpan(index int) int {
 // index if no span was split due to an invalid span index or an invalid
 // offset.
 func (t *TextArea) splitSpan(index, offset int) int {
-	if index < 2 || index >= len(t.spans) || offset <= 0 || offset >= t.spans[index].length {
+	if index < 2 || index >= len(t.spans) || offset <= 0 ||
+		(t.spans[index].length < 0 && offset >= -t.spans[index].length) ||
+		(t.spans[index].length >= 0 && offset >= t.spans[index].length) {
 		return index
 	}
 
@@ -456,18 +467,18 @@ func (t *TextArea) splitSpan(index, offset int) int {
 	if span.length < 0 {
 		// Initial text span. Has negative length.
 		newSpan.length = span.length + offset
-		span.length = -offset
+		t.spans[index].length = -offset
 	} else {
 		// Edit buffer span. Has positive length.
 		newSpan.length = span.length - offset
-		span.length = offset
+		t.spans[index].length = offset
 	}
 
-	// Insert it.
+	// Insert the modified and new spans.
 	newIndex := len(t.spans)
 	t.spans = append(t.spans, newSpan)
 	t.spans[span.next].previous = newIndex
-	span.next = newIndex
+	t.spans[index].next = newIndex
 
 	return newIndex
 }
@@ -493,7 +504,7 @@ func (t *TextArea) insertSpan(text string, index int) int {
 	// Insert into piece chain.
 	newIndex := len(t.spans)
 	t.spans[nextSpan.previous].next = newIndex
-	nextSpan.previous = newIndex
+	t.spans[index].previous = newIndex
 	t.spans = append(t.spans, span)
 
 	// Adjust text area length.
@@ -1153,6 +1164,15 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.moveCursor(t.cursor.row+t.lastHeight, t.cursor.column)
 		case tcell.KeyPgUp, tcell.KeyCtrlB: // Move one page up.
 			t.moveCursor(t.cursor.row-t.lastHeight, t.cursor.column)
+		case tcell.KeyEnter: // Insert a newline.
+			t.cursor.pos = t.replace(t.cursor.pos, t.cursor.pos, NewLine)
+			row := t.cursor.row
+			t.cursor.row++
+			t.cursor.column, t.cursor.actualColumn = 0, 0
+			if row < len(t.lineStarts)-1 {
+				t.lineStarts = t.lineStarts[:row]
+			}
+			t.clampToCursor(row)
 		case tcell.KeyRune:
 			if event.Modifiers()&tcell.ModAlt > 0 {
 				// We accept some Alt- key combinations.
@@ -1164,6 +1184,13 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				}
 			} else {
 				// Other keys are simply accepted as regular characters.
+				t.cursor.pos = t.replace(t.cursor.pos, t.cursor.pos, string(event.Rune()))
+				row := t.cursor.row
+				t.cursor.row = -1
+				if row < len(t.lineStarts)-1 {
+					t.lineStarts = t.lineStarts[:row]
+				}
+				t.clampToCursor(row)
 			}
 		}
 	})
