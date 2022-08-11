@@ -60,9 +60,9 @@ type queuedUpdate struct {
 // The following command displays a primitive p on the screen until Ctrl-C is
 // pressed:
 //
-//   if err := tview.NewApplication().SetRoot(p, true).Run(); err != nil {
-//       panic(err)
-//   }
+//	if err := tview.NewApplication().SetRoot(p, true).Run(); err != nil {
+//	    panic(err)
+//	}
 type Application struct {
 	sync.RWMutex
 
@@ -460,8 +460,8 @@ func (a *Application) fireMouseActions(event *tcell.EventMouse) (consumed, isMou
 			if buttons&buttonEvent.button != 0 {
 				fire(buttonEvent.down)
 			} else {
-				fire(buttonEvent.up)
-				if !clickMoved {
+				fire(buttonEvent.up) // A user override might set event to nil.
+				if !clickMoved && event != nil {
 					if a.lastMouseClick.Add(DoubleClickInterval).Before(time.Now()) {
 						fire(buttonEvent.click)
 						a.lastMouseClick = time.Now()
