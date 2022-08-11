@@ -164,10 +164,12 @@ type TextArea struct {
 
 	// Text manipulation related fields:
 
-	// The text area's text prior to any editing.
+	// The text area's text prior to any editing. It is referenced by spans with
+	// a negative length.
 	initialText string
 
-	// Any text that's been added by the user at some point.
+	// Any text that's been added by the user at some point. We only ever append
+	// to this buffer. It is referenced by spans with a positive length.
 	editText strings.Builder
 
 	// The total length of all text in the text area.
@@ -275,8 +277,10 @@ func NewTextArea(text string) *TextArea {
 // available width being wrapped onto the next line. If false, any characters
 // beyond the available width are not displayed.
 func (t *TextArea) SetWrap(wrap bool) *TextArea {
-	//TODO: Existing text needs reformatting.
-	t.wrap = wrap
+	if t.wrap != wrap {
+		t.wrap = wrap
+		t.resetLines()
+	}
 	return t
 }
 
@@ -285,8 +289,10 @@ func (t *TextArea) SetWrap(wrap bool) *TextArea {
 //
 // This flag is ignored if the "wrap" flag is false.
 func (t *TextArea) SetWordWrap(wrapOnWords bool) *TextArea {
-	//TODO: Existing text needs reformatting.
-	t.wordWrap = wrapOnWords
+	if t.wordWrap != wrapOnWords {
+		t.wordWrap = wrapOnWords
+		t.resetLines()
+	}
 	return t
 }
 
@@ -297,7 +303,8 @@ func (t *TextArea) SetPlaceholder(placeholder string) *TextArea {
 }
 
 // SetMaxLength sets the maximum number of bytes allowed in the text area. If 0,
-// there is no limit.
+// there is no limit. If the text area currently contains more bytes than this,
+// it may violate this constraint.
 func (t *TextArea) SetMaxLength(maxLength int) *TextArea {
 	t.maxLength = maxLength
 	return t
@@ -374,7 +381,8 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string) (end [3
 		if deleteStart[1] != 0 {
 			// Delete in the middle by splitting the span.
 			deleteEnd[1] -= deleteStart[1]
-			deleteStart[0] = t.splitSpan(deleteStart[0], deleteStart[1])
+			deleteEnd[0] = t.splitSpan(deleteStart[0], deleteStart[1])
+			deleteStart[0] = deleteEnd[0]
 			deleteStart[1] = 0
 		}
 		// Delete a partial span at the beginning.
@@ -388,7 +396,7 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string) (end [3
 		}
 		t.spans[deleteEnd[0]].offset += deleteEnd[1]
 		deleteEnd[1] = 0
-		end[1] = 0
+		end = deleteEnd
 	}
 
 	// Insert.
@@ -590,7 +598,6 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 		} else {
 			// Are we required to make the cursor visible?
 			if t.cursor.clamp {
-				t.cursor.clamp = false // Just one more attempt.
 				t.clampToCursor(0)
 				t.Draw(screen) // Draw again.
 				return
@@ -652,7 +659,7 @@ func (t *TextArea) drawPlaceholder(screen tcell.Screen, x, y, width, height int)
 // resetLines resets the [lineStarts] array so [extendLines] has to be called
 // again to access text information.
 func (t *TextArea) resetLines() {
-	t.lineStarts = t.lineStarts[:0]
+	t.truncateLines(0)
 	t.cursor.row = -1
 	t.widestLine = 0
 }
@@ -746,11 +753,28 @@ func (t *TextArea) extendLines(width, maxLines int) {
 	}
 }
 
+// truncateLines truncates the trailing lines of the [TextArea.lineStarts]
+// slice such that len(lineStarts) <= fromLine. If fromLine is negative, a value
+// of 0 is assumed. If it is greater than the length of lineStarts, nothing
+// happens.
+func (t *TextArea) truncateLines(fromLine int) {
+	if fromLine < 0 {
+		fromLine = 0
+	}
+	if fromLine < len(t.lineStarts) {
+		t.lineStarts = t.lineStarts[:fromLine]
+	}
+}
+
 // clampToCursor ensures that the cursor is visible in the text area. If the
 // cursor position is unknown, "startRow" helps reduce processing time by
 // indicating the lowest row in which searching should start. Set this to 0 if
-// you don't have any information where the cursor might be.
+// you don't have any information where the cursor might be (but know that this
+// is expensive for long texts). This function also sets the cursor clamp flag
+// to false.
 func (t *TextArea) clampToCursor(startRow int) {
+	t.cursor.clamp = false
+
 	if t.cursor.row >= 0 {
 		// This is the simple case because the current cursor position is known.
 		if t.cursor.row < t.rowOffset {
@@ -940,7 +964,9 @@ func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, 
 // row and column which are screen space coordinates relative to the top-left
 // corner of the text area's full text (visible or not). The column value may be
 // negative, in which case, the cursor will be placed at the end of the line.
-// The next call to [Draw] will attempt to keep the cursor in the viewport.
+// The cursor's actual position will be aligned with a grapheme cluster
+// boundary. The next call to [Draw] will attempt to keep the cursor in the
+// viewport.
 func (t *TextArea) moveCursor(row, column int) {
 	// Are we within the range of rows?
 	if len(t.lineStarts) <= row {
@@ -1020,8 +1046,7 @@ func (t *TextArea) moveWordRight() {
 }
 
 // moveWordLeft moves the cursor to the beginning of the current or previous
-// word. The next call to [Draw] will attempt to keep the cursor in the
-// viewport.
+// word.
 func (t *TextArea) moveWordLeft() {
 	// We go back row by row, trying to find the last word boundary before the
 	// cursor.
@@ -1167,11 +1192,8 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyEnter: // Insert a newline.
 			t.cursor.pos = t.replace(t.cursor.pos, t.cursor.pos, NewLine)
 			row := t.cursor.row
-			t.cursor.row++
-			t.cursor.column, t.cursor.actualColumn = 0, 0
-			if row < len(t.lineStarts)-1 {
-				t.lineStarts = t.lineStarts[:row]
-			}
+			t.cursor.row = -1
+			t.truncateLines(row - 1)
 			t.clampToCursor(row)
 		case tcell.KeyRune:
 			if event.Modifiers()&tcell.ModAlt > 0 {
@@ -1187,11 +1209,63 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.cursor.pos = t.replace(t.cursor.pos, t.cursor.pos, string(event.Rune()))
 				row := t.cursor.row
 				t.cursor.row = -1
-				if row < len(t.lineStarts)-1 {
-					t.lineStarts = t.lineStarts[:row]
-				}
+				t.truncateLines(row - 1)
 				t.clampToCursor(row)
 			}
+		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete backwards. tcell.KeyBackspace is the same as tcell.CtrlH.
+			// Move the cursor back by one grapheme cluster.
+			endPos := t.cursor.pos
+			if t.cursor.actualColumn == 0 {
+				// Move to the end of the previous row.
+				if t.cursor.row > 0 {
+					t.moveCursor(t.cursor.row-1, -1)
+				}
+			} else {
+				// Move one grapheme cluster to the left.
+				t.moveCursor(t.cursor.row, t.cursor.actualColumn-1)
+			}
+			if t.cursor.pos != endPos {
+				t.cursor.pos = t.replace(t.cursor.pos, endPos, "") // Delete the character.
+				t.cursor.pos[2] = endPos[2]
+				t.truncateLines(t.cursor.row - 1)
+				t.clampToCursor(t.cursor.row)
+			}
+		case tcell.KeyDelete, tcell.KeyCtrlD: // Delete forward.
+			if t.cursor.pos[0] != 1 {
+				_, _, _, endPos, _ := t.step("", t.cursor.pos, t.cursor.pos)
+				t.cursor.pos = t.replace(t.cursor.pos, endPos, "")
+				t.cursor.pos[2] = endPos[2]
+				t.truncateLines(t.cursor.row - 1)
+				t.clampToCursor(t.cursor.row)
+			}
+		case tcell.KeyCtrlK: // Delete everything under and to the right of the cursor until before the next newline character.
+			pos := t.cursor.pos
+			endPos := pos
+			var cluster, text string
+			for pos[0] != 1 {
+				var boundaries int
+				oldPos := pos
+				cluster, text, boundaries, pos, endPos = t.step(text, pos, endPos)
+				if boundaries&uniseg.MaskLine == uniseg.LineMustBreak {
+					if uniseg.HasTrailingLineBreakInString(cluster) {
+						pos = oldPos
+					}
+					break
+				}
+			}
+			t.cursor.pos = t.replace(t.cursor.pos, pos, "")
+			row := t.cursor.row
+			t.cursor.row = -1
+			t.truncateLines(row - 1)
+			t.clampToCursor(row)
+		case tcell.KeyCtrlW: // Delete from the start of the current word to the left of the cursor.
+			pos := t.cursor.pos
+			t.moveWordLeft()
+			t.cursor.pos = t.replace(t.cursor.pos, pos, "")
+			row := t.cursor.row - 1
+			t.cursor.row = -1
+			t.truncateLines(row)
+			t.clampToCursor(row)
 		}
 	})
 }
