@@ -1100,6 +1100,75 @@ func (t *TextArea) moveWordLeft() {
 	t.clampToCursor(row)
 }
 
+// deleteLine deletes all characters between the last newline before the cursor
+// and the next newline after the cursor (inclusive).
+func (t *TextArea) deleteLine() {
+	// We go back startRow by startRow, trying to find the last mandatory line break
+	// before the cursor.
+	startRow := t.cursor.row
+	if startRow+1 < len(t.lineStarts) {
+		t.extendLines(t.lastWidth, startRow+1)
+	}
+	if len(t.lineStarts) == 0 {
+		return // Nothing to delete.
+	}
+	if startRow >= len(t.lineStarts) {
+		startRow = len(t.lineStarts) - 1
+	}
+	for startRow >= 0 {
+		// What's the last rune before the start of the line?
+		pos := t.lineStarts[startRow]
+		span := t.spans[pos[0]]
+		var text string
+		if pos[1] > 0 {
+			// Extract text from this span.
+			if span.length < 0 {
+				text = t.initialText
+			} else {
+				text = t.editText.String()
+			}
+			text = text[:span.offset+pos[1]]
+		} else {
+			// Extract text from the previous span.
+			if span.previous != 0 {
+				span = t.spans[span.previous]
+				if span.length < 0 {
+					text = t.initialText[:span.offset-span.length]
+				} else {
+					text = t.editText.String()[:span.offset+span.length]
+				}
+			}
+		}
+		if uniseg.HasTrailingLineBreakInString(text) {
+			// The row before this one ends with a mandatory line break. This is
+			// the first line we will delete.
+			break
+		}
+		startRow--
+	}
+	if startRow < 0 {
+		// We didn't find anything. It'll be the first line.
+		startRow = 0
+	}
+
+	// Find the next line break after the cursor.
+	pos := t.cursor.pos
+	endPos := pos
+	var cluster, text string
+	for pos[0] != 1 {
+		cluster, text, _, pos, endPos = t.step(text, pos, endPos)
+		if uniseg.HasTrailingLineBreakInString(cluster) {
+			break
+		}
+	}
+
+	// Delete the text.
+	t.cursor.pos = t.replace(t.lineStarts[startRow], pos, "")
+	t.cursor.row = -1
+	t.truncateLines(startRow)
+	t.clampToCursor(startRow)
+}
+
 // InputHandler returns the handler for this primitive.
 func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
@@ -1266,6 +1335,8 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.cursor.row = -1
 			t.truncateLines(row)
 			t.clampToCursor(row)
+		case tcell.KeyCtrlU: // Delete the current line.
+			t.deleteLine()
 		}
 	})
 }
