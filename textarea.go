@@ -115,7 +115,7 @@ type textAreaSpan struct {
 // Text can be selected by moving the cursor while holding the Shift key. Thus
 // when text is selected:
 //
-//   - Entering a character (rune) will replace the selected text with the new
+//   - Entering a character will replace the selected text with the new
 //     character.
 //   - Backspace, delete, Ctrl-H, Ctrl-D: Delete the selected text.
 //   - Ctrl-Q: Copy the selected text into the clipboard, unselect the text.
@@ -128,13 +128,14 @@ type textAreaSpan struct {
 // because the Ctrl-C key is the default key to stop the application. If your
 // application frees up the global Ctrl-C key and you want to bind it to the
 // "copy to clipboard" function, you may use [Box.SetInputCapture] to override
-// the Ctrl-Q key to implement copying to the clipboard.
+// the Ctrl-Q key to implement copying to the clipboard. Note that using your
+// terminal's / operating system's key bindings for copy+paste functionality may
+// not have the expected effect as tview will not be able to handle these keys.
 //
 // Similarly, if you want to implement your own clipboard (or make use of your
-// operating system's clipboard), you can also use [Box.SetInputCapture] to
-// override the key binds for copy, cut, and paste. The GetSelection(), ReplaceText(),
-// and SetSelection() provide all the functionality needed for your own
-// clipboard. TODO: This will need to be reviewed.
+// operating system's clipboard), you can use [Box.SetInputCapture] to override
+// the key binds for copy, cut, and paste. [TextArea.SetClipboard] provides all
+// the functionality needed to implement your own clipboard.
 //
 // The text area also supports Undo:
 //
@@ -239,6 +240,18 @@ type TextArea struct {
 		// The textAreaSpan position with state for the actual next character.
 		pos [3]int
 	}
+
+	// Clipboard related fields:
+
+	// The internal clipboard.
+	clipboard string
+
+	// The function to call when the user copies/cuts a text selection to the
+	// clipboard.
+	copyToClipboard func(string)
+
+	// The function to call when the user pastes text from the clipboard.
+	pasteFromClipboard func() string
 }
 
 // NewTextArea returns a new text area. Use [TextArea.SetText] to set the
@@ -258,6 +271,7 @@ func NewTextArea() *TextArea {
 	t.spans[1] = textAreaSpan{previous: 0, next: -1}
 	t.cursor.pos = [3]int{1, 0, -1}
 	t.selectionStart = t.cursor
+	t.SetClipboard(nil, nil)
 
 	return t
 }
@@ -375,6 +389,31 @@ func (t *TextArea) GetOffset() (row, column int) {
 // is enabled, the column offset is ignored.
 func (t *TextArea) SetOffset(row, column int) *TextArea {
 	t.rowOffset, t.columnOffset = row, column
+	return t
+}
+
+// SetClipboard allows you to implement your own clipboard by providing a
+// function that is called when the user wishes to store text in the clipboard
+// (copyToClipboard) and a function that is called when the user wishes to
+// retrieve text from the clipboard (pasteFromClipboard).
+//
+// Providing nil values will cause the default clipboard implementation to be
+// used.
+func (t *TextArea) SetClipboard(copyToClipboard func(string), pasteFromClipboard func() string) *TextArea {
+	t.copyToClipboard = copyToClipboard
+	if t.copyToClipboard == nil {
+		t.copyToClipboard = func(text string) {
+			t.clipboard = text
+		}
+	}
+
+	t.pasteFromClipboard = pasteFromClipboard
+	if t.pasteFromClipboard == nil {
+		t.pasteFromClipboard = func() string {
+			return t.clipboard
+		}
+	}
+
 	return t
 }
 
@@ -1236,6 +1275,32 @@ func (t *TextArea) getSelection() ([3]int, [3]int, int) {
 	return from, to, row
 }
 
+// getSelectedText returns the text of the current selection.
+func (t *TextArea) getSelectedText() string {
+	var text strings.Builder
+
+	from, to, _ := t.getSelection()
+	for from[0] != to[0] {
+		span := t.spans[from[0]]
+		if span.length < 0 {
+			text.WriteString(t.initialText[span.offset+from[1] : span.offset-span.length])
+		} else {
+			text.WriteString(t.editText.String()[span.offset+from[1] : span.offset+span.length])
+		}
+		from[0], from[1] = span.next, 0
+	}
+	if from[0] != 1 && from[1] < to[1] {
+		span := t.spans[from[0]]
+		if span.length < 0 {
+			text.WriteString(t.initialText[span.offset+from[1] : span.offset+to[1]])
+		} else {
+			text.WriteString(t.editText.String()[span.offset+from[1] : span.offset+to[1]])
+		}
+	}
+
+	return text.String()
+}
+
 // InputHandler returns the handler for this primitive.
 func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
@@ -1350,9 +1415,8 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.selectionStart = t.cursor
 			}
 		case tcell.KeyEnter: // Insert a newline.
-			from, to, _ := t.getSelection()
+			from, to, row := t.getSelection()
 			t.cursor.pos = t.replace(from, to, NewLine)
-			row := t.cursor.row
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
 			t.clampToCursor(row)
@@ -1373,12 +1437,12 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				}
 			} else {
 				// Other keys are simply accepted as regular characters.
-				from, to, _ := t.getSelection()
+				from, to, row := t.getSelection()
 				t.cursor.pos = t.replace(from, to, string(event.Rune()))
-				row := t.cursor.row
 				t.cursor.row = -1
 				t.truncateLines(row - 1)
 				t.clampToCursor(row)
+				t.selectionStart = t.cursor
 			}
 		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete backwards. tcell.KeyBackspace is the same as tcell.CtrlH.
 			from, to, row := t.getSelection()
@@ -1462,6 +1526,28 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.selectionStart = t.cursor
 		case tcell.KeyCtrlU: // Delete the current line.
 			t.deleteLine()
+			t.selectionStart = t.cursor
+		case tcell.KeyCtrlQ: // Copy to clipboard.
+			if t.cursor != t.selectionStart {
+				t.copyToClipboard(t.getSelectedText())
+				t.selectionStart = t.cursor
+			}
+		case tcell.KeyCtrlX: // Cut to clipboard.
+			if t.cursor != t.selectionStart {
+				t.copyToClipboard(t.getSelectedText())
+				from, to, row := t.getSelection()
+				t.cursor.pos = t.replace(from, to, "")
+				t.cursor.row = -1
+				t.truncateLines(row - 1)
+				t.clampToCursor(row)
+				t.selectionStart = t.cursor
+			}
+		case tcell.KeyCtrlV: // Paste from clipboard.
+			from, to, row := t.getSelection()
+			t.cursor.pos = t.replace(from, to, t.pasteFromClipboard())
+			t.cursor.row = -1
+			t.truncateLines(row - 1)
+			t.clampToCursor(row)
 			t.selectionStart = t.cursor
 		}
 	})
