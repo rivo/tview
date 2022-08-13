@@ -1420,6 +1420,14 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
 			t.clampToCursor(row)
+			t.selectionStart = t.cursor
+		case tcell.KeyTab: // Insert TabSize spaces.
+			from, to, row := t.getSelection()
+			t.cursor.pos = t.replace(from, to, strings.Repeat(" ", TabSize))
+			t.cursor.row = -1
+			t.truncateLines(row - 1)
+			t.clampToCursor(row)
+			t.selectionStart = t.cursor
 		case tcell.KeyRune:
 			if event.Modifiers()&tcell.ModAlt > 0 {
 				// We accept some Alt- key combinations.
