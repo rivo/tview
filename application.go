@@ -181,6 +181,7 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 		// Run() has not been called yet.
 		a.screen = screen
 		a.Unlock()
+		screen.Init()
 		return a
 	}
 
@@ -284,9 +285,8 @@ func (a *Application) Run() error {
 			a.screen = screen
 			enableMouse := a.enableMouse
 			a.Unlock()
-
 			// Initialize and draw this screen.
-			if err := a.screen.Init(); err != nil {
+			if err := screen.Init(); err != nil {
 				panic(err)
 			}
 			if enableMouse {
