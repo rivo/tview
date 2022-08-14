@@ -286,7 +286,7 @@ func (a *Application) Run() error {
 			a.Unlock()
 
 			// Initialize and draw this screen.
-			if err := screen.Init(); err != nil {
+			if err := a.screen.Init(); err != nil {
 				panic(err)
 			}
 			if enableMouse {
