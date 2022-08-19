@@ -11,6 +11,7 @@ Among these components are:
 
 - __Input forms__ (include __input/password fields__, __drop-down selections__, __checkboxes__, and __buttons__)
 - Navigable multi-color __text views__
+- Editable multi-line __text areas__
 - Sophisticated navigable __table views__
 - Flexible __tree views__
 - Selectable __lists__

@@ -9,6 +9,7 @@ The package implements the following widgets:
 
   - [TextView]: A scrollable window that display multi-colored text. Text may
     also be highlighted.
+  - [TextArea]: An editable multi-line text area.
   - [Table]: A scrollable display of tabular data. Table cells, rows, or columns
     may also be highlighted.
   - [TreeView]: A scrollable display for hierarchical data. Tree nodes can be

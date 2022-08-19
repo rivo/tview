@@ -27,12 +27,20 @@ const (
 	minCursorSuffix = 3
 )
 
-var (
-	// NewLine is the string sequence to be inserted when hitting the Enter key
-	// in a TextArea. The default is "\n" but you may change it to "\r\n" if
-	// required.
-	NewLine = "\n"
+// Types of user actions on a text area.
+type taAction int
+
+const (
+	taActionOther        taAction = iota
+	taActionTypeSpace             // Typing a space character.
+	taActionTypeNonSpace          // Typing a non-space character.
+	taActionBackspace             // Deleting the previous character.
+	taActionDelete                // Deleting the next character.
 )
+
+// NewLine is the string sequence to be inserted when hitting the Enter key in a
+// TextArea. The default is "\n" but you may change it to "\r\n" if required.
+var NewLine = "\n"
 
 // textAreaSpan represents a range of text in a text area. The text area widget
 // roughly follows the concept of Piece Chains outline in
@@ -61,7 +69,8 @@ type textAreaSpan struct {
 	// If "length" is negative, the span represents a substring of
 	// TextArea.initialText and the actual length must be its absolute value. If
 	// it is positive, the span represents a substring of TextArea.editText. For
-	// the sentinel spans (index 0 and 1), both values will be 0.
+	// the sentinel spans (index 0 and 1), both values will be 0. Others will
+	// never have a zero length.
 	offset, length int
 }
 
@@ -69,7 +78,7 @@ type textAreaSpan struct {
 // text is not supported. Word-wrapping is enabled by default but can be turned
 // off or be changed to character-wrapping.
 //
-// Navigation and Editing
+// # Navigation and Editing
 //
 // A text area is always in editing mode and no other mode exists. The following
 // keys can be used to move the cursor:
@@ -94,7 +103,7 @@ type textAreaSpan struct {
 // Words are defined according to Unicode Standard Annex #29. We skip any words
 // that contain only spaces or punctuation.
 //
-// Entering a character (rune) will insert it at the current cursor location.
+// Entering a character will insert it at the current cursor location.
 // Subsequent characters are moved accordingly. If the cursor is outside the
 // visible area, any changes to the text will move it into the visible area. The
 // following keys can also be used to modify the text:
@@ -123,31 +132,30 @@ type textAreaSpan struct {
 //   - Ctrl-V: Replace the selected text with the clipboard text. If no text is
 //     selected, the clipboard text will be inserted at the cursor location.
 //
-// The default clipboard is an internal text buffer, i.e. the operating system's
-// clipboard is not used. The Ctrl-Q key was chosen for the "copy" function
-// because the Ctrl-C key is the default key to stop the application. If your
-// application frees up the global Ctrl-C key and you want to bind it to the
-// "copy to clipboard" function, you may use [Box.SetInputCapture] to override
-// the Ctrl-Q key to implement copying to the clipboard. Note that using your
-// terminal's / operating system's key bindings for copy+paste functionality may
-// not have the expected effect as tview will not be able to handle these keys.
+// The Ctrl-Q key was chosen for the "copy" function because the Ctrl-C key is
+// the default key to stop the application. If your application frees up the
+// global Ctrl-C key and you want to bind it to the "copy to clipboard"
+// function, you may use [Box.SetInputCapture] to override the Ctrl-Q key to
+// implement copying to the clipboard. Note that using your terminal's /
+// operating system's key bindings for copy+paste functionality may not have the
+// expected effect as tview will not be able to handle these keys.
 //
-// Similarly, if you want to implement your own clipboard (or make use of your
-// operating system's clipboard), you can use [Box.SetInputCapture] to override
-// the key binds for copy, cut, and paste. [TextArea.SetClipboard] provides all
-// the functionality needed to implement your own clipboard.
+// The default clipboard is an internal text buffer, i.e. the operating system's
+// clipboard is not used. If you want to implement your own clipboard (or make
+// use of your operating system's clipboard), you can use
+// [TextArea.SetClipboard] which  provides all the functionality needed to
+// implement your own clipboard.
 //
 // The text area also supports Undo:
 //
-//    - Ctrl-Z: Undo the last change.
-//    - Ctrl-Y: Redo the last Undo change.
+//   - Ctrl-Z: Undo the last change.
+//   - Ctrl-Y: Redo the last Undo change.
 //
 // If the mouse is enabled, clicking on a screen cell will move the cursor to
 // that location or to the end of the line if past the last character. Turning
 // the scroll wheel will scroll the text. Text can also be selected by moving
 // the mouse while pressing the left mouse button (see below for details). The
 // word underneath the mouse cursor can be selected by double-clicking.
-
 type TextArea struct {
 	*Box
 
@@ -187,12 +195,6 @@ type TextArea struct {
 	// reference anything and always remain in the same place. Spans are never
 	// deleted.
 	spans []textAreaSpan
-
-	// The undo stack's items are the first of two consecutive indices into the
-	// spans slice. The first referenced span is a copy of the one before the
-	// modified span range, thse second referenced span is a copy of the one
-	// after the modified span range.
-	undoStack []int
 
 	// Display, navigation, and cursor related fields:
 
@@ -252,6 +254,23 @@ type TextArea struct {
 
 	// The function to call when the user pastes text from the clipboard.
 	pasteFromClipboard func() string
+
+	// Undo/redo related fields:
+
+	// The last action performed by the user.
+	lastAction taAction
+
+	// The undo stack's items are the first of two consecutive indices into the
+	// spans slice. The first referenced span is a copy of the one before the
+	// modified span range, the second referenced span is a copy of the one
+	// after the modified span range. To undo an action, these two spans are put
+	// back into their original place. Undos and redos decrease or increase the
+	// nextUndo value. Thus, the next undo action is not always the last item.
+	undoStack []int
+
+	// The current undo/redo position on the undo stack. If no undo or redo has
+	// been performed yet, this is the same as len(undoStack).
+	nextUndo int
 }
 
 // NewTextArea returns a new text area. Use [TextArea.SetText] to set the
@@ -265,6 +284,7 @@ func NewTextArea() *TextArea {
 		textStyle:        tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		selectedStyle:    tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.PrimitiveBackgroundColor),
 		spans:            make([]textAreaSpan, 2, pieceChainMinCap), // We reserve some space to avoid reallocations right when editing starts.
+		lastAction:       taActionOther,
 	}
 	t.editText.Grow(editBufferMinCap)
 	t.spans[0] = textAreaSpan{previous: -1, next: 1}
@@ -319,6 +339,30 @@ func (t *TextArea) SetText(text string, cursorAtTheEnd bool) *TextArea {
 	t.selectionStart = t.cursor
 
 	return t
+}
+
+// GetText returns the entire text of the text area. Note that this will newly
+// allocate the entire text.
+func (t *TextArea) GetText() string {
+	if t.length == 0 {
+		return ""
+	}
+
+	var text strings.Builder
+	text.Grow(t.length)
+	spanIndex := t.spans[0].next
+	for spanIndex != 1 {
+		span := &t.spans[spanIndex]
+		if span.length < 0 {
+			text.WriteString(t.initialText[span.offset : span.offset-span.length])
+		} else {
+			text.WriteString(t.editText.String()[span.offset : span.offset+span.length])
+		}
+		spanIndex = t.spans[spanIndex].next
+	}
+
+	return text.String()
+
 }
 
 // SetWrap sets the flag that, if true, leads to lines that are longer than the
@@ -419,185 +463,199 @@ func (t *TextArea) SetClipboard(copyToClipboard func(string), pasteFromClipboard
 
 // replace deletes a range of text and inserts the given text at that position.
 // If the resulting text would exceed the maximum length, the function does not
-// do anything. The function returns the new position of the deleted/inserted
-// range (with an undefined state).
+// do anything. The function returns the end position of the deleted/inserted
+// range.
 //
 // The function can hang if "deleteStart" is located after "deleteEnd".
 //
-// This function does not generate Undo events. Undo events are generated
-// elsewhere, when the user changes their type of edit. It also does not modify
-// [TextArea.lineStarts].
-func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string) (end [3]int) {
-	end = deleteEnd
-
-	// Check max length.
-	if t.maxLength > 0 && t.length+len(insert) > t.maxLength {
-		return
-	}
-
-	// Delete.
-	for deleteStart[0] != deleteEnd[0] {
-		if deleteStart[1] == 0 {
-			// Delete this entire span.
-			deleteStart[0] = t.deleteSpan(deleteStart[0])
-			deleteStart[1] = 0
-		} else {
-			// Delete a partial span at the end.
-			if t.spans[deleteStart[0]].length < 0 {
-				// Initial text span. Has negative length.
-				t.length -= -t.spans[deleteStart[0]].length - deleteStart[1]
-				t.spans[deleteStart[0]].length = -deleteStart[1]
-			} else {
-				// Edit buffer span. Has positive length.
-				t.length -= t.spans[deleteStart[0]].length - deleteStart[1]
-				t.spans[deleteStart[0]].length = deleteStart[1]
-			}
-			deleteStart[0] = t.spans[deleteStart[0]].next
-			deleteStart[1] = 0
-		}
-	} // At this point, deleteStart[0] == deleteEnd[0].
-	if deleteEnd[1] > deleteStart[1] {
-		if deleteStart[1] != 0 {
-			// Delete in the middle by splitting the span.
-			deleteEnd[1] -= deleteStart[1]
-			deleteEnd[0] = t.splitSpan(deleteStart[0], deleteStart[1])
-			deleteStart[0] = deleteEnd[0]
-			deleteStart[1] = 0
-		}
-		// Delete a partial span at the beginning.
-		t.length -= deleteEnd[1]
-		if t.spans[deleteEnd[0]].length < 0 {
-			// Initial text span. Has negative length.
-			t.spans[deleteEnd[0]].length += deleteEnd[1]
-		} else {
-			// Edit buffer span. Has positive length.
-			t.spans[deleteEnd[0]].length -= deleteEnd[1]
-		}
-		t.spans[deleteEnd[0]].offset += deleteEnd[1]
-		deleteEnd[1] = 0
-		end = deleteEnd
-	}
-
-	// Insert.
-	if len(insert) > 0 {
-		spanIndex, offset := deleteStart[0], deleteStart[1]
-		span := t.spans[spanIndex]
-
-		if offset == 0 {
-			previousSpan := t.spans[span.previous]
-			if previousSpan.length > 0 && previousSpan.offset+previousSpan.length == t.editText.Len() {
-				// We can simply append to the edit buffer.
-				length, _ := t.editText.WriteString(insert)
-				t.spans[span.previous].length += length
-				t.length += length
-			} else {
-				// Insert a new span.
-				t.insertSpan(insert, spanIndex)
-			}
-		} else {
-			// Split and insert.
-			spanIndex = t.splitSpan(spanIndex, offset)
-			t.insertSpan(insert, spanIndex)
-			end = [3]int{spanIndex, 0, 0}
-		}
-	}
-
-	return
-}
-
-// deleteSpan removes the span with the given index from the piece chain. It
-// returns the index of the span after the deleted span (or the provided index
-// if no span was deleted due to an invalid span index).
+// Undo events are always generated unless continuation is true and text is
+// either appended to the end of a span or a span is shortened at the beginning
+// or the end (and nothing else).
 //
-// This function also adjusts [TextArea.length].
-func (t *TextArea) deleteSpan(index int) int {
-	if index < 2 || index >= len(t.spans) {
-		return index
+// This function does not modify [TextArea.lineStarts].
+func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continuation bool) [3]int {
+	// Maybe nothing needs to be done?
+	if deleteStart == deleteEnd && insert == "" || t.maxLength > 0 && t.length+len(insert) >= t.maxLength {
+		return deleteEnd
 	}
 
-	// Remove from piece chain.
-	previous := t.spans[index].previous
-	next := t.spans[index].next
-	t.spans[previous].next = next
-	t.spans[next].previous = previous
-
-	// Adjust total length.
-	length := t.spans[index].length
-	if length < 0 {
-		length = -length
+	// Handle the few cases where we don't put anything onto the undo stack.
+	if continuation {
+		// Same action as the one before. An undo item was already generated for
+		// this block of (same) actions.
+		if insert == "" {
+			if deleteStart[1] == 0 && deleteEnd[1] == 0 {
+				// We're deleting an entire span (only one because we delete at
+				// most one grapheme). Where does it connect to the last undo
+				// item?
+				if t.spans[t.undoStack[t.nextUndo-1]].next == deleteStart[0] {
+					// Backspace. Extend the "before" span of the undo stack's
+					// last item.
+					previous := t.spans[deleteStart[0]].previous
+					if previous != 0 {
+						undoPrevious := t.undoStack[t.nextUndo-1]
+						spansLength := len(t.spans) // We make two new entries for the modified undo item.
+						t.spans = append(t.spans, t.spans[previous])
+						t.spans = append(t.spans, t.spans[undoPrevious+1])
+						t.spans[undoPrevious].previous = spansLength
+						t.spans[spansLength].next = undoPrevious
+						t.undoStack[t.nextUndo-1] = spansLength
+					}
+					t.spans[previous].next = deleteEnd[0]
+					t.spans[deleteEnd[0]].previous = previous
+					length := t.spans[deleteStart[0]].length
+					if length < 0 {
+						t.length += length
+					} else {
+						t.length -= length
+					}
+					return deleteEnd
+				}
+				// Delete. Extend the "after" span of the undo stack's last
+				// item.
+				if deleteEnd[0] != 1 {
+					undoNext := t.undoStack[t.nextUndo-1] + 1
+					spansLength := len(t.spans) // We make two new entries for the modified undo item.
+					t.spans = append(t.spans, t.spans[undoNext-1])
+					t.spans = append(t.spans, t.spans[undoNext])
+					t.spans[undoNext].next = spansLength + 1
+					t.spans[spansLength+1].previous = undoNext
+					t.undoStack[t.nextUndo-1] = spansLength
+				}
+				previous := t.spans[deleteStart[0]].previous
+				t.spans[deleteEnd[0]].previous = previous
+				t.spans[previous].next = deleteEnd[0]
+				length := t.spans[deleteStart[0]].length
+				if length < 0 {
+					t.length += length
+				} else {
+					t.length -= length
+				}
+				return deleteEnd
+			} else if deleteEnd[1] == 0 {
+				// Simple backspace. Just shorten this span.
+				length := t.spans[deleteStart[0]].length
+				if length < 0 {
+					length = -deleteStart[1]
+				}
+				t.spans[deleteStart[0]].length = length
+				t.length -= deleteStart[1]
+				return deleteEnd
+			} else if deleteStart[1] == 0 {
+				// Simple delete. Just clip the beginning of this span.
+				t.spans[deleteEnd[0]].offset += deleteEnd[1]
+				if t.spans[deleteEnd[0]].length < 0 {
+					t.spans[deleteEnd[0]].length += deleteEnd[1]
+				} else {
+					t.spans[deleteEnd[0]].length -= deleteEnd[1]
+				}
+				t.length -= deleteEnd[1]
+				return deleteEnd
+			}
+		} else if insert != "" && deleteStart == deleteEnd && deleteEnd[1] == 0 {
+			previous := t.spans[deleteStart[0]].previous
+			bufferSpan := t.spans[previous]
+			if bufferSpan.length > 0 && bufferSpan.offset+bufferSpan.length == t.editText.Len() {
+				// Typing individual characters. Simply extend the edit buffer.
+				length, _ := t.editText.WriteString(insert)
+				t.spans[previous].length += length
+				t.length += length
+				return deleteEnd
+			}
+		}
 	}
-	t.length -= length
 
-	return next
-}
+	// All other cases generate an undo item.
+	before := t.spans[deleteStart[0]].previous
+	after := deleteEnd[0]
+	if deleteEnd[1] > 0 {
+		after = t.spans[deleteEnd[0]].next
+	}
+	t.undoStack = t.undoStack[:t.nextUndo]
+	t.undoStack = append(t.undoStack, len(t.spans))
+	t.spans = append(t.spans, t.spans[before])
+	t.spans = append(t.spans, t.spans[after])
+	t.nextUndo++
 
-// splitSpan splits the span with the given index at the given offset into two
-// spans. It returns the index of the span after the split or the provided
-// index if no span was split due to an invalid span index or an invalid
-// offset.
-func (t *TextArea) splitSpan(index, offset int) int {
-	if index < 2 || index >= len(t.spans) || offset <= 0 ||
-		(t.spans[index].length < 0 && offset >= -t.spans[index].length) ||
-		(t.spans[index].length >= 0 && offset >= t.spans[index].length) {
-		return index
+	// Adjust total text length by subtracting everything between "before" and
+	// "after". Inserted spans will be added back.
+	for index := deleteStart[0]; index != after; index = t.spans[index].next {
+		if t.spans[index].length < 0 {
+			t.length += t.spans[index].length
+		} else {
+			t.length -= t.spans[index].length
+		}
+	}
+	t.spans[before].next = after
+	t.spans[after].previous = before
+
+	// We go from left to right, connecting new spans as needed. We update
+	// "before" as the span to connect new spans to.
+
+	// If we start deleting in the middle of a span, connect a partial span.
+	if deleteStart[1] != 0 {
+		span := textAreaSpan{
+			previous: before,
+			next:     after,
+			offset:   t.spans[deleteStart[0]].offset,
+			length:   deleteStart[1],
+		}
+		if t.spans[deleteStart[0]].length < 0 {
+			span.length = -span.length
+		}
+		t.length += deleteStart[1] // This was previously subtracted.
+		t.spans[before].next = len(t.spans)
+		t.spans[after].previous = len(t.spans)
+		before = len(t.spans)
+		for row, lineStart := range t.lineStarts { // Also redirect line starts until the end of this new span.
+			if lineStart[0] == deleteStart[0] {
+				if lineStart[1] >= deleteStart[1] {
+					t.lineStarts = t.lineStarts[:row] // Everything else is unknown at this point.
+					break
+				}
+				t.lineStarts[row][0] = len(t.spans)
+			}
+		}
+		t.spans = append(t.spans, span)
 	}
 
-	// Make a new trailing span.
-	span := t.spans[index]
-	newSpan := textAreaSpan{
-		previous: index,
-		next:     span.next,
-		offset:   span.offset + offset,
+	// If we insert text, connect a new span.
+	if insert != "" {
+		span := textAreaSpan{
+			previous: before,
+			next:     after,
+			offset:   t.editText.Len(),
+		}
+		span.length, _ = t.editText.WriteString(insert)
+		t.length += span.length
+		t.spans[before].next = len(t.spans)
+		t.spans[after].previous = len(t.spans)
+		before = len(t.spans)
+		t.spans = append(t.spans, span)
 	}
 
-	// Adjust lengths.
-	if span.length < 0 {
-		// Initial text span. Has negative length.
-		newSpan.length = span.length + offset
-		t.spans[index].length = -offset
-	} else {
-		// Edit buffer span. Has positive length.
-		newSpan.length = span.length - offset
-		t.spans[index].length = offset
+	// If we stop deleting in the middle of a span, connect a partial span.
+	if deleteEnd[1] != 0 {
+		span := textAreaSpan{
+			previous: before,
+			next:     after,
+			offset:   t.spans[deleteEnd[0]].offset + deleteEnd[1],
+		}
+		length := t.spans[deleteEnd[0]].length
+		if length < 0 {
+			span.length = length + deleteEnd[1]
+			t.length -= span.length // This was previously subtracted.
+		} else {
+			span.length = length - deleteEnd[1]
+			t.length += span.length // This was previously subtracted.
+		}
+		t.spans[before].next = len(t.spans)
+		t.spans[after].previous = len(t.spans)
+		deleteEnd[0], deleteEnd[1] = len(t.spans), 0
+		t.spans = append(t.spans, span)
 	}
 
-	// Insert the modified and new spans.
-	newIndex := len(t.spans)
-	t.spans = append(t.spans, newSpan)
-	t.spans[span.next].previous = newIndex
-	t.spans[index].next = newIndex
-
-	return newIndex
-}
-
-// insertSpan inserts the a span with the given text into the piece chain before
-// the span with the given index and returns the index of the newly inserted
-// span. If index <= 0, nothing happens and 1 is returned. The text is appended
-// to the edit buffer. The length of the text is added to TextArea.length.
-func (t *TextArea) insertSpan(text string, index int) int {
-	if index < 1 || index >= len(t.spans) {
-		return 1
-	}
-
-	// Make a new span.
-	nextSpan := t.spans[index]
-	span := textAreaSpan{
-		previous: nextSpan.previous,
-		next:     index,
-		offset:   t.editText.Len(),
-	}
-	span.length, _ = t.editText.WriteString(text)
-
-	// Insert into piece chain.
-	newIndex := len(t.spans)
-	t.spans[nextSpan.previous].next = newIndex
-	t.spans[index].previous = newIndex
-	t.spans = append(t.spans, span)
-
-	// Adjust text area length.
-	t.length += span.length
-
-	return newIndex
+	return deleteEnd
 }
 
 // Draw draws this primitive onto the screen.
@@ -1253,7 +1311,7 @@ func (t *TextArea) deleteLine() {
 	}
 
 	// Delete the text.
-	t.cursor.pos = t.replace(t.lineStarts[startRow], pos, "")
+	t.cursor.pos = t.replace(t.lineStarts[startRow], pos, "", false)
 	t.cursor.row = -1
 	t.truncateLines(startRow)
 	t.clampToCursor(startRow)
@@ -1304,6 +1362,13 @@ func (t *TextArea) getSelectedText() string {
 // InputHandler returns the handler for this primitive.
 func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		// All actions except a few specific ones are "other" actions.
+		newLastAction := taActionOther
+		defer func() {
+			t.lastAction = newLastAction
+		}()
+
+		// Process the different key events.
 		switch key := event.Key(); key {
 		case tcell.KeyLeft: // Move one grapheme cluster to the left.
 			if event.Modifiers()&tcell.ModAlt == 0 {
@@ -1416,18 +1481,20 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			}
 		case tcell.KeyEnter: // Insert a newline.
 			from, to, row := t.getSelection()
-			t.cursor.pos = t.replace(from, to, NewLine)
+			t.cursor.pos = t.replace(from, to, NewLine, t.lastAction != taActionTypeSpace)
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
 			t.clampToCursor(row)
 			t.selectionStart = t.cursor
+			newLastAction = taActionTypeSpace
 		case tcell.KeyTab: // Insert TabSize spaces.
 			from, to, row := t.getSelection()
-			t.cursor.pos = t.replace(from, to, strings.Repeat(" ", TabSize))
+			t.cursor.pos = t.replace(from, to, strings.Repeat(" ", TabSize), t.lastAction != taActionTypeSpace)
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
 			t.clampToCursor(row)
 			t.selectionStart = t.cursor
+			newLastAction = taActionTypeSpace
 		case tcell.KeyRune:
 			if event.Modifiers()&tcell.ModAlt > 0 {
 				// We accept some Alt- key combinations.
@@ -1445,8 +1512,13 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				}
 			} else {
 				// Other keys are simply accepted as regular characters.
+				r := event.Rune()
 				from, to, row := t.getSelection()
-				t.cursor.pos = t.replace(from, to, string(event.Rune()))
+				newLastAction = taActionTypeNonSpace
+				if unicode.IsSpace(r) {
+					newLastAction = taActionTypeSpace
+				}
+				t.cursor.pos = t.replace(from, to, string(r), newLastAction == t.lastAction || t.lastAction == taActionTypeNonSpace && newLastAction == taActionTypeSpace)
 				t.cursor.row = -1
 				t.truncateLines(row - 1)
 				t.clampToCursor(row)
@@ -1456,7 +1528,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			from, to, row := t.getSelection()
 			if from != to {
 				// Simply delete the current selection.
-				t.cursor.pos = t.replace(from, to, "")
+				t.cursor.pos = t.replace(from, to, "", false)
 				t.cursor.row = -1
 				t.truncateLines(row - 1)
 				t.clampToCursor(row)
@@ -1475,18 +1547,21 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				// Move one grapheme cluster to the left.
 				t.moveCursor(t.cursor.row, t.cursor.actualColumn-1)
 			}
+
+			// Remove that last grapheme cluster.
 			if t.cursor.pos != endPos {
-				t.cursor.pos = t.replace(t.cursor.pos, endPos, "") // Delete the character.
+				t.cursor.pos = t.replace(t.cursor.pos, endPos, "", t.lastAction != taActionBackspace) // Delete the character.
 				t.cursor.pos[2] = endPos[2]
 				t.truncateLines(t.cursor.row - 1)
 				t.clampToCursor(t.cursor.row)
+				newLastAction = taActionBackspace
 			}
 			t.selectionStart = t.cursor
 		case tcell.KeyDelete, tcell.KeyCtrlD: // Delete forward.
 			from, to, row := t.getSelection()
 			if from != to {
 				// Simply delete the current selection.
-				t.cursor.pos = t.replace(from, to, "")
+				t.cursor.pos = t.replace(from, to, "", false)
 				t.cursor.row = -1
 				t.truncateLines(row - 1)
 				t.clampToCursor(row)
@@ -1496,10 +1571,11 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 			if t.cursor.pos[0] != 1 {
 				_, _, _, endPos, _ := t.step("", t.cursor.pos, t.cursor.pos)
-				t.cursor.pos = t.replace(t.cursor.pos, endPos, "")
+				t.cursor.pos = t.replace(t.cursor.pos, endPos, "", t.lastAction != taActionDelete) // Delete the character.
 				t.cursor.pos[2] = endPos[2]
 				t.truncateLines(t.cursor.row - 1)
 				t.clampToCursor(t.cursor.row)
+				newLastAction = taActionDelete
 			}
 			t.selectionStart = t.cursor
 		case tcell.KeyCtrlK: // Delete everything under and to the right of the cursor until before the next newline character.
@@ -1517,7 +1593,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 					break
 				}
 			}
-			t.cursor.pos = t.replace(t.cursor.pos, pos, "")
+			t.cursor.pos = t.replace(t.cursor.pos, pos, "", false)
 			row := t.cursor.row
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
@@ -1526,7 +1602,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyCtrlW: // Delete from the start of the current word to the left of the cursor.
 			pos := t.cursor.pos
 			t.moveWordLeft()
-			t.cursor.pos = t.replace(t.cursor.pos, pos, "")
+			t.cursor.pos = t.replace(t.cursor.pos, pos, "", false)
 			row := t.cursor.row - 1
 			t.cursor.row = -1
 			t.truncateLines(row)
@@ -1544,7 +1620,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			if t.cursor != t.selectionStart {
 				t.copyToClipboard(t.getSelectedText())
 				from, to, row := t.getSelection()
-				t.cursor.pos = t.replace(from, to, "")
+				t.cursor.pos = t.replace(from, to, "", false)
 				t.cursor.row = -1
 				t.truncateLines(row - 1)
 				t.clampToCursor(row)
@@ -1552,7 +1628,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			}
 		case tcell.KeyCtrlV: // Paste from clipboard.
 			from, to, row := t.getSelection()
-			t.cursor.pos = t.replace(from, to, t.pasteFromClipboard())
+			t.cursor.pos = t.replace(from, to, t.pasteFromClipboard(), false)
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
 			t.clampToCursor(row)
