@@ -193,6 +193,10 @@ type TextView struct {
 	// navigated when the text is longer than what fits into the box.
 	scrollable bool
 
+	// If set to true, the text view will navigate similarly to vim.
+	// If set to false, vim movement will be ignored.
+	vimMove bool
+	
 	// If set to true, lines that are longer than the available width are wrapped
 	// onto the next line. If set to false, any characters beyond the available
 	// width are discarded.
@@ -256,6 +260,13 @@ func (t *TextView) SetScrollable(scrollable bool) *TextView {
 	if !scrollable {
 		t.trackEnd = true
 	}
+	return t
+}
+
+// SetVimMove sets the flag that decides whether or not the text view is
+// able to be navigated by using the keys, h, l, j, k, g, G
+func (t *TextView) SetVimMove(vimMove bool) *TextView {
+	t.vimMove = vimMove
 	return t
 }
 
@@ -1260,23 +1271,25 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 		switch key {
 		case tcell.KeyRune:
-			switch event.Rune() {
-			case 'g': // Home.
-				t.trackEnd = false
-				t.lineOffset = 0
-				t.columnOffset = 0
-			case 'G': // End.
-				t.trackEnd = true
-				t.columnOffset = 0
-			case 'j': // Down.
-				t.lineOffset++
-			case 'k': // Up.
-				t.trackEnd = false
-				t.lineOffset--
-			case 'h': // Left.
-				t.columnOffset--
-			case 'l': // Right.
-				t.columnOffset++
+			if vimMove {
+				switch event.Rune() {
+				case 'g': // Home.
+					t.trackEnd = false
+					t.lineOffset = 0
+					t.columnOffset = 0
+				case 'G': // End.
+					t.trackEnd = true
+					t.columnOffset = 0
+				case 'j': // Down.
+					t.lineOffset++
+				case 'k': // Up.
+					t.trackEnd = false
+					t.lineOffset--
+				case 'h': // Left.
+					t.columnOffset--
+				case 'l': // Right.
+					t.columnOffset++
+				}
 			}
 		case tcell.KeyHome:
 			t.trackEnd = false
