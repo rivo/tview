@@ -194,7 +194,8 @@ type TextView struct {
 	scrollable bool
 
 	// If set to true, the text view will navigate similarly to vim.
-	// If set to false, vim movement will be ignored.
+	// If set to false the following keys will be ignored for movement
+	// h, l, j, k, g, G
 	vimMove bool
 	
 	// If set to true, lines that are longer than the available width are wrapped
