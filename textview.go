@@ -1272,7 +1272,7 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 		switch key {
 		case tcell.KeyRune:
-			if vimMove {
+			if t.vimMove {
 				switch event.Rune() {
 				case 'g': // Home.
 					t.trackEnd = false
