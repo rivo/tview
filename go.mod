@@ -1,4 +1,4 @@
-module github.com/rivo/tview
+module github.com/Awesome-Sauces/tview
 
 go 1.18
 
