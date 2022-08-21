@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -72,6 +73,14 @@ type textAreaSpan struct {
 	// the sentinel spans (index 0 and 1), both values will be 0. Others will
 	// never have a zero length.
 	offset, length int
+}
+
+// textAreaUndoItem represents an undoable edit to the text area. It describes
+// the two spans wrapping a text change.
+type textAreaUndoItem struct {
+	before, after                 int    // The index of the copied "before" and "after" spans into the "spans" slice.
+	originalBefore, originalAfter int    // The original indices of the "before" and "after" spans.
+	pos                           [3]int // The cursor position to be assumed after applying an undo.
 }
 
 // TextArea implements a simple text editor for multi-line text. Multi-color
@@ -150,6 +159,8 @@ type textAreaSpan struct {
 //
 //   - Ctrl-Z: Undo the last change.
 //   - Ctrl-Y: Redo the last Undo change.
+//
+// Undo does not affect the clipboard.
 //
 // If the mouse is enabled, clicking on a screen cell will move the cursor to
 // that location or to the end of the line if past the last character. Turning
@@ -260,17 +271,21 @@ type TextArea struct {
 	// The last action performed by the user.
 	lastAction taAction
 
-	// The undo stack's items are the first of two consecutive indices into the
-	// spans slice. The first referenced span is a copy of the one before the
-	// modified span range, the second referenced span is a copy of the one
-	// after the modified span range. To undo an action, these two spans are put
-	// back into their original place. Undos and redos decrease or increase the
-	// nextUndo value. Thus, the next undo action is not always the last item.
-	undoStack []int
+	// The undo stack's items. Each item is a copy of the span before the
+	// modified span range and a copy of the span after the modified span range.
+	// To undo an action, the two referenced spans are put back into their
+	// original place. Undos and redos decrease or increase the nextUndo value.
+	// Thus, the next undo action is not always the last item.
+	undoStack []textAreaUndoItem
 
 	// The current undo/redo position on the undo stack. If no undo or redo has
 	// been performed yet, this is the same as len(undoStack).
 	nextUndo int
+
+	// Event handlers:
+
+	// An optional function which is called when the input has changed.
+	changed func()
 }
 
 // NewTextArea returns a new text area. Use [TextArea.SetText] to set the
@@ -314,10 +329,10 @@ func (t *TextArea) SetText(text string, cursorAtTheEnd bool) *TextArea {
 	t.length = len(text)
 	t.rowOffset = 0
 	t.columnOffset = 0
-	t.resetLines()
+	t.reset()
 	t.cursor.column = 0
 	t.cursor.pos = [3]int{1, 0, -1}
-	//TODO: Reset undo.
+	t.undoStack = t.undoStack[:0]
 
 	if len(text) > 0 {
 		t.spans = append(t.spans, textAreaSpan{
@@ -337,6 +352,10 @@ func (t *TextArea) SetText(text string, cursorAtTheEnd bool) *TextArea {
 		t.cursor.row, t.cursor.actualColumn = 0, 0
 	}
 	t.selectionStart = t.cursor
+
+	if t.changed != nil {
+		t.changed()
+	}
 
 	return t
 }
@@ -371,7 +390,7 @@ func (t *TextArea) GetText() string {
 func (t *TextArea) SetWrap(wrap bool) *TextArea {
 	if t.wrap != wrap {
 		t.wrap = wrap
-		t.resetLines()
+		t.reset()
 	}
 	return t
 }
@@ -383,7 +402,7 @@ func (t *TextArea) SetWrap(wrap bool) *TextArea {
 func (t *TextArea) SetWordWrap(wrapOnWords bool) *TextArea {
 	if t.wordWrap != wrapOnWords {
 		t.wordWrap = wrapOnWords
-		t.resetLines()
+		t.reset()
 	}
 	return t
 }
@@ -461,10 +480,17 @@ func (t *TextArea) SetClipboard(copyToClipboard func(string), pasteFromClipboard
 	return t
 }
 
+// SetChangedFunc sets a handler which is called whenever the text of the text
+// area has changed.
+func (t *TextArea) SetChangedFunc(handler func()) *TextArea {
+	t.changed = handler
+	return t
+}
+
 // replace deletes a range of text and inserts the given text at that position.
 // If the resulting text would exceed the maximum length, the function does not
 // do anything. The function returns the end position of the deleted/inserted
-// range.
+// range. The provided row is the row of the deleted range start.
 //
 // The function can hang if "deleteStart" is located after "deleteEnd".
 //
@@ -479,6 +505,11 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 		return deleteEnd
 	}
 
+	// Notify at the end.
+	if t.changed != nil {
+		defer t.changed()
+	}
+
 	// Handle the few cases where we don't put anything onto the undo stack.
 	if continuation {
 		// Same action as the one before. An undo item was already generated for
@@ -488,18 +519,19 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 				// We're deleting an entire span (only one because we delete at
 				// most one grapheme). Where does it connect to the last undo
 				// item?
-				if t.spans[t.undoStack[t.nextUndo-1]].next == deleteStart[0] {
+				previous := t.spans[deleteStart[0]].previous
+				if previous == t.undoStack[t.nextUndo-1].originalBefore {
 					// Backspace. Extend the "before" span of the undo stack's
 					// last item.
-					previous := t.spans[deleteStart[0]].previous
-					if previous != 0 {
-						undoPrevious := t.undoStack[t.nextUndo-1]
-						spansLength := len(t.spans) // We make two new entries for the modified undo item.
-						t.spans = append(t.spans, t.spans[previous])
-						t.spans = append(t.spans, t.spans[undoPrevious+1])
-						t.spans[undoPrevious].previous = spansLength
+					beforePrevious := t.spans[previous].previous
+					if beforePrevious >= 0 {
+						undoPrevious := t.undoStack[t.nextUndo-1].before
+						spansLength := len(t.spans)
+						t.spans = append(t.spans, t.spans[beforePrevious])
+						t.spans[undoPrevious].previous = beforePrevious
 						t.spans[spansLength].next = undoPrevious
-						t.undoStack[t.nextUndo-1] = spansLength
+						t.undoStack[t.nextUndo-1].before = spansLength
+						t.undoStack[t.nextUndo-1].originalBefore = beforePrevious
 					}
 					t.spans[previous].next = deleteEnd[0]
 					t.spans[deleteEnd[0]].previous = previous
@@ -514,15 +546,15 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 				// Delete. Extend the "after" span of the undo stack's last
 				// item.
 				if deleteEnd[0] != 1 {
-					undoNext := t.undoStack[t.nextUndo-1] + 1
-					spansLength := len(t.spans) // We make two new entries for the modified undo item.
-					t.spans = append(t.spans, t.spans[undoNext-1])
-					t.spans = append(t.spans, t.spans[undoNext])
-					t.spans[undoNext].next = spansLength + 1
-					t.spans[spansLength+1].previous = undoNext
-					t.undoStack[t.nextUndo-1] = spansLength
+					next := t.spans[deleteEnd[0]].next
+					undoNext := t.undoStack[t.nextUndo-1].after
+					spansLength := len(t.spans)
+					t.spans = append(t.spans, t.spans[next])
+					t.spans[undoNext].next = next
+					t.spans[spansLength].previous = undoNext
+					t.undoStack[t.nextUndo-1].after = spansLength
+					t.undoStack[t.nextUndo-1].originalAfter = next
 				}
-				previous := t.spans[deleteStart[0]].previous
 				t.spans[deleteEnd[0]].previous = previous
 				t.spans[previous].next = deleteEnd[0]
 				length := t.spans[deleteStart[0]].length
@@ -536,10 +568,13 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 				// Simple backspace. Just shorten this span.
 				length := t.spans[deleteStart[0]].length
 				if length < 0 {
+					t.length -= -length - deleteStart[1]
 					length = -deleteStart[1]
+				} else {
+					t.length -= length - deleteStart[1]
+					length = deleteStart[1]
 				}
 				t.spans[deleteStart[0]].length = length
-				t.length -= deleteStart[1]
 				return deleteEnd
 			} else if deleteStart[1] == 0 {
 				// Simple delete. Just clip the beginning of this span.
@@ -550,6 +585,7 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 					t.spans[deleteEnd[0]].length -= deleteEnd[1]
 				}
 				t.length -= deleteEnd[1]
+				deleteEnd[1] = 0
 				return deleteEnd
 			}
 		} else if insert != "" && deleteStart == deleteEnd && deleteEnd[1] == 0 {
@@ -572,7 +608,13 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 		after = t.spans[deleteEnd[0]].next
 	}
 	t.undoStack = t.undoStack[:t.nextUndo]
-	t.undoStack = append(t.undoStack, len(t.spans))
+	t.undoStack = append(t.undoStack, textAreaUndoItem{
+		before:         len(t.spans),
+		after:          len(t.spans) + 1,
+		originalBefore: before,
+		originalAfter:  after,
+		pos:            deleteEnd,
+	})
 	t.spans = append(t.spans, t.spans[before])
 	t.spans = append(t.spans, t.spans[after])
 	t.nextUndo++
@@ -693,7 +735,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 
 	// Make sure the visible lines are broken over.
 	if t.lastWidth != width && t.lineStarts != nil {
-		t.resetLines()
+		t.reset()
 	}
 	t.lastHeight, t.lastWidth = height, width
 	t.extendLines(width, t.rowOffset+height)
@@ -803,11 +845,14 @@ func (t *TextArea) drawPlaceholder(screen tcell.Screen, x, y, width, height int)
 	})
 }
 
-// resetLines resets the [lineStarts] array so [extendLines] has to be called
-// again to access text information.
-func (t *TextArea) resetLines() {
+// reset resets many of the local variables of the text area because they cannot
+// be used anymore and must be recalculated, typically after the text area's
+// size has changed.
+func (t *TextArea) reset() {
 	t.truncateLines(0)
-	t.cursor.row = -1
+	if t.wrap {
+		t.cursor.row = -1
+	}
 	t.widestLine = 0
 }
 
@@ -1251,9 +1296,12 @@ func (t *TextArea) moveWordLeft() {
 // deleteLine deletes all characters between the last newline before the cursor
 // and the next newline after the cursor (inclusive).
 func (t *TextArea) deleteLine() {
-	// We go back startRow by startRow, trying to find the last mandatory line break
+	// We go back row by row, trying to find the last mandatory line break
 	// before the cursor.
 	startRow := t.cursor.row
+	if t.cursor.actualColumn == 0 && t.cursor.pos[0] == 1 {
+		startRow-- // If we're at the very end, delete the row before.
+	}
 	if startRow+1 < len(t.lineStarts) {
 		t.extendLines(t.lastWidth, startRow+1)
 	}
@@ -1481,7 +1529,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			}
 		case tcell.KeyEnter: // Insert a newline.
 			from, to, row := t.getSelection()
-			t.cursor.pos = t.replace(from, to, NewLine, t.lastAction != taActionTypeSpace)
+			t.cursor.pos = t.replace(from, to, NewLine, t.lastAction == taActionTypeSpace)
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
 			t.clampToCursor(row)
@@ -1489,7 +1537,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			newLastAction = taActionTypeSpace
 		case tcell.KeyTab: // Insert TabSize spaces.
 			from, to, row := t.getSelection()
-			t.cursor.pos = t.replace(from, to, strings.Repeat(" ", TabSize), t.lastAction != taActionTypeSpace)
+			t.cursor.pos = t.replace(from, to, strings.Repeat(" ", TabSize), t.lastAction == taActionTypeSpace)
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
 			t.clampToCursor(row)
@@ -1550,10 +1598,11 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 			// Remove that last grapheme cluster.
 			if t.cursor.pos != endPos {
-				t.cursor.pos = t.replace(t.cursor.pos, endPos, "", t.lastAction != taActionBackspace) // Delete the character.
+				t.cursor.pos = t.replace(t.cursor.pos, endPos, "", t.lastAction == taActionBackspace) // Delete the character.
 				t.cursor.pos[2] = endPos[2]
+				t.cursor.row = -1
 				t.truncateLines(t.cursor.row - 1)
-				t.clampToCursor(t.cursor.row)
+				t.clampToCursor(t.cursor.row - 1)
 				newLastAction = taActionBackspace
 			}
 			t.selectionStart = t.cursor
@@ -1571,7 +1620,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 
 			if t.cursor.pos[0] != 1 {
 				_, _, _, endPos, _ := t.step("", t.cursor.pos, t.cursor.pos)
-				t.cursor.pos = t.replace(t.cursor.pos, endPos, "", t.lastAction != taActionDelete) // Delete the character.
+				t.cursor.pos = t.replace(t.cursor.pos, endPos, "", t.lastAction == taActionDelete) // Delete the character.
 				t.cursor.pos[2] = endPos[2]
 				t.truncateLines(t.cursor.row - 1)
 				t.clampToCursor(t.cursor.row)
@@ -1633,6 +1682,94 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.truncateLines(row - 1)
 			t.clampToCursor(row)
 			t.selectionStart = t.cursor
+		case tcell.KeyCtrlZ: // Undo.
+			if t.nextUndo <= 0 {
+				break
+			}
+			t.nextUndo--
+			undo := t.undoStack[t.nextUndo]
+			t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
+			t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
+			t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
+			t.cursor.row = -1
+			t.truncateLines(0) // This is why Undo is expensive for large texts. (t.lineStarts can get largely unusable after an undo.)
+			t.clampToCursor(0)
+			t.selectionStart = t.cursor
+			if t.changed != nil {
+				defer t.changed()
+			}
+		case tcell.KeyCtrlY: // Redo.
+			if t.nextUndo >= len(t.undoStack) {
+				break
+			}
+			undo := t.undoStack[t.nextUndo]
+			t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
+			t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
+			t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
+			t.nextUndo++
+			t.cursor.row = -1
+			t.truncateLines(0) // This is why Redo is expensive for large texts. (t.lineStarts can get largely unusable after an undo.)
+			t.clampToCursor(0)
+			t.selectionStart = t.cursor
+			if t.changed != nil {
+				defer t.changed()
+			}
 		}
 	})
+}
+
+// THIS FUNCTION WILL BE REMOVED ONCE WE DEEM THE TEXT AREA STABLE!
+func (t *TextArea) dump() string {
+	var buf strings.Builder
+
+	// Dump spans.
+	buf.WriteString("Spans:\n\n")
+	index := 0
+	for index >= 0 {
+		span := t.spans[index]
+		var text string
+		if span.length < 0 {
+			text = t.initialText[span.offset : span.offset-span.length]
+		} else {
+			text = t.editText.String()[span.offset : span.offset+span.length]
+		}
+		if len(text) > 9 {
+			text = fmt.Sprintf("%s...%s", text[:3], text[len(text)-3:])
+		}
+		fmt.Fprintf(&buf, `[blue]%d:[white]{[yellow]%d[white] %q [red]%d[white]} `, index, span.previous, text, span.next)
+		index = span.next
+	}
+
+	// Dump undo stack.
+	buf.WriteString("\n\nUndo stack:\n\n")
+	for undoIndex, undo := range t.undoStack {
+		if t.nextUndo == undoIndex {
+			buf.WriteString("^^^^^^\n")
+		}
+		fmt.Fprintf(&buf, `[yellow]%d[white]>[blue]%d[yellow] `, undo.before, undo.originalBefore)
+		index := undo.before
+		for {
+			if index == undo.originalAfter {
+				index = undo.after
+			}
+			span := t.spans[index]
+			var text string
+			if span.length < 0 {
+				text = t.initialText[span.offset : span.offset-span.length]
+			} else {
+				text = t.editText.String()[span.offset : span.offset+span.length]
+			}
+			if len(text) > 9 {
+				text = fmt.Sprintf("%s...%s", text[:3], text[len(text)-3:])
+			}
+			fmt.Fprintf(&buf, `[blue]%d:[white]{[yellow]%d[white] %q [red]%d[white]} `, index, span.previous, text, span.next)
+			if index == undo.after {
+				break
+			}
+			index = span.next
+		}
+		fmt.Fprintf(&buf, "[yellow]%d[white]>[blue]%d[yellow]\n", undo.after, undo.originalAfter)
+	}
+
+	return buf.String()
 }
