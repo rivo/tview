@@ -81,6 +81,7 @@ type textAreaUndoItem struct {
 	before, after                 int    // The index of the copied "before" and "after" spans into the "spans" slice.
 	originalBefore, originalAfter int    // The original indices of the "before" and "after" spans.
 	pos                           [3]int // The cursor position to be assumed after applying an undo.
+	continuation                  bool   // If true, this item is a continuation of the previous undo item.
 }
 
 // TextArea implements a simple text editor for multi-line text. Multi-color
@@ -118,7 +119,8 @@ type textAreaUndoItem struct {
 // following keys can also be used to modify the text:
 //
 //   - Enter: Insert a newline character (see [NewLine]).
-//   - Tab: Insert [TabSize] spaces.
+//   - Tab: Insert a tab character (\t). It will be rendered like [TabSize]
+//     spaces.
 //   - Ctrl-H, Backspace: Delete one character to the left of the cursor.
 //   - Ctrl-D, Delete: Delete the character under the cursor (or the first
 //     character on the next line if the cursor is at the end of a line).
@@ -130,8 +132,11 @@ type textAreaUndoItem struct {
 //     character before the cursor up until the next newline character. This may
 //     span multiple lines if wrapping is enabled.
 //
-// Text can be selected by moving the cursor while holding the Shift key. Thus
-// when text is selected:
+// Text can be selected by moving the cursor while holding the Shift key, to the
+// extent that this is supported by the user's terminal. The Ctrl-L key can be
+// used to select the entire text. (Ctrl-A already binds to the "Home" key.)
+//
+// When text is selected:
 //
 //   - Entering a character will replace the selected text with the new
 //     character.
@@ -155,6 +160,9 @@ type textAreaUndoItem struct {
 // [TextArea.SetClipboard] which  provides all the functionality needed to
 // implement your own clipboard.
 //
+// Note that pasting text using your operating system's or terminal's own
+// methods will be very slow as each character will be pasted individually.
+//
 // The text area also supports Undo:
 //
 //   - Ctrl-Z: Undo the last change.
@@ -162,11 +170,13 @@ type textAreaUndoItem struct {
 //
 // Undo does not affect the clipboard.
 //
-// If the mouse is enabled, clicking on a screen cell will move the cursor to
-// that location or to the end of the line if past the last character. Turning
-// the scroll wheel will scroll the text. Text can also be selected by moving
-// the mouse while pressing the left mouse button (see below for details). The
-// word underneath the mouse cursor can be selected by double-clicking.
+// If the mouse is enabled, the following actions are available:
+//
+//   - Left click: Move the cursor to the clicked position or to the end of the
+//     line if past the last character.
+//   - Left double-click: Select the word under the cursor.
+//   - Left click while holding the Shift key: Select text.
+//   - Scroll wheel: Scroll the text.
 type TextArea struct {
 	*Box
 
@@ -253,6 +263,9 @@ type TextArea struct {
 		// The textAreaSpan position with state for the actual next character.
 		pos [3]int
 	}
+
+	// Set to true when the mouse is dragging to select text.
+	dragging bool
 
 	// Clipboard related fields:
 
@@ -510,85 +523,36 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 		defer t.changed()
 	}
 
-	// Handle the few cases where we don't put anything onto the undo stack.
+	// Handle a few cases where we don't put anything onto the undo stack for
+	// increased efficiency.
 	if continuation {
 		// Same action as the one before. An undo item was already generated for
-		// this block of (same) actions.
-		if insert == "" {
-			if deleteStart[1] == 0 && deleteEnd[1] == 0 {
-				// We're deleting an entire span (only one because we delete at
-				// most one grapheme). Where does it connect to the last undo
-				// item?
-				previous := t.spans[deleteStart[0]].previous
-				if previous == t.undoStack[t.nextUndo-1].originalBefore {
-					// Backspace. Extend the "before" span of the undo stack's
-					// last item.
-					beforePrevious := t.spans[previous].previous
-					if beforePrevious >= 0 {
-						undoPrevious := t.undoStack[t.nextUndo-1].before
-						spansLength := len(t.spans)
-						t.spans = append(t.spans, t.spans[beforePrevious])
-						t.spans[undoPrevious].previous = beforePrevious
-						t.spans[spansLength].next = undoPrevious
-						t.undoStack[t.nextUndo-1].before = spansLength
-						t.undoStack[t.nextUndo-1].originalBefore = beforePrevious
-					}
-					t.spans[previous].next = deleteEnd[0]
-					t.spans[deleteEnd[0]].previous = previous
-					length := t.spans[deleteStart[0]].length
-					if length < 0 {
-						t.length += length
-					} else {
-						t.length -= length
-					}
-					return deleteEnd
-				}
-				// Delete. Extend the "after" span of the undo stack's last
-				// item.
-				if deleteEnd[0] != 1 {
-					next := t.spans[deleteEnd[0]].next
-					undoNext := t.undoStack[t.nextUndo-1].after
-					spansLength := len(t.spans)
-					t.spans = append(t.spans, t.spans[next])
-					t.spans[undoNext].next = next
-					t.spans[spansLength].previous = undoNext
-					t.undoStack[t.nextUndo-1].after = spansLength
-					t.undoStack[t.nextUndo-1].originalAfter = next
-				}
-				t.spans[deleteEnd[0]].previous = previous
-				t.spans[previous].next = deleteEnd[0]
-				length := t.spans[deleteStart[0]].length
-				if length < 0 {
-					t.length += length
-				} else {
-					t.length -= length
-				}
-				return deleteEnd
-			} else if deleteEnd[1] == 0 {
-				// Simple backspace. Just shorten this span.
-				length := t.spans[deleteStart[0]].length
-				if length < 0 {
-					t.length -= -length - deleteStart[1]
-					length = -deleteStart[1]
-				} else {
-					t.length -= length - deleteStart[1]
-					length = deleteStart[1]
-				}
-				t.spans[deleteStart[0]].length = length
-				return deleteEnd
-			} else if deleteStart[1] == 0 {
-				// Simple delete. Just clip the beginning of this span.
-				t.spans[deleteEnd[0]].offset += deleteEnd[1]
-				if t.spans[deleteEnd[0]].length < 0 {
-					t.spans[deleteEnd[0]].length += deleteEnd[1]
-				} else {
-					t.spans[deleteEnd[0]].length -= deleteEnd[1]
-				}
-				t.length -= deleteEnd[1]
-				deleteEnd[1] = 0
-				return deleteEnd
+		// this block of (same) actions. We're also only changing one character.
+		switch {
+		case insert == "" && deleteStart[1] != 0 && deleteEnd[1] == 0:
+			// Simple backspace. Just shorten this span.
+			length := t.spans[deleteStart[0]].length
+			if length < 0 {
+				t.length -= -length - deleteStart[1]
+				length = -deleteStart[1]
+			} else {
+				t.length -= length - deleteStart[1]
+				length = deleteStart[1]
 			}
-		} else if insert != "" && deleteStart == deleteEnd && deleteEnd[1] == 0 {
+			t.spans[deleteStart[0]].length = length
+			return deleteEnd
+		case insert == "" && deleteStart[1] == 0 && deleteEnd[1] != 0:
+			// Simple delete. Just clip the beginning of this span.
+			t.spans[deleteEnd[0]].offset += deleteEnd[1]
+			if t.spans[deleteEnd[0]].length < 0 {
+				t.spans[deleteEnd[0]].length += deleteEnd[1]
+			} else {
+				t.spans[deleteEnd[0]].length -= deleteEnd[1]
+			}
+			t.length -= deleteEnd[1]
+			deleteEnd[1] = 0
+			return deleteEnd
+		case insert != "" && deleteStart == deleteEnd && deleteEnd[1] == 0:
 			previous := t.spans[deleteStart[0]].previous
 			bufferSpan := t.spans[previous]
 			if bufferSpan.length > 0 && bufferSpan.offset+bufferSpan.length == t.editText.Len() {
@@ -614,6 +578,7 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 		originalBefore: before,
 		originalAfter:  after,
 		pos:            deleteEnd,
+		continuation:   continuation,
 	})
 	t.spans = append(t.spans, t.spans[before])
 	t.spans = append(t.spans, t.spans[after])
@@ -717,10 +682,15 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	// Show/hide the cursor at the end.
 	defer func() {
 		if t.HasFocus() {
-			if t.cursor.row >= 0 &&
-				t.cursor.row-t.rowOffset >= 0 && t.cursor.row-t.rowOffset < height &&
-				t.cursor.actualColumn-columnOffset >= 0 && t.cursor.actualColumn-columnOffset < width {
-				screen.ShowCursor(x+t.cursor.actualColumn-columnOffset, y+t.cursor.row-t.rowOffset)
+			row, column := t.cursor.row, t.cursor.actualColumn
+			if t.wrap && column >= t.lastWidth { // This happens when a row has text all the way until the end, pushing the cursor outside the viewport.
+				row++
+				column = 0
+			}
+			if row >= 0 &&
+				row-t.rowOffset >= 0 && row-t.rowOffset < height &&
+				column-columnOffset >= 0 && column-columnOffset < width {
+				screen.ShowCursor(x+column-columnOffset, y+row-t.rowOffset)
 			} else {
 				screen.HideCursor()
 			}
@@ -746,7 +716,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	// If the cursor position is unknown, find it. This usually only happens
 	// before the screen is drawn for the first time.
 	if t.cursor.row < 0 {
-		t.clampToCursor(0)
+		t.findCursor(true, 0)
 		if t.selectionStart.row < 0 {
 			t.selectionStart = t.cursor
 		}
@@ -759,10 +729,10 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	endPos := pos
 	posX, posY := 0, 0
 	for pos[0] != 1 {
-		cluster, text, _, pos, endPos = t.step(text, pos, endPos)
+		var clusterWidth int
+		cluster, text, _, clusterWidth, pos, endPos = t.step(text, pos, endPos)
 
 		// Prepare drawing.
-		clusterWidth := stringWidth(cluster)
 		runes := []rune(cluster)
 		style := t.selectedStyle
 		fromRow, fromColumn := t.cursor.row, t.cursor.actualColumn
@@ -880,15 +850,14 @@ func (t *TextArea) extendLines(width, maxLines int) {
 	pos := t.lineStarts[len(t.lineStarts)-1] // The starting position is the last known line.
 	endPos := pos
 	var (
-		cluster, text                    string
-		lineWidth, boundaries            int
-		lastGraphemeBreak, lastLineBreak [3]int
-		widthSinceLineBreak              int
+		cluster, text                       string
+		lineWidth, clusterWidth, boundaries int
+		lastGraphemeBreak, lastLineBreak    [3]int
+		widthSinceLineBreak                 int
 	)
 	for pos[0] != 1 {
 		// Get the next grapheme cluster.
-		cluster, text, boundaries, pos, endPos = t.step(text, pos, endPos)
-		clusterWidth := stringWidth(cluster)
+		cluster, text, boundaries, clusterWidth, pos, endPos = t.step(text, pos, endPos)
 		lineWidth += clusterWidth
 		widthSinceLineBreak += clusterWidth
 
@@ -958,21 +927,33 @@ func (t *TextArea) truncateLines(fromLine int) {
 	}
 }
 
-// clampToCursor ensures that the cursor is visible in the text area. If the
-// cursor position is unknown, "startRow" helps reduce processing time by
+// findCursor determines the cursor position if its "row" value is < 0
+// (=unknown) but only its span position ("pos" value) is known. If the cursor
+// position is already known (row >= 0), it can also be used to modify row and
+// column offsets such that the cursor is visible during the next call to
+// [TextArea.Draw], by setting "clamp" to true.
+//
+// To determine the cursor position, "startRow" helps reduce processing time by
 // indicating the lowest row in which searching should start. Set this to 0 if
 // you don't have any information where the cursor might be (but know that this
-// is expensive for long texts). This function also sets the cursor clamp flag
-// to false.
-func (t *TextArea) clampToCursor(startRow int) {
-	if t.cursor.row >= 0 {
-		// This is the simple case because the current cursor position is known.
-		if t.cursor.row < t.rowOffset {
+// is expensive for long texts).
+func (t *TextArea) findCursor(clamp bool, startRow int) {
+	if !clamp && t.cursor.row >= 0 {
+		return // Nothing to do.
+	}
+
+	// Clamp to viewport.
+	if clamp && t.cursor.row >= 0 {
+		cursorRow := t.cursor.row
+		if t.wrap && t.cursor.actualColumn >= t.lastWidth {
+			cursorRow++ // A row can push the cursor just outside the viewport. It will wrap onto the next line.
+		}
+		if cursorRow < t.rowOffset {
 			// We're above the viewport.
-			t.rowOffset = t.cursor.row
-		} else if t.cursor.row >= t.rowOffset+t.lastHeight {
+			t.rowOffset = cursorRow
+		} else if cursorRow >= t.rowOffset+t.lastHeight {
 			// We're below the viewport.
-			t.rowOffset = t.cursor.row - t.lastHeight + 1
+			t.rowOffset = cursorRow - t.lastHeight + 1
 			if t.rowOffset >= len(t.lineStarts) {
 				t.extendLines(t.lastWidth, t.rowOffset)
 				if t.rowOffset >= len(t.lineStarts) {
@@ -1004,8 +985,8 @@ func (t *TextArea) clampToCursor(startRow int) {
 		return
 	}
 
-	// The screen position of the cursor is unknown. Find it. This is expensive.
-	// First, find the row.
+	// The screen position of the cursor is unknown. Find it. This can be
+	// expensive. First, find the row.
 	row := startRow
 	if row < 0 {
 		row = 0
@@ -1062,40 +1043,40 @@ RowLoop:
 		pos = t.lineStarts[row]
 		endPos := pos
 		column := 0
-		var cluster, text string
+		var text string
 		for {
 			if pos[0] == 1 || t.cursor.pos[0] == pos[0] && t.cursor.pos[1] == pos[1] {
 				// We found the position. We're done.
 				t.cursor.row, t.cursor.actualColumn, t.cursor.pos = row, column, pos
 				break RowLoop
 			}
-			cluster, text, _, pos, endPos = t.step(text, pos, endPos)
+			var clusterWidth int
+			_, text, _, clusterWidth, pos, endPos = t.step(text, pos, endPos)
 			if row+1 < len(t.lineStarts) && t.lineStarts[row+1] == pos {
 				// We reached the end of the line. Go to the next one.
 				row++
 				continue RowLoop
 			}
-			clusterWidth := stringWidth(cluster)
 			column += clusterWidth
 		}
 	}
 
-	if t.cursor.row >= 0 {
+	if clamp && t.cursor.row >= 0 {
 		// We know the position now. Adapt offsets.
-		t.clampToCursor(startRow)
+		t.findCursor(true, startRow)
 	}
 }
 
 // step is similar to uniseg.StepString() but it iterates over the piece chain,
 // starting with "pos", a span position plus state (which may be -1 for the
 // start of the text). The returned "boundaries" value is same value returned by
-// uniseg.StepString(). The "pos" and "endPos" positions refer to the start and
-// the end of the "text" string, respectively. For the first call, text may be
-// empty and pos/endPos may be the same. For consecutive calls, provide "rest"
-// as the text and "newPos" and "newEndPos" as the new positions/states. An
-// empty "rest" string indicates the end of the text. The "endPos" state is not
-// used.
-func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, boundaries int, newPos, newEndPos [3]int) {
+// uniseg.StepString(), "width" is the screen width of the grapheme. The "pos"
+// and "endPos" positions refer to the start and the end of the "text" string,
+// respectively. For the first call, text may be empty and pos/endPos may be the
+// same. For consecutive calls, provide "rest" as the text and "newPos" and
+// "newEndPos" as the new positions/states. An empty "rest" string indicates the
+// end of the text. The "endPos" state is not used.
+func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, boundaries, width int, newPos, newEndPos [3]int) {
 	if pos[0] == 1 {
 		return // We're already past the end.
 	}
@@ -1147,7 +1128,13 @@ func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, 
 		span = t.spans[pos[0]]
 	}
 
-	return cluster, text, boundaries, pos, endPos
+	if cluster == "\t" {
+		width = TabSize
+	} else {
+		width = stringWidth(cluster)
+	}
+
+	return cluster, text, boundaries, width, pos, endPos
 }
 
 // moveCursor sets the cursor's screen position and span position for the given
@@ -1155,8 +1142,8 @@ func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, 
 // corner of the text area's full text (visible or not). The column value may be
 // negative, in which case, the cursor will be placed at the end of the line.
 // The cursor's actual position will be aligned with a grapheme cluster
-// boundary. The next call to [Draw] will attempt to keep the cursor in the
-// viewport.
+// boundary. The next call to [TextArea.Draw] will attempt to keep the cursor in
+// the viewport.
 func (t *TextArea) moveCursor(row, column int) {
 	// Are we within the range of rows?
 	if len(t.lineStarts) <= row {
@@ -1183,11 +1170,11 @@ func (t *TextArea) moveCursor(row, column int) {
 	}
 	pos := t.lineStarts[row]
 	endPos := pos
-	var cluster, text string
+	var text string
 	for pos[0] != 1 {
+		var clusterWidth int
 		oldPos := pos // We may have to revert to this position.
-		cluster, text, _, pos, endPos = t.step(text, pos, endPos)
-		clusterWidth := stringWidth(cluster)
+		_, text, _, clusterWidth, pos, endPos = t.step(text, pos, endPos)
 		if len(t.lineStarts) > row+1 && pos == t.lineStarts[row+1] || // We've reached the end of the line.
 			column >= 0 && t.cursor.actualColumn+clusterWidth > column { // We're past the requested column.
 			pos = oldPos
@@ -1202,12 +1189,12 @@ func (t *TextArea) moveCursor(row, column int) {
 		t.cursor.column = column
 	}
 	t.cursor.pos = pos
-	t.clampToCursor(row)
+	t.findCursor(true, row)
 }
 
 // moveWordRight moves the cursor to the end of the current or next word. The
 // next call to [Draw] will attempt to keep the cursor in the viewport.
-func (t *TextArea) moveWordRight() {
+func (t *TextArea) moveWordRight(clamp bool) {
 	// Because we rely on clampToCursor to calculate the new screen position,
 	// this is an expensive operation for large texts.
 	pos := t.cursor.pos
@@ -1219,7 +1206,7 @@ func (t *TextArea) moveWordRight() {
 	for pos[0] != 0 {
 		var boundaries int
 		oldPos := pos
-		cluster, text, boundaries, pos, endPos = t.step(text, pos, endPos)
+		cluster, text, boundaries, _, pos, endPos = t.step(text, pos, endPos)
 		if oldPos == t.cursor.pos {
 			continue // Skip the first character.
 		}
@@ -1235,12 +1222,13 @@ func (t *TextArea) moveWordRight() {
 	startRow := t.cursor.row
 	t.cursor.row, t.cursor.column, t.cursor.actualColumn = -1, 0, 0
 	t.cursor.pos = pos
-	t.clampToCursor(startRow)
+	t.findCursor(clamp, startRow)
 }
 
 // moveWordLeft moves the cursor to the beginning of the current or previous
-// word.
-func (t *TextArea) moveWordLeft() {
+// word. If clamp is true, the cursor will be visible during the next call to
+// [TextArea.Draw].
+func (t *TextArea) moveWordLeft(clamp bool) {
 	// We go back row by row, trying to find the last word boundary before the
 	// cursor.
 	row := t.cursor.row
@@ -1262,7 +1250,7 @@ func (t *TextArea) moveWordLeft() {
 		for pos[0] != 1 && pos != t.cursor.pos {
 			oldBoundaries := boundaries
 			oldPos := pos
-			cluster, text, boundaries, pos, endPos = t.step(text, pos, endPos)
+			cluster, text, boundaries, _, pos, endPos = t.step(text, pos, endPos)
 			firstRune, _ := utf8.DecodeRuneInString(cluster)
 			wordRune := !unicode.IsSpace(firstRune) && !unicode.IsPunct(firstRune)
 			if oldBoundaries&uniseg.MaskWord != 0 {
@@ -1290,7 +1278,7 @@ func (t *TextArea) moveWordLeft() {
 		row = 0
 	}
 	t.cursor.row, t.cursor.column, t.cursor.actualColumn = -1, 0, 0
-	t.clampToCursor(row)
+	t.findCursor(clamp, row)
 }
 
 // deleteLine deletes all characters between the last newline before the cursor
@@ -1352,7 +1340,7 @@ func (t *TextArea) deleteLine() {
 	endPos := pos
 	var cluster, text string
 	for pos[0] != 1 {
-		cluster, text, _, pos, endPos = t.step(text, pos, endPos)
+		cluster, text, _, _, pos, endPos = t.step(text, pos, endPos)
 		if uniseg.HasTrailingLineBreakInString(cluster) {
 			break
 		}
@@ -1362,7 +1350,7 @@ func (t *TextArea) deleteLine() {
 	t.cursor.pos = t.replace(t.lineStarts[startRow], pos, "", false)
 	t.cursor.row = -1
 	t.truncateLines(startRow)
-	t.clampToCursor(startRow)
+	t.findCursor(true, startRow)
 }
 
 // getSelection returns the current selection as span locations where the first
@@ -1421,7 +1409,13 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyLeft: // Move one grapheme cluster to the left.
 			if event.Modifiers()&tcell.ModAlt == 0 {
 				// Regular movement.
-				if t.cursor.actualColumn == 0 {
+				if event.Modifiers()&tcell.ModShift == 0 && t.selectionStart.pos != t.cursor.pos {
+					// Move to the start of the selection.
+					if t.selectionStart.row < t.cursor.row || (t.selectionStart.row == t.cursor.row && t.selectionStart.column < t.cursor.column) {
+						t.cursor = t.selectionStart
+					}
+					t.findCursor(true, t.cursor.row)
+				} else if t.cursor.actualColumn == 0 {
 					// Move to the end of the previous row.
 					if t.cursor.row > 0 {
 						t.moveCursor(t.cursor.row-1, -1)
@@ -1443,9 +1437,15 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyRight: // Move one grapheme cluster to the right.
 			if event.Modifiers()&tcell.ModAlt == 0 {
 				// Regular movement.
-				if t.cursor.pos[0] != 1 {
-					var cluster string
-					cluster, _, _, t.cursor.pos, _ = t.step("", t.cursor.pos, t.cursor.pos)
+				if event.Modifiers()&tcell.ModShift == 0 && t.selectionStart.pos != t.cursor.pos {
+					// Move to the end of the selection.
+					if t.selectionStart.row > t.cursor.row || (t.selectionStart.row == t.cursor.row && t.selectionStart.column > t.cursor.column) {
+						t.cursor = t.selectionStart
+					}
+					t.findCursor(true, t.cursor.row)
+				} else if t.cursor.pos[0] != 1 {
+					var clusterWidth int
+					_, _, _, clusterWidth, t.cursor.pos, _ = t.step("", t.cursor.pos, t.cursor.pos)
 					if len(t.lineStarts) <= t.cursor.row+1 {
 						t.extendLines(t.lastWidth, t.cursor.row+1)
 					}
@@ -1454,10 +1454,10 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 						t.cursor.row++
 						t.cursor.actualColumn = 0
 						t.cursor.column = 0
-						t.clampToCursor(t.cursor.row)
+						t.findCursor(true, t.cursor.row)
 					} else {
 						// Move one character to the right.
-						t.moveCursor(t.cursor.row, t.cursor.actualColumn+stringWidth(cluster))
+						t.moveCursor(t.cursor.row, t.cursor.actualColumn+clusterWidth)
 					}
 				}
 				if event.Modifiers()&tcell.ModShift == 0 {
@@ -1532,15 +1532,15 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.cursor.pos = t.replace(from, to, NewLine, t.lastAction == taActionTypeSpace)
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
-			t.clampToCursor(row)
+			t.findCursor(true, row)
 			t.selectionStart = t.cursor
 			newLastAction = taActionTypeSpace
-		case tcell.KeyTab: // Insert TabSize spaces.
+		case tcell.KeyTab: // Insert a tab character. It will be rendered as TabSize spaces.
 			from, to, row := t.getSelection()
-			t.cursor.pos = t.replace(from, to, strings.Repeat(" ", TabSize), t.lastAction == taActionTypeSpace)
+			t.cursor.pos = t.replace(from, to, "\t", t.lastAction == taActionTypeSpace)
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
-			t.clampToCursor(row)
+			t.findCursor(true, row)
 			t.selectionStart = t.cursor
 			newLastAction = taActionTypeSpace
 		case tcell.KeyRune:
@@ -1548,12 +1548,12 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				// We accept some Alt- key combinations.
 				switch event.Rune() {
 				case 'f':
-					t.moveWordRight()
+					t.moveWordRight(true)
 					if event.Modifiers()&tcell.ModShift == 0 {
 						t.selectionStart = t.cursor
 					}
 				case 'b':
-					t.moveWordLeft()
+					t.moveWordLeft(true)
 					if event.Modifiers()&tcell.ModShift == 0 {
 						t.selectionStart = t.cursor
 					}
@@ -1569,7 +1569,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.cursor.pos = t.replace(from, to, string(r), newLastAction == t.lastAction || t.lastAction == taActionTypeNonSpace && newLastAction == taActionTypeSpace)
 				t.cursor.row = -1
 				t.truncateLines(row - 1)
-				t.clampToCursor(row)
+				t.findCursor(true, row)
 				t.selectionStart = t.cursor
 			}
 		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete backwards. tcell.KeyBackspace is the same as tcell.CtrlH.
@@ -1579,7 +1579,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.cursor.pos = t.replace(from, to, "", false)
 				t.cursor.row = -1
 				t.truncateLines(row - 1)
-				t.clampToCursor(row)
+				t.findCursor(true, row)
 				t.selectionStart = t.cursor
 				break
 			}
@@ -1602,7 +1602,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.cursor.pos[2] = endPos[2]
 				t.cursor.row = -1
 				t.truncateLines(t.cursor.row - 1)
-				t.clampToCursor(t.cursor.row - 1)
+				t.findCursor(true, t.cursor.row-1)
 				newLastAction = taActionBackspace
 			}
 			t.selectionStart = t.cursor
@@ -1613,17 +1613,17 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.cursor.pos = t.replace(from, to, "", false)
 				t.cursor.row = -1
 				t.truncateLines(row - 1)
-				t.clampToCursor(row)
+				t.findCursor(true, row)
 				t.selectionStart = t.cursor
 				break
 			}
 
 			if t.cursor.pos[0] != 1 {
-				_, _, _, endPos, _ := t.step("", t.cursor.pos, t.cursor.pos)
+				_, _, _, _, endPos, _ := t.step("", t.cursor.pos, t.cursor.pos)
 				t.cursor.pos = t.replace(t.cursor.pos, endPos, "", t.lastAction == taActionDelete) // Delete the character.
 				t.cursor.pos[2] = endPos[2]
 				t.truncateLines(t.cursor.row - 1)
-				t.clampToCursor(t.cursor.row)
+				t.findCursor(true, t.cursor.row)
 				newLastAction = taActionDelete
 			}
 			t.selectionStart = t.cursor
@@ -1634,7 +1634,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			for pos[0] != 1 {
 				var boundaries int
 				oldPos := pos
-				cluster, text, boundaries, pos, endPos = t.step(text, pos, endPos)
+				cluster, text, boundaries, _, pos, endPos = t.step(text, pos, endPos)
 				if boundaries&uniseg.MaskLine == uniseg.LineMustBreak {
 					if uniseg.HasTrailingLineBreakInString(cluster) {
 						pos = oldPos
@@ -1646,20 +1646,27 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			row := t.cursor.row
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
-			t.clampToCursor(row)
+			t.findCursor(true, row)
 			t.selectionStart = t.cursor
 		case tcell.KeyCtrlW: // Delete from the start of the current word to the left of the cursor.
 			pos := t.cursor.pos
-			t.moveWordLeft()
+			t.moveWordLeft(true)
 			t.cursor.pos = t.replace(t.cursor.pos, pos, "", false)
 			row := t.cursor.row - 1
 			t.cursor.row = -1
 			t.truncateLines(row)
-			t.clampToCursor(row)
+			t.findCursor(true, row)
 			t.selectionStart = t.cursor
 		case tcell.KeyCtrlU: // Delete the current line.
 			t.deleteLine()
 			t.selectionStart = t.cursor
+		case tcell.KeyCtrlL: // Select everything.
+			t.selectionStart.row, t.selectionStart.column, t.selectionStart.actualColumn = 0, 0, 0
+			t.selectionStart.pos = [3]int{t.spans[0].next, 0, -1}
+			row := t.cursor.row
+			t.cursor.row = -1
+			t.cursor.pos = [3]int{1, 0, -1}
+			t.findCursor(false, row)
 		case tcell.KeyCtrlQ: // Copy to clipboard.
 			if t.cursor != t.selectionStart {
 				t.copyToClipboard(t.getSelectedText())
@@ -1672,7 +1679,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.cursor.pos = t.replace(from, to, "", false)
 				t.cursor.row = -1
 				t.truncateLines(row - 1)
-				t.clampToCursor(row)
+				t.findCursor(true, row)
 				t.selectionStart = t.cursor
 			}
 		case tcell.KeyCtrlV: // Paste from clipboard.
@@ -1680,20 +1687,25 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.cursor.pos = t.replace(from, to, t.pasteFromClipboard(), false)
 			t.cursor.row = -1
 			t.truncateLines(row - 1)
-			t.clampToCursor(row)
+			t.findCursor(true, row)
 			t.selectionStart = t.cursor
 		case tcell.KeyCtrlZ: // Undo.
 			if t.nextUndo <= 0 {
 				break
 			}
-			t.nextUndo--
-			undo := t.undoStack[t.nextUndo]
-			t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
-			t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
-			t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
+			for t.nextUndo > 0 {
+				t.nextUndo--
+				undo := t.undoStack[t.nextUndo]
+				t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
+				t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
+				t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
+				if !undo.continuation {
+					break
+				}
+			}
 			t.cursor.row = -1
 			t.truncateLines(0) // This is why Undo is expensive for large texts. (t.lineStarts can get largely unusable after an undo.)
-			t.clampToCursor(0)
+			t.findCursor(true, 0)
 			t.selectionStart = t.cursor
 			if t.changed != nil {
 				defer t.changed()
@@ -1702,14 +1714,19 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			if t.nextUndo >= len(t.undoStack) {
 				break
 			}
-			undo := t.undoStack[t.nextUndo]
-			t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
-			t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
-			t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
-			t.nextUndo++
+			for t.nextUndo < len(t.undoStack) {
+				undo := t.undoStack[t.nextUndo]
+				t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
+				t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
+				t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
+				t.nextUndo++
+				if t.nextUndo < len(t.undoStack) && !t.undoStack[t.nextUndo].continuation {
+					break
+				}
+			}
 			t.cursor.row = -1
 			t.truncateLines(0) // This is why Redo is expensive for large texts. (t.lineStarts can get largely unusable after an undo.)
-			t.clampToCursor(0)
+			t.findCursor(true, 0)
 			t.selectionStart = t.cursor
 			if t.changed != nil {
 				defer t.changed()
@@ -1719,7 +1736,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 }
 
 // THIS FUNCTION WILL BE REMOVED ONCE WE DEEM THE TEXT AREA STABLE!
-func (t *TextArea) dump() string {
+func (t *TextArea) Dump() string {
 	var buf strings.Builder
 
 	// Dump spans.
@@ -1768,8 +1785,93 @@ func (t *TextArea) dump() string {
 			}
 			index = span.next
 		}
-		fmt.Fprintf(&buf, "[yellow]%d[white]>[blue]%d[yellow]\n", undo.after, undo.originalAfter)
+		fmt.Fprintf(&buf, "[yellow]%d[white]>[blue]%d[yellow]", undo.after, undo.originalAfter)
+		fmt.Fprintf(&buf, "  %d\n", undo.pos)
 	}
 
 	return buf.String()
 }
+
+// MouseHandler returns the mouse handler for this primitive.
+func (t *TextArea) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+	return t.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		x, y := event.Position()
+		rectX, rectY, _, _ := t.GetInnerRect()
+		if !t.InRect(x, y) {
+			return false, nil
+		}
+
+		// Turn mouse coordinates into text coordinates.
+		column := x - rectX
+		row := y - rectY
+		if !t.wrap {
+			column += t.columnOffset
+		}
+		row += t.rowOffset
+
+		// Process mouse actions.
+		switch action {
+		case MouseLeftDown:
+			t.moveCursor(row, column)
+			if event.Modifiers()&tcell.ModShift == 0 {
+				t.selectionStart = t.cursor
+			}
+			setFocus(t)
+			consumed = true
+			capture = t
+			t.dragging = true
+		case MouseMove:
+			if !t.dragging {
+				break
+			}
+			t.moveCursor(row, column)
+			setFocus(t)
+			consumed = true
+		case MouseLeftUp:
+			t.moveCursor(row, column)
+			setFocus(t)
+			consumed = true
+			capture = nil
+			t.dragging = false
+		case MouseLeftDoubleClick: // Select word.
+			// Left down/up was already triggered so we are at the correct
+			// position.
+			t.moveWordLeft(false)
+			t.selectionStart = t.cursor
+			t.moveWordRight(false)
+			consumed = true
+		case MouseScrollUp:
+			if t.rowOffset > 0 {
+				t.rowOffset--
+			}
+			consumed = true
+		case MouseScrollDown:
+			t.rowOffset++
+			if t.rowOffset >= len(t.lineStarts) {
+				t.rowOffset = len(t.lineStarts) - 1
+				if t.rowOffset < 0 {
+					t.rowOffset = 0
+				}
+			}
+			consumed = true
+		case MouseScrollLeft:
+			if t.columnOffset > 0 {
+				t.columnOffset--
+			}
+			consumed = true
+		case MouseScrollRight:
+			t.columnOffset++
+			if t.columnOffset >= t.widestLine {
+				t.columnOffset = t.widestLine - 1
+				if t.columnOffset < 0 {
+					t.columnOffset = 0
+				}
+			}
+			consumed = true
+		}
+
+		return
+	})
+}
+
+//TODO: Don't replace tab with spaces.
