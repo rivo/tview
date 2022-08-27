@@ -91,7 +91,8 @@ type textAreaUndoItem struct {
 // # Navigation and Editing
 //
 // A text area is always in editing mode and no other mode exists. The following
-// keys can be used to move the cursor:
+// keys can be used to move the cursor (subject to what the user's terminal
+// supports and how it is configured):
 //
 //   - Left arrow: Move left.
 //   - Right arrow: Move right.
