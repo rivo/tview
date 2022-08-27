@@ -108,8 +108,8 @@ type textAreaUndoItem struct {
 //     position. Ignored if wrapping is enabled.
 //   - Alt-Right arrow:  Scroll the page to the right, leaving the cursor in its
 //     position. Ignored if wrapping is enabled.
-//   - Alt-B: Jump to the beginning of the current or previous word.
-//   - Alt-F: Jump to the end of the current or next word.
+//   - Alt-B, Ctrl-Left arrow: Jump to the beginning of the current or previous word.
+//   - Alt-F, Ctrl-Right arrow: Jump to the end of the current or next word.
 //
 // Words are defined according to Unicode Standard Annex #29. We skip any words
 // that contain only spaces or punctuation.
@@ -1193,9 +1193,12 @@ func (t *TextArea) moveCursor(row, column int) {
 	t.findCursor(true, row)
 }
 
-// moveWordRight moves the cursor to the end of the current or next word. The
-// next call to [Draw] will attempt to keep the cursor in the viewport.
-func (t *TextArea) moveWordRight(clamp bool) {
+// moveWordRight moves the cursor to the end of the current or next word. If
+// after is set to true, the cursor will be placed after the word. If false, the
+// cursor will be placed on the last character of the word. If clamp is set to
+// true, the cursor will be visible during the next call to
+// [TextArea.Draw].
+func (t *TextArea) moveWordRight(after, clamp bool) {
 	// Because we rely on clampToCursor to calculate the new screen position,
 	// this is an expensive operation for large texts.
 	pos := t.cursor.pos
@@ -1216,7 +1219,9 @@ func (t *TextArea) moveWordRight(clamp bool) {
 			inWord = true
 		}
 		if inWord && boundaries&uniseg.MaskWord != 0 {
-			pos = oldPos
+			if !after {
+				pos = oldPos
+			}
 			break
 		}
 	}
@@ -1416,10 +1421,9 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 						t.cursor = t.selectionStart
 					}
 					t.findCursor(true, t.cursor.row)
-				} else if event.Modifiers()&tcell.ModMeta != 0 {
-					// On some systems, the Meta flag is set here when Alt
-					// is pressed (and Shift at the same time).
-					t.moveWordLeft(true)
+				} else if event.Modifiers()&tcell.ModMeta != 0 || event.Modifiers()&tcell.ModCtrl != 0 {
+					// This captures Ctrl-Left on some systems.
+					t.moveWordLeft(event.Modifiers()&tcell.ModShift != 0)
 				} else if t.cursor.actualColumn == 0 {
 					// Move to the end of the previous row.
 					if t.cursor.row > 0 {
@@ -1449,10 +1453,9 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 					}
 					t.findCursor(true, t.cursor.row)
 				} else if t.cursor.pos[0] != 1 {
-					if event.Modifiers()&tcell.ModMeta != 0 {
-						// On some systems, the Meta flag is set here when Alt
-						// is pressed (and Shift at the same time).
-						t.moveWordRight(true)
+					if event.Modifiers()&tcell.ModMeta != 0 || event.Modifiers()&tcell.ModCtrl != 0 {
+						// This captures Ctrl-Right on some systems.
+						t.moveWordRight(event.Modifiers()&tcell.ModShift != 0, true)
 					} else {
 						// Move one grapheme cluster to the right.
 						var clusterWidth int
@@ -1560,9 +1563,11 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				// We accept some Alt- key combinations.
 				switch event.Rune() {
 				case 'f':
-					t.moveWordRight(true)
 					if event.Modifiers()&tcell.ModShift == 0 {
+						t.moveWordRight(false, true)
 						t.selectionStart = t.cursor
+					} else {
+						t.moveWordRight(true, true)
 					}
 				case 'b':
 					t.moveWordLeft(true)
@@ -1850,7 +1855,7 @@ func (t *TextArea) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			// position.
 			t.moveWordLeft(false)
 			t.selectionStart = t.cursor
-			t.moveWordRight(false)
+			t.moveWordRight(true, false)
 			consumed = true
 		case MouseScrollUp:
 			if t.rowOffset > 0 {
