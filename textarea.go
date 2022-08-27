@@ -120,7 +120,7 @@ type textAreaUndoItem struct {
 //
 //   - Enter: Insert a newline character (see [NewLine]).
 //   - Tab: Insert a tab character (\t). It will be rendered like [TabSize]
-//     spaces.
+//     spaces. (This may eventually be changed to behave like regular tabs.)
 //   - Ctrl-H, Backspace: Delete one character to the left of the cursor.
 //   - Ctrl-D, Delete: Delete the character under the cursor (or the first
 //     character on the next line if the cursor is at the end of a line).
@@ -577,7 +577,7 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 		after:          len(t.spans) + 1,
 		originalBefore: before,
 		originalAfter:  after,
-		pos:            deleteEnd,
+		pos:            t.cursor.pos,
 		continuation:   continuation,
 	})
 	t.spans = append(t.spans, t.spans[before])
@@ -1415,6 +1415,10 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 						t.cursor = t.selectionStart
 					}
 					t.findCursor(true, t.cursor.row)
+				} else if event.Modifiers()&tcell.ModMeta != 0 {
+					// On some systems, the Meta flag is set here when Alt
+					// is pressed (and Shift at the same time).
+					t.moveWordLeft(true)
 				} else if t.cursor.actualColumn == 0 {
 					// Move to the end of the previous row.
 					if t.cursor.row > 0 {
@@ -1427,7 +1431,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				if event.Modifiers()&tcell.ModShift == 0 {
 					t.selectionStart = t.cursor
 				}
-			} else if !t.wrap {
+			} else if !t.wrap { // This doesn't work on all terminals.
 				// Just scroll.
 				t.columnOffset--
 				if t.columnOffset < 0 {
@@ -1444,26 +1448,33 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 					}
 					t.findCursor(true, t.cursor.row)
 				} else if t.cursor.pos[0] != 1 {
-					var clusterWidth int
-					_, _, _, clusterWidth, t.cursor.pos, _ = t.step("", t.cursor.pos, t.cursor.pos)
-					if len(t.lineStarts) <= t.cursor.row+1 {
-						t.extendLines(t.lastWidth, t.cursor.row+1)
-					}
-					if t.cursor.row+1 < len(t.lineStarts) && t.lineStarts[t.cursor.row+1] == t.cursor.pos {
-						// We've reached the end of the line.
-						t.cursor.row++
-						t.cursor.actualColumn = 0
-						t.cursor.column = 0
-						t.findCursor(true, t.cursor.row)
+					if event.Modifiers()&tcell.ModMeta != 0 {
+						// On some systems, the Meta flag is set here when Alt
+						// is pressed (and Shift at the same time).
+						t.moveWordRight(true)
 					} else {
-						// Move one character to the right.
-						t.moveCursor(t.cursor.row, t.cursor.actualColumn+clusterWidth)
+						// Move one grapheme cluster to the right.
+						var clusterWidth int
+						_, _, _, clusterWidth, t.cursor.pos, _ = t.step("", t.cursor.pos, t.cursor.pos)
+						if len(t.lineStarts) <= t.cursor.row+1 {
+							t.extendLines(t.lastWidth, t.cursor.row+1)
+						}
+						if t.cursor.row+1 < len(t.lineStarts) && t.lineStarts[t.cursor.row+1] == t.cursor.pos {
+							// We've reached the end of the line.
+							t.cursor.row++
+							t.cursor.actualColumn = 0
+							t.cursor.column = 0
+							t.findCursor(true, t.cursor.row)
+						} else {
+							// Move one character to the right.
+							t.moveCursor(t.cursor.row, t.cursor.actualColumn+clusterWidth)
+						}
 					}
 				}
 				if event.Modifiers()&tcell.ModShift == 0 {
 					t.selectionStart = t.cursor
 				}
-			} else if !t.wrap {
+			} else if !t.wrap { // This doesn't work on all terminals.
 				// Just scroll.
 				t.columnOffset++
 				if t.columnOffset >= t.widestLine {
@@ -1873,5 +1884,3 @@ func (t *TextArea) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		return
 	})
 }
-
-//TODO: Don't replace tab with spaces.
