@@ -35,7 +35,7 @@ type Grid struct {
 	items []*gridItem
 
 	// The definition of the rows and columns of the grid. See
-	// SetRows()/SetColumns() for details.
+	// [TextView.SetRows] / [TextView.SetColumns] for details.
 	rows, columns []int
 
 	// The minimum sizes for rows and columns.
@@ -65,7 +65,7 @@ type Grid struct {
 // clear a Grid's background before any items are drawn, reset its Box to one
 // with the desired color:
 //
-//   grid.Box = NewBox()
+//	grid.Box = NewBox()
 func NewGrid() *Grid {
 	g := &Grid{
 		bordersColor: Styles.GraphicsColor,
@@ -93,14 +93,14 @@ func NewGrid() *Grid {
 // following call will result in columns with widths of 30, 10, 15, 15, and 30
 // cells:
 //
-//   grid.SetColumns(30, 10, -1, -1, -2)
+//	grid.SetColumns(30, 10, -1, -1, -2)
 //
 // If a primitive were then placed in the 6th and 7th column, the resulting
 // widths would be: 30, 10, 10, 10, 20, 10, and 10 cells.
 //
 // If you then called SetMinSize() as follows:
 //
-//   grid.SetMinSize(15, 20)
+//	grid.SetMinSize(15, 20)
 //
 // The resulting widths would be: 30, 15, 15, 15, 20, 15, and 15 cells, a total
 // of 125 cells, 25 cells wider than the available grid width.
@@ -110,8 +110,8 @@ func (g *Grid) SetColumns(columns ...int) *Grid {
 }
 
 // SetRows defines how the rows of the grid are distributed. These values behave
-// the same as the column values provided with SetColumns(), see there for a
-// definition and examples.
+// the same as the column values provided with [TextView.SetColumns], see there
+// for a definition and examples.
 //
 // The provided values correspond to row heights, the first value defining
 // the height of the topmost row.
@@ -120,8 +120,9 @@ func (g *Grid) SetRows(rows ...int) *Grid {
 	return g
 }
 
-// SetSize is a shortcut for SetRows() and SetColumns() where all row and column
-// values are set to the given size values. See SetColumns() for details on sizes.
+// SetSize is a shortcut for [TextView.SetRows] and [TextView.SetColumns] where
+// all row and column values are set to the given size values. See
+// [TextView.SetColumns] for details on sizes.
 func (g *Grid) SetSize(numRows, numColumns, rowSize, columnSize int) *Grid {
 	g.rows = make([]int, numRows)
 	for index := range g.rows {
@@ -174,7 +175,7 @@ func (g *Grid) SetBordersColor(color tcell.Color) *Grid {
 // the given row and column and will span "rowSpan" rows and "colSpan" columns.
 // For example, for a primitive to occupy rows 2, 3, and 4 and columns 5 and 6:
 //
-//   grid.AddItem(p, 2, 5, 3, 2, 0, 0, true)
+//	grid.AddItem(p, 2, 5, 3, 2, 0, 0, true)
 //
 // If rowSpan or colSpan is 0, the primitive will not be drawn.
 //
@@ -185,9 +186,9 @@ func (g *Grid) SetBordersColor(color tcell.Color) *Grid {
 // primitive apply, the one that has at least one highest minimum value will be
 // used, or the primitive added last if those values are the same. Example:
 //
-//   grid.AddItem(p, 0, 0, 0, 0, 0, 0, true). // Hide in small grids.
-//     AddItem(p, 0, 0, 1, 2, 100, 0, true).  // One-column layout for medium grids.
-//     AddItem(p, 1, 1, 3, 2, 300, 0, true)   // Multi-column layout for large grids.
+//	grid.AddItem(p, 0, 0, 0, 0, 0, 0, true). // Hide in small grids.
+//	  AddItem(p, 0, 0, 1, 2, 100, 0, true).  // One-column layout for medium grids.
+//	  AddItem(p, 1, 1, 3, 2, 300, 0, true)   // Multi-column layout for large grids.
 //
 // To use the same grid layout for all sizes, simply set minGridWidth and
 // minGridHeight to 0.

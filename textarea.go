@@ -44,7 +44,7 @@ const (
 var NewLine = "\n"
 
 // textAreaSpan represents a range of text in a text area. The text area widget
-// roughly follows the concept of Piece Chains outline in
+// roughly follows the concept of Piece Chains outlined in
 // http://www.catch22.net/tuts/neatpad/piece-chains with some modifications.
 // This type represents a "span" (or "piece") and thus refers to a subset of the
 // text in the editor as part of a doubly-linked list.
@@ -53,23 +53,28 @@ var NewLine = "\n"
 // three-element int array. The first element is the index of the referenced
 // span in the piece chain. The second element is the offset into the span's
 // referenced text (relative to the span's start), its value is always >= 0 and
-// < span.length. The third elements is the corresponding text parser's state.
+// < span.length. The third element is the state of the text parser at that
+// position.
 //
 // A range of text is represented by a span range which is a starting position
-// (int array) and an ending position (int array). The starting position
+// (3-int array) and an ending position (3-int array). The starting position
 // references the first character of the range, the ending position references
 // the position after the last character of the range. The end of the text is
 // therefore always [3]int{1, 0, 0}, position 0 of the ending sentinel.
+//
+// Sentinel spans are dummy spans not referring to any text. There are always
+// two sentinel spans: the starting span at index 0 of the [TextArea.spans]
+// slice and the ending span at index 1.
 type textAreaSpan struct {
 	// Links to the previous and next textAreaSpan objects as indices into the
-	// TextArea.spans slice. The sentinel spans (index 0 and 1) have -1 as their
-	// previous or next links.
+	// [TextArea.spans] slice. The sentinel spans (index 0 and 1) have -1 as
+	// their previous or next links, respectively.
 	previous, next int
 
 	// The start index and the length of the text segment this span represents.
 	// If "length" is negative, the span represents a substring of
-	// TextArea.initialText and the actual length must be its absolute value. If
-	// it is positive, the span represents a substring of TextArea.editText. For
+	// [TextArea.initialText] and the actual length is its absolute value. If it
+	// is positive, the span represents a substring of [TextArea.editText]. For
 	// the sentinel spans (index 0 and 1), both values will be 0. Others will
 	// never have a zero length.
 	offset, length int
@@ -81,12 +86,16 @@ type textAreaUndoItem struct {
 	before, after                 int    // The index of the copied "before" and "after" spans into the "spans" slice.
 	originalBefore, originalAfter int    // The original indices of the "before" and "after" spans.
 	pos                           [3]int // The cursor position to be assumed after applying an undo.
-	continuation                  bool   // If true, this item is a continuation of the previous undo item.
+	length                        int    // The total text length at the time the undo item was created.
+	continuation                  bool   // If true, this item is a continuation of the previous undo item. It is handled together with all other undo items in the same continuation sequence.
 }
 
 // TextArea implements a simple text editor for multi-line text. Multi-color
 // text is not supported. Word-wrapping is enabled by default but can be turned
 // off or be changed to character-wrapping.
+//
+// At this point, a text area cannot be added to a [Form]. This will be added in
+// the future.
 //
 // # Navigation and Editing
 //
@@ -108,14 +117,15 @@ type textAreaUndoItem struct {
 //     position. Ignored if wrapping is enabled.
 //   - Alt-Right arrow:  Scroll the page to the right, leaving the cursor in its
 //     position. Ignored if wrapping is enabled.
-//   - Alt-B, Ctrl-Left arrow: Jump to the beginning of the current or previous word.
+//   - Alt-B, Ctrl-Left arrow: Jump to the beginning of the current or previous
+//     word.
 //   - Alt-F, Ctrl-Right arrow: Jump to the end of the current or next word.
 //
-// Words are defined according to Unicode Standard Annex #29. We skip any words
-// that contain only spaces or punctuation.
+// Words are defined according to [Unicode Standard Annex #29]. We skip any
+// words that contain only spaces or punctuation.
 //
 // Entering a character will insert it at the current cursor location.
-// Subsequent characters are moved accordingly. If the cursor is outside the
+// Subsequent characters are shifted accordingly. If the cursor is outside the
 // visible area, any changes to the text will move it into the visible area. The
 // following keys can also be used to modify the text:
 //
@@ -153,16 +163,15 @@ type textAreaUndoItem struct {
 // function, you may use [Box.SetInputCapture] to override the Ctrl-Q key to
 // implement copying to the clipboard. Note that using your terminal's /
 // operating system's key bindings for copy+paste functionality may not have the
-// expected effect as tview will not be able to handle these keys.
+// expected effect as tview will not be able to handle these keys. Pasting text
+// using your operating system's or terminal's own methods may be very slow as
+// each character will be pasted individually.
 //
 // The default clipboard is an internal text buffer, i.e. the operating system's
 // clipboard is not used. If you want to implement your own clipboard (or make
 // use of your operating system's clipboard), you can use
 // [TextArea.SetClipboard] which  provides all the functionality needed to
 // implement your own clipboard.
-//
-// Note that pasting text using your operating system's or terminal's own
-// methods will be very slow as each character will be pasted individually.
 //
 // The text area also supports Undo:
 //
@@ -178,6 +187,8 @@ type textAreaUndoItem struct {
 //   - Left double-click: Select the word under the cursor.
 //   - Left click while holding the Shift key: Select text.
 //   - Scroll wheel: Scroll the text.
+//
+// [Unicode Standard Annex #29]: https://unicode.org/reports/tr29/
 type TextArea struct {
 	*Box
 
@@ -215,7 +226,7 @@ type TextArea struct {
 
 	// The piece chain. The first two spans are sentinel spans which don't
 	// reference anything and always remain in the same place. Spans are never
-	// deleted.
+	// deleted from this slice.
 	spans []textAreaSpan
 
 	// Display, navigation, and cursor related fields:
@@ -239,13 +250,12 @@ type TextArea struct {
 	lastHeight, lastWidth int
 
 	// The width of the currently known widest line, as determined by
-	// [extendLines].
+	// [TextArea.extendLines].
 	widestLine int
 
 	// Text positions and states of the start of lines. Each element is a span
-	// position (see textAreaSpan) and a state as returned by uniseg.Step(). Not
-	// all lines of the text may be contained at any time, extend as needed with
-	// the TextArea.extendLines() function.
+	// position (see [textAreaSpan]). Not all lines of the text may be contained
+	// at any time, extend as needed with the [TextArea.extendLines] function.
 	lineStarts [][3]int
 
 	// The cursor always points to the next position where a new character would
@@ -300,6 +310,10 @@ type TextArea struct {
 
 	// An optional function which is called when the input has changed.
 	changed func()
+
+	// An optional function which is called when the position of the cursor or
+	// the selection has changed.
+	moved func()
 }
 
 // NewTextArea returns a new text area. Use [TextArea.SetText] to set the
@@ -325,11 +339,11 @@ func NewTextArea() *TextArea {
 	return t
 }
 
-// SetText sets the text of the text area. All text is deleted and replaced with
-// the new text. Any edits are discarded, no undos are available. This function
-// is typically only used to initialize the text area with a text after it has
-// been created. To clear the text area's text (again, no undos), provide an
-// empty string.
+// SetText sets the text of the text area. All existing text is deleted and
+// replaced with the new text. Any edits are discarded, no undos are available.
+// This function is typically only used to initialize the text area with a text
+// after it has been created. To clear the text area's text (again, no undos),
+// provide an empty string.
 //
 // If cursorAtTheEnd is false, the cursor is placed at the start of the text. If
 // it is true, it is placed at the end of the text. For very long texts, placing
@@ -344,7 +358,7 @@ func (t *TextArea) SetText(text string, cursorAtTheEnd bool) *TextArea {
 	t.rowOffset = 0
 	t.columnOffset = 0
 	t.reset()
-	t.cursor.column = 0
+	t.cursor.row, t.cursor.actualColumn, t.cursor.column = 0, 0, 0
 	t.cursor.pos = [3]int{1, 0, -1}
 	t.undoStack = t.undoStack[:0]
 
@@ -357,18 +371,26 @@ func (t *TextArea) SetText(text string, cursorAtTheEnd bool) *TextArea {
 		})
 		t.spans[0].next = 2
 		t.spans[1].previous = 2
-		if !cursorAtTheEnd {
-			t.cursor.row = 0
+		if cursorAtTheEnd {
+			t.cursor.row = -1
+			if t.lastWidth > 0 {
+				t.findCursor(true, 0)
+			}
+		} else {
+			t.cursor.pos = [3]int{2, 0, -1}
 		}
 	} else {
 		t.spans[0].next = 1
 		t.spans[1].previous = 0
-		t.cursor.row, t.cursor.actualColumn = 0, 0
 	}
 	t.selectionStart = t.cursor
 
 	if t.changed != nil {
 		t.changed()
+	}
+
+	if t.lastWidth > 0 && t.moved != nil {
+		t.moved()
 	}
 
 	return t
@@ -395,7 +417,245 @@ func (t *TextArea) GetText() string {
 	}
 
 	return text.String()
+}
 
+// HasSelection returns whether the selected text is non-empty.
+func (t *TextArea) HasSelection() bool {
+	return t.selectionStart != t.cursor
+}
+
+// GetSelection returns the currently selected text and its start and end
+// positions within the entire text as a half-open interval. If the returned
+// text is an empty string, the start and end positions are the same and can be
+// interpreted as the cursor position.
+//
+// Calling this function will result in string allocations as well as a search
+// for text positions. This is expensive if the text has been edited extensively
+// already. Use [TextArea.HasSelection] first if you are only interested in
+// selected text.
+func (t *TextArea) GetSelection() (text string, start int, end int) {
+	from, to := t.selectionStart.pos, t.cursor.pos
+	if t.cursor.row < t.selectionStart.row || (t.cursor.row == t.selectionStart.row && t.cursor.actualColumn < t.selectionStart.actualColumn) {
+		from, to = to, from
+	}
+
+	if from[0] == 1 {
+		start = t.length
+	}
+	if to[0] == 1 {
+		end = t.length
+	}
+
+	var (
+		index     int
+		selection strings.Builder
+		inside    bool
+	)
+	for span := t.spans[0].next; span != 1; span = t.spans[span].next {
+		var spanText string
+		length := t.spans[span].length
+		if length < 0 {
+			length = -length
+			spanText = t.initialText
+		} else {
+			spanText = t.editText.String()
+		}
+		spanText = spanText[t.spans[span].offset : t.spans[span].offset+length]
+
+		if from[0] == span && to[0] == span {
+			if from != to {
+				selection.WriteString(spanText[from[1]:to[1]])
+			}
+			start = index + from[1]
+			end = index + to[1]
+			break
+		} else if from[0] == span {
+			if from != to {
+				selection.WriteString(spanText[from[1]:])
+			}
+			start = index + from[1]
+			inside = true
+		} else if to[0] == span {
+			if from != to {
+				selection.WriteString(spanText[:to[1]])
+			}
+			end = index + to[1]
+			break
+		} else if inside && from != to {
+			selection.WriteString(spanText)
+		}
+
+		index += length
+	}
+
+	if selection.Len() != 0 {
+		text = selection.String()
+	}
+	return
+}
+
+// GetCursor returns the current cursor position where the first character of
+// the entire text is in row 0, column 0. If the user has selected text, the
+// "from" values will refer to the beginning of the selection and the "to"
+// values to the end of the selection (exclusive). They are the same if there
+// is no selection.
+func (t *TextArea) GetCursor() (fromRow, fromColumn, toRow, toColumn int) {
+	fromRow, fromColumn = t.selectionStart.row, t.selectionStart.actualColumn
+	toRow, toColumn = t.cursor.row, t.cursor.actualColumn
+	if toRow < fromRow || (toRow == fromRow && toColumn < fromColumn) {
+		fromRow, fromColumn, toRow, toColumn = toRow, toColumn, fromRow, fromColumn
+	}
+	if t.length > 0 && t.wrap && fromColumn >= t.lastWidth { // This happens when a row has text all the way until the end, pushing the cursor outside the viewport.
+		fromRow++
+		fromColumn = 0
+	}
+	if t.length > 0 && t.wrap && toColumn >= t.lastWidth {
+		toRow++
+		toColumn = 0
+	}
+	return
+}
+
+// GetTextLength returns the string length of the text in the text area.
+func (t *TextArea) GetTextLength() int {
+	return t.length
+}
+
+// Replace replaces a section of the text with new text. The start and end
+// positions refer to index positions within the entire text string (as a
+// half-open interval). They may be the same, in which case text is inserted at
+// the given position. If the text is an empty string, text between start and
+// end is deleted. Index positions will be shifted to line up with character
+// boundaries.
+//
+// Previous selections are cleared. The cursor will be located at the end of the
+// replaced text. Scroll offsets will not be changed.
+//
+// The effects of this function can be undone (and redone) by the user.
+func (t *TextArea) Replace(start, end int, text string) *TextArea {
+	t.Select(start, end)
+	row := t.selectionStart.row
+	t.cursor.pos = t.replace(t.selectionStart.pos, t.cursor.pos, text, false)
+	t.cursor.row = -1
+	t.truncateLines(row - 1)
+	t.findCursor(false, row)
+	t.selectionStart = t.cursor
+	if t.changed != nil {
+		t.changed()
+	}
+	if t.moved != nil {
+		t.moved()
+	}
+	return t
+}
+
+// Select selects a section of the text. The start and end positions refer to
+// index positions within the entire text string (as a half-open interval). They
+// may be the same, in which case the cursor is placed at the given position.
+// Any previous selection is removed. Scroll offsets will be preserved.
+//
+// Index positions will be shifted to line up with character boundaries.
+func (t *TextArea) Select(start, end int) *TextArea {
+	oldFrom, oldTo := t.selectionStart, t.cursor
+	defer func() {
+		if (oldFrom != t.selectionStart || oldTo != t.cursor) && t.moved != nil {
+			t.moved()
+		}
+	}()
+
+	// Clamp input values.
+	if start < 0 {
+		start = 0
+	}
+	if start > t.length {
+		start = t.length
+	}
+	if end < 0 {
+		end = 0
+	}
+	if end > t.length {
+		end = t.length
+	}
+	if end < start {
+		start, end = end, start
+	}
+
+	// Find the cursor positions.
+	var row, index int
+	t.cursor.row, t.cursor.pos = -1, [3]int{1, 0, -1}
+	t.selectionStart = t.cursor
+RowLoop:
+	for {
+		if row >= len(t.lineStarts) {
+			t.extendLines(t.lastWidth, row)
+			if row >= len(t.lineStarts) {
+				break
+			}
+		}
+
+		// Check the spans of this row.
+		pos := t.lineStarts[row]
+		var (
+			next      [3]int
+			lineIndex int
+		)
+		if row+1 < len(t.lineStarts) {
+			next = t.lineStarts[row+1]
+		} else {
+			next = [3]int{1, 0, -1}
+		}
+		for {
+			if pos[0] == next[0] {
+				if start >= index+lineIndex && start < index+lineIndex+next[1]-pos[1] ||
+					end >= index+lineIndex && end < index+lineIndex+next[1]-pos[1] {
+					break
+				}
+				index += lineIndex + next[1] - pos[1]
+				row++
+				continue RowLoop // Move on to the next row.
+			} else {
+				length := t.spans[pos[0]].length
+				if length < 0 {
+					length = -length
+				}
+				if start >= index+lineIndex && start < index+lineIndex+length-pos[1] ||
+					end >= index+lineIndex && end < index+lineIndex+length-pos[1] {
+					break
+				}
+				lineIndex += length - pos[1]
+				pos[0], pos[1] = t.spans[pos[0]].next, 0
+			}
+		}
+
+		// One of the indices is in this row. Step through it.
+		pos = t.lineStarts[row]
+		endPos := pos
+		var (
+			cluster, text string
+			column, width int
+		)
+		for pos != next {
+			if t.selectionStart.row < 0 && start <= index {
+				t.selectionStart.row, t.selectionStart.column, t.selectionStart.actualColumn = row, column, column
+				t.selectionStart.pos = pos
+			}
+			if t.cursor.row < 0 && end <= index {
+				t.cursor.row, t.cursor.column, t.cursor.actualColumn = row, column, column
+				t.cursor.pos = pos
+				break RowLoop
+			}
+			cluster, text, _, width, pos, endPos = t.step(text, pos, endPos)
+			index += len(cluster)
+			column += width
+		}
+	}
+
+	if t.cursor.row < 0 {
+		t.findCursor(false, 0) // This only happens if we couldn't find the locations above.
+		t.selectionStart = t.cursor
+	}
+
+	return t
 }
 
 // SetWrap sets the flag that, if true, leads to lines that are longer than the
@@ -409,10 +669,12 @@ func (t *TextArea) SetWrap(wrap bool) *TextArea {
 	return t
 }
 
-// SetWordWrap sets the flag that, if true and if the "wrap" flag is also true
-// (see SetWrap()), wraps the line at spaces or after punctuation marks.
+// SetWordWrap sets the flag that causes lines that are longer than the
+// available width to be wrapped onto the next line at spaces or after
+// punctuation marks (according to [Unicode Standard Annex #14]). This flag is
+// ignored if the flag set with [TextArea.SetWordWrap] is false.
 //
-// This flag is ignored if the "wrap" flag is false.
+// [Unicode Standard Annex #14]: https://www.unicode.org/reports/tr14/
 func (t *TextArea) SetWordWrap(wrapOnWords bool) *TextArea {
 	if t.wordWrap != wrapOnWords {
 		t.wordWrap = wrapOnWords
@@ -463,7 +725,8 @@ func (t *TextArea) GetOffset() (row, column int) {
 
 // SetOffset sets the text's offset, that is, the number of rows and columns
 // skipped during drawing at the top or on the left, respectively. If wrapping
-// is enabled, the column offset is ignored.
+// is enabled, the column offset is ignored. These values may get adjusted
+// automatically to ensure that some text is always visible.
 func (t *TextArea) SetOffset(row, column int) *TextArea {
 	t.rowOffset, t.columnOffset = row, column
 	return t
@@ -501,6 +764,13 @@ func (t *TextArea) SetChangedFunc(handler func()) *TextArea {
 	return t
 }
 
+// SetMovedFunc sets a handler which is called whenever the cursor position or
+// the text selection has changed.
+func (t *TextArea) SetMovedFunc(handler func()) *TextArea {
+	t.moved = handler
+	return t
+}
+
 // replace deletes a range of text and inserts the given text at that position.
 // If the resulting text would exceed the maximum length, the function does not
 // do anything. The function returns the end position of the deleted/inserted
@@ -515,7 +785,7 @@ func (t *TextArea) SetChangedFunc(handler func()) *TextArea {
 // This function does not modify [TextArea.lineStarts].
 func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continuation bool) [3]int {
 	// Maybe nothing needs to be done?
-	if deleteStart == deleteEnd && insert == "" || t.maxLength > 0 && t.length+len(insert) >= t.maxLength {
+	if deleteStart == deleteEnd && insert == "" || t.maxLength > 0 && len(insert) > 0 && t.length+len(insert) >= t.maxLength {
 		return deleteEnd
 	}
 
@@ -578,6 +848,7 @@ func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continu
 		after:          len(t.spans) + 1,
 		originalBefore: before,
 		originalAfter:  after,
+		length:         t.length,
 		pos:            t.cursor.pos,
 		continuation:   continuation,
 	})
@@ -684,7 +955,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	defer func() {
 		if t.HasFocus() {
 			row, column := t.cursor.row, t.cursor.actualColumn
-			if t.wrap && column >= t.lastWidth { // This happens when a row has text all the way until the end, pushing the cursor outside the viewport.
+			if t.length > 0 && t.wrap && column >= t.lastWidth { // This happens when a row has text all the way until the end, pushing the cursor outside the viewport.
 				row++
 				column = 0
 			}
@@ -705,6 +976,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	}
 
 	// Make sure the visible lines are broken over.
+	firstDrawing := t.lastWidth == 0
 	if t.lastWidth != width && t.lineStarts != nil {
 		t.reset()
 	}
@@ -720,6 +992,9 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 		t.findCursor(true, 0)
 		if t.selectionStart.row < 0 {
 			t.selectionStart = t.cursor
+		}
+		if firstDrawing && t.moved != nil {
+			t.moved()
 		}
 	}
 
@@ -827,10 +1102,11 @@ func (t *TextArea) reset() {
 	t.widestLine = 0
 }
 
-// extendLines traverses the current text and extends t.lineStarts such that it
-// describes at least maxLines+1 lines (or less if the text is shorter). Text is
-// laid out for the given width while respecting the wrapping settings. It is
-// assumed that if t.lineStarts already has entries, they obey the same rules.
+// extendLines traverses the current text and extends [TextArea.lineStarts] such
+// that it describes at least maxLines+1 lines (or less if the text is shorter).
+// Text is laid out for the given width while respecting the wrapping settings.
+// It is assumed that if [TextArea.lineStarts] already has entries, they obey
+// the same rules.
 //
 // If width is 0, nothing happens.
 func (t *TextArea) extendLines(width, maxLines int) {
@@ -1068,15 +1344,16 @@ RowLoop:
 	}
 }
 
-// step is similar to uniseg.StepString() but it iterates over the piece chain,
-// starting with "pos", a span position plus state (which may be -1 for the
-// start of the text). The returned "boundaries" value is same value returned by
-// uniseg.StepString(), "width" is the screen width of the grapheme. The "pos"
-// and "endPos" positions refer to the start and the end of the "text" string,
-// respectively. For the first call, text may be empty and pos/endPos may be the
-// same. For consecutive calls, provide "rest" as the text and "newPos" and
-// "newEndPos" as the new positions/states. An empty "rest" string indicates the
-// end of the text. The "endPos" state is not used.
+// step is similar to [github.com/rivo/uniseg.StepString] but it iterates over
+// the piece chain, starting with "pos", a span position plus state (which may
+// be -1 for the start of the text). The returned "boundaries" value is same
+// value returned by [github.com/rivo/uniseg.StepString], "width" is the screen
+// width of the grapheme. The "pos" and "endPos" positions refer to the start
+// and the end of the "text" string, respectively. For the first call, text may
+// be empty and pos/endPos may be the same. For consecutive calls, provide
+// "rest" as the text and "newPos" and "newEndPos" as the new positions/states.
+// An empty "rest" string indicates the end of the text. The "endPos" state is
+// irrelevant.
 func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, boundaries, width int, newPos, newEndPos [3]int) {
 	if pos[0] == 1 {
 		return // We're already past the end.
@@ -1196,8 +1473,7 @@ func (t *TextArea) moveCursor(row, column int) {
 // moveWordRight moves the cursor to the end of the current or next word. If
 // after is set to true, the cursor will be placed after the word. If false, the
 // cursor will be placed on the last character of the word. If clamp is set to
-// true, the cursor will be visible during the next call to
-// [TextArea.Draw].
+// true, the cursor will be visible during the next call to [TextArea.Draw].
 func (t *TextArea) moveWordRight(after, clamp bool) {
 	// Because we rely on clampToCursor to calculate the new screen position,
 	// this is an expensive operation for large texts.
@@ -1368,7 +1644,7 @@ func (t *TextArea) getSelection() ([3]int, [3]int, int) {
 	to := t.cursor.pos
 	row := t.selectionStart.row
 	if t.cursor.row < t.selectionStart.row ||
-		(t.cursor.row == t.selectionStart.row && t.cursor.column < t.selectionStart.column) {
+		(t.cursor.row == t.selectionStart.row && t.cursor.actualColumn < t.selectionStart.actualColumn) {
 		from, to = to, from
 		row = t.cursor.row
 	}
@@ -1410,6 +1686,16 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.lastAction = newLastAction
 		}()
 
+		// Trigger a "moved" event if requested.
+		if t.moved != nil {
+			selectionStart, cursor := t.selectionStart, t.cursor
+			defer func() {
+				if selectionStart != t.selectionStart || cursor != t.cursor {
+					t.moved()
+				}
+			}()
+		}
+
 		// Process the different key events.
 		switch key := event.Key(); key {
 		case tcell.KeyLeft: // Move one grapheme cluster to the left.
@@ -1417,7 +1703,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				// Regular movement.
 				if event.Modifiers()&tcell.ModShift == 0 && t.selectionStart.pos != t.cursor.pos {
 					// Move to the start of the selection.
-					if t.selectionStart.row < t.cursor.row || (t.selectionStart.row == t.cursor.row && t.selectionStart.column < t.cursor.column) {
+					if t.selectionStart.row < t.cursor.row || (t.selectionStart.row == t.cursor.row && t.selectionStart.actualColumn < t.cursor.actualColumn) {
 						t.cursor = t.selectionStart
 					}
 					t.findCursor(true, t.cursor.row)
@@ -1448,7 +1734,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				// Regular movement.
 				if event.Modifiers()&tcell.ModShift == 0 && t.selectionStart.pos != t.cursor.pos {
 					// Move to the end of the selection.
-					if t.selectionStart.row > t.cursor.row || (t.selectionStart.row == t.cursor.row && t.selectionStart.column > t.cursor.column) {
+					if t.selectionStart.row > t.cursor.row || (t.selectionStart.row == t.cursor.row && t.selectionStart.actualColumn > t.cursor.actualColumn) {
 						t.cursor = t.selectionStart
 					}
 					t.findCursor(true, t.cursor.row)
@@ -1716,6 +2002,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
 				t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
 				t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
+				t.length = undo.length
 				if !undo.continuation {
 					break
 				}
@@ -1736,6 +2023,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
 				t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
 				t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
+				t.length = undo.length
 				t.nextUndo++
 				if t.nextUndo < len(t.undoStack) && !t.undoStack[t.nextUndo].continuation {
 					break
@@ -1816,6 +2104,16 @@ func (t *TextArea) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		rectX, rectY, _, _ := t.GetInnerRect()
 		if !t.InRect(x, y) {
 			return false, nil
+		}
+
+		// Trigger a "moved" event if requested.
+		if t.moved != nil {
+			selectionStart, cursor := t.selectionStart, t.cursor
+			defer func() {
+				if selectionStart != t.selectionStart || cursor != t.cursor {
+					t.moved()
+				}
+			}()
 		}
 
 		// Turn mouse coordinates into text coordinates.
