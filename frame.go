@@ -49,6 +49,18 @@ func NewFrame(primitive Primitive) *Frame {
 	return f
 }
 
+// SetPrimitive replaces the contained primitive with the given one. To remove
+// a primitive, set it to nil.
+func (f *Frame) SetPrimitive(p Primitive) *Frame {
+	f.primitive = p
+	return f
+}
+
+// GetPrimitive returns the primitive contained in this frame.
+func (f *Frame) GetPrimitive() Primitive {
+	return f.primitive
+}
+
 // AddText adds text to the frame. Set "header" to true if the text is to appear
 // in the header, above the contained primitive. Set it to false for it to
 // appear in the footer, below the contained primitive. "align" must be one of
@@ -169,10 +181,19 @@ func (f *Frame) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 
 		// Pass mouse events on to contained primitive.
 		if f.primitive != nil {
-			return f.primitive.MouseHandler()(action, event, setFocus)
+			consumed, capture = f.primitive.MouseHandler()(action, event, setFocus)
+			if consumed {
+				return true, capture
+			}
 		}
 
-		return false, nil
+		// Clicking on the frame parts.
+		if action == MouseLeftDown {
+			setFocus(f)
+			consumed = true
+		}
+
+		return
 	})
 }
 
@@ -182,11 +203,9 @@ func (f *Frame) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 		if f.primitive == nil {
 			return
 		}
-		if f.primitive.HasFocus() {
-			if handler := f.primitive.InputHandler(); handler != nil {
-				handler(event, setFocus)
-				return
-			}
+		if handler := f.primitive.InputHandler(); handler != nil {
+			handler(event, setFocus)
+			return
 		}
 	})
 }

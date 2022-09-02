@@ -2106,7 +2106,7 @@ func (t *TextArea) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			return false, nil
 		}
 
-		// Trigger a "moved" event if requested.
+		// Trigger a "moved" event at the end if requested.
 		if t.moved != nil {
 			selectionStart, cursor := t.selectionStart, t.cursor
 			defer func() {
@@ -2140,11 +2140,9 @@ func (t *TextArea) MouseHandler() func(action MouseAction, event *tcell.EventMou
 				break
 			}
 			t.moveCursor(row, column)
-			setFocus(t)
 			consumed = true
 		case MouseLeftUp:
 			t.moveCursor(row, column)
-			setFocus(t)
 			consumed = true
 			capture = nil
 			t.dragging = false

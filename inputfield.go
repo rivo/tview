@@ -685,21 +685,25 @@ func (i *InputField) MouseHandler() func(action MouseAction, event *tcell.EventM
 		}
 
 		// Process mouse event.
-		if action == MouseLeftClick && y == rectY {
-			// Determine where to place the cursor.
-			if x >= i.fieldX {
-				if !iterateString(i.text[i.offset:], func(main rune, comb []rune, textPos int, textWidth int, screenPos int, screenWidth, boundaries int) bool {
-					if x-i.fieldX < screenPos+screenWidth {
-						i.cursorPos = textPos + i.offset
-						return true
+		if y == rectY {
+			if action == MouseLeftDown {
+				setFocus(i)
+				consumed = true
+			} else if action == MouseLeftClick {
+				// Determine where to place the cursor.
+				if x >= i.fieldX {
+					if !iterateString(i.text[i.offset:], func(main rune, comb []rune, textPos int, textWidth int, screenPos int, screenWidth, boundaries int) bool {
+						if x-i.fieldX < screenPos+screenWidth {
+							i.cursorPos = textPos + i.offset
+							return true
+						}
+						return false
+					}) {
+						i.cursorPos = len(i.text)
 					}
-					return false
-				}) {
-					i.cursorPos = len(i.text)
 				}
+				consumed = true
 			}
-			setFocus(i)
-			consumed = true
 		}
 
 		return
