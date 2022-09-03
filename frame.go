@@ -27,6 +27,9 @@ type Frame struct {
 
 	// Border spacing.
 	top, bottom, header, footer, left, right int
+
+	// Keep a reference in case we need it when we change the primitive.
+	setFocus func(p Primitive)
 }
 
 // NewFrame returns a new frame around the given primitive. The primitive's
@@ -52,7 +55,14 @@ func NewFrame(primitive Primitive) *Frame {
 // SetPrimitive replaces the contained primitive with the given one. To remove
 // a primitive, set it to nil.
 func (f *Frame) SetPrimitive(p Primitive) *Frame {
+	var hasFocus bool
+	if f.primitive != nil {
+		hasFocus = f.primitive.HasFocus()
+	}
 	f.primitive = p
+	if hasFocus && f.setFocus != nil {
+		f.setFocus(p) // Restore focus.
+	}
 	return f
 }
 
@@ -157,6 +167,7 @@ func (f *Frame) Draw(screen tcell.Screen) {
 
 // Focus is called when this primitive receives focus.
 func (f *Frame) Focus(delegate func(p Primitive)) {
+	f.setFocus = delegate
 	if f.primitive != nil {
 		delegate(f.primitive)
 	} else {

@@ -135,6 +135,7 @@ type textAreaUndoItem struct {
 //   - Ctrl-H, Backspace: Delete one character to the left of the cursor.
 //   - Ctrl-D, Delete: Delete the character under the cursor (or the first
 //     character on the next line if the cursor is at the end of a line).
+//   - Alt-Backspace: Delete the word to the left of the cursor.
 //   - Ctrl-K: Delete everything under and to the right of the cursor until the
 //     next newline character.
 //   - Ctrl-W: Delete from the start of the current word to the left of the
@@ -1098,6 +1099,7 @@ func (t *TextArea) reset() {
 	t.truncateLines(0)
 	if t.wrap {
 		t.cursor.row = -1
+		t.selectionStart.row = -1
 	}
 	t.widestLine = 0
 }
@@ -1887,26 +1889,31 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				break
 			}
 
-			// Move the cursor back by one grapheme cluster.
-			endPos := t.cursor.pos
-			if t.cursor.actualColumn == 0 {
-				// Move to the end of the previous row.
-				if t.cursor.row > 0 {
-					t.moveCursor(t.cursor.row-1, -1)
+			beforeCursor := t.cursor
+			if event.Modifiers()&tcell.ModAlt == 0 {
+				// Move the cursor back by one grapheme cluster.
+				if t.cursor.actualColumn == 0 {
+					// Move to the end of the previous row.
+					if t.cursor.row > 0 {
+						t.moveCursor(t.cursor.row-1, -1)
+					}
+				} else {
+					// Move one grapheme cluster to the left.
+					t.moveCursor(t.cursor.row, t.cursor.actualColumn-1)
 				}
+				newLastAction = taActionBackspace
 			} else {
-				// Move one grapheme cluster to the left.
-				t.moveCursor(t.cursor.row, t.cursor.actualColumn-1)
+				// Move the cursor back by one word.
+				t.moveWordLeft(false)
 			}
 
 			// Remove that last grapheme cluster.
-			if t.cursor.pos != endPos {
-				t.cursor.pos = t.replace(t.cursor.pos, endPos, "", t.lastAction == taActionBackspace) // Delete the character.
-				t.cursor.pos[2] = endPos[2]
+			if t.cursor.pos != beforeCursor.pos {
+				t.cursor, beforeCursor = beforeCursor, t.cursor                                                 // So we put the right position on the stack.
+				t.cursor.pos = t.replace(beforeCursor.pos, t.cursor.pos, "", t.lastAction == taActionBackspace) // Delete the character.
 				t.cursor.row = -1
-				t.truncateLines(t.cursor.row - 1)
-				t.findCursor(true, t.cursor.row-1)
-				newLastAction = taActionBackspace
+				t.truncateLines(beforeCursor.row - 1)
+				t.findCursor(true, beforeCursor.row-1)
 			}
 			t.selectionStart = t.cursor
 		case tcell.KeyDelete, tcell.KeyCtrlD: // Delete forward.
@@ -2002,7 +2009,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
 				t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
 				t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
-				t.length = undo.length
+				t.length, t.undoStack[t.nextUndo].length = undo.length, t.length
 				if !undo.continuation {
 					break
 				}
@@ -2023,7 +2030,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.spans[undo.originalBefore], t.spans[undo.before] = t.spans[undo.before], t.spans[undo.originalBefore]
 				t.spans[undo.originalAfter], t.spans[undo.after] = t.spans[undo.after], t.spans[undo.originalAfter]
 				t.cursor.pos, t.undoStack[t.nextUndo].pos = undo.pos, t.cursor.pos
-				t.length = undo.length
+				t.length, t.undoStack[t.nextUndo].length = undo.length, t.length
 				t.nextUndo++
 				if t.nextUndo < len(t.undoStack) && !t.undoStack[t.nextUndo].continuation {
 					break
@@ -2040,7 +2047,7 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 	})
 }
 
-// THIS FUNCTION WILL BE REMOVED ONCE WE DEEM THE TEXT AREA STABLE!
+// THIS FUNCTION WILL BE REMOVED ONCE WE DEEM THE TEXT AREA STABLE! DO NOT USE!
 func (t *TextArea) Dump() string {
 	var buf strings.Builder
 
