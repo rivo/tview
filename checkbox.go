@@ -226,13 +226,17 @@ func (c *Checkbox) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		}
 
 		// Process mouse event.
-		if action == MouseLeftClick && y == rectY {
-			setFocus(c)
-			c.checked = !c.checked
-			if c.changed != nil {
-				c.changed(c.checked)
+		if y == rectY {
+			if action == MouseLeftDown {
+				setFocus(c)
+				consumed = true
+			} else if action == MouseLeftClick {
+				c.checked = !c.checked
+				if c.changed != nil {
+					c.changed(c.checked)
+				}
+				consumed = true
 			}
-			consumed = true
 		}
 
 		return

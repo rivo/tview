@@ -699,7 +699,6 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		// Process mouse event.
 		switch action {
 		case MouseLeftClick:
-			setFocus(l)
 			index := l.indexAtPoint(event.Position())
 			if index != -1 {
 				item := l.items[index]
@@ -728,6 +727,7 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			if _, _, _, height := l.GetInnerRect(); lines > height {
 				l.itemOffset++
 			}
+			setFocus(l)
 			consumed = true
 		}
 

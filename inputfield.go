@@ -418,7 +418,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 			// We have enough space for the full text.
 			printWithStyle(screen, Escape(text), x, y, 0, fieldWidth, AlignLeft, i.fieldStyle, true)
 			i.offset = 0
-			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
 				if textPos >= i.cursorPos {
 					return true
 				}
@@ -440,7 +440,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 				shiftLeft = subWidth - fieldWidth + 1
 			}
 			currentOffset := i.offset
-			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
 				if textPos >= currentOffset {
 					if shiftLeft > 0 {
 						i.offset = textPos + textWidth
@@ -520,7 +520,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			})
 		}
 		moveRight := func() {
-			iterateString(i.text[i.cursorPos:], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+			iterateString(i.text[i.cursorPos:], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
 				i.cursorPos += textWidth
 				return true
 			})
@@ -616,7 +616,7 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				i.offset = 0
 			}
 		case tcell.KeyDelete, tcell.KeyCtrlD: // Delete character after the cursor.
-			iterateString(i.text[i.cursorPos:], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+			iterateString(i.text[i.cursorPos:], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
 				i.text = i.text[:i.cursorPos] + i.text[i.cursorPos+textWidth:]
 				return true
 			})
@@ -685,21 +685,25 @@ func (i *InputField) MouseHandler() func(action MouseAction, event *tcell.EventM
 		}
 
 		// Process mouse event.
-		if action == MouseLeftClick && y == rectY {
-			// Determine where to place the cursor.
-			if x >= i.fieldX {
-				if !iterateString(i.text[i.offset:], func(main rune, comb []rune, textPos int, textWidth int, screenPos int, screenWidth int) bool {
-					if x-i.fieldX < screenPos+screenWidth {
-						i.cursorPos = textPos + i.offset
-						return true
+		if y == rectY {
+			if action == MouseLeftDown {
+				setFocus(i)
+				consumed = true
+			} else if action == MouseLeftClick {
+				// Determine where to place the cursor.
+				if x >= i.fieldX {
+					if !iterateString(i.text[i.offset:], func(main rune, comb []rune, textPos int, textWidth int, screenPos int, screenWidth, boundaries int) bool {
+						if x-i.fieldX < screenPos+screenWidth {
+							i.cursorPos = textPos + i.offset
+							return true
+						}
+						return false
+					}) {
+						i.cursorPos = len(i.text)
 					}
-					return false
-				}) {
-					i.cursorPos = len(i.text)
 				}
+				consumed = true
 			}
-			setFocus(i)
-			consumed = true
 		}
 
 		return
