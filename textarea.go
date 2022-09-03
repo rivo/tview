@@ -142,7 +142,7 @@ type textAreaUndoItem struct {
 //     cursor.
 //   - Ctrl-U: Delete the current line, i.e. everything after the last newline
 //     character before the cursor up until the next newline character. This may
-//     span multiple lines if wrapping is enabled.
+//     span multiple visible rows if wrapping is enabled.
 //
 // Text can be selected by moving the cursor while holding the Shift key, to the
 // extent that this is supported by the user's terminal. The Ctrl-L key can be
@@ -350,6 +350,9 @@ func NewTextArea() *TextArea {
 // it is true, it is placed at the end of the text. For very long texts, placing
 // the cursor at the end can be an expensive operation because the entire text
 // needs to be parsed and laid out.
+//
+// If you want to set text and preserve undo functionality, use
+// [TextArea.Replace] instead.
 func (t *TextArea) SetText(text string, cursorAtTheEnd bool) *TextArea {
 	t.spans = t.spans[:2]
 	t.initialText = text
@@ -673,7 +676,8 @@ func (t *TextArea) SetWrap(wrap bool) *TextArea {
 // SetWordWrap sets the flag that causes lines that are longer than the
 // available width to be wrapped onto the next line at spaces or after
 // punctuation marks (according to [Unicode Standard Annex #14]). This flag is
-// ignored if the flag set with [TextArea.SetWordWrap] is false.
+// ignored if the flag set with [TextArea.SetWrap] is false. The text area's
+// default is word-wrapping.
 //
 // [Unicode Standard Annex #14]: https://www.unicode.org/reports/tr14/
 func (t *TextArea) SetWordWrap(wrapOnWords bool) *TextArea {
@@ -690,9 +694,9 @@ func (t *TextArea) SetPlaceholder(placeholder string) *TextArea {
 	return t
 }
 
-// SetMaxLength sets the maximum number of bytes allowed in the text area. If 0,
-// there is no limit. If the text area currently contains more bytes than this,
-// it may violate this constraint.
+// SetMaxLength sets the maximum number of bytes allowed in the text area. A
+// value of 0 means there is no limit. If the text area currently contains more
+// bytes than this, it may violate this constraint.
 func (t *TextArea) SetMaxLength(maxLength int) *TextArea {
 	t.maxLength = maxLength
 	return t
