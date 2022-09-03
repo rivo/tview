@@ -367,8 +367,8 @@ func (t *TreeView) SetTopLevel(topLevel int) *TreeView {
 //
 // For example, to display a hierarchical list with bullet points:
 //
-//	treeView.SetGraphics(false).
-//	  SetPrefixes([]string{"* ", "- ", "x "})
+//   treeView.SetGraphics(false).
+//     SetPrefixes([]string{"* ", "- ", "x "})
 func (t *TreeView) SetPrefixes(prefixes []string) *TreeView {
 	t.prefixes = prefixes
 	return t
@@ -792,10 +792,8 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		}
 
 		switch action {
-		case MouseLeftDown:
-			setFocus(t)
-			consumed = true
 		case MouseLeftClick:
+			setFocus(t)
 			_, rectY, _, _ := t.GetInnerRect()
 			y += t.offsetY - rectY
 			if y >= 0 && y < len(t.nodes) {

@@ -645,9 +645,9 @@ func (f *Form) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			}
 		}
 
-		// A mouse down anywhere else will return the focus to the last selected
+		// A mouse click anywhere else will return the focus to the last selected
 		// element.
-		if action == MouseLeftDown && f.InRect(event.Position()) {
+		if action == MouseLeftClick && f.InRect(event.Position()) {
 			consumed = true
 		}
 

@@ -145,10 +145,8 @@ func (b *Button) MouseHandler() func(action MouseAction, event *tcell.EventMouse
 		}
 
 		// Process mouse event.
-		if action == MouseLeftDown {
+		if action == MouseLeftClick {
 			setFocus(b)
-			consumed = true
-		} else if action == MouseLeftClick {
 			if b.selected != nil {
 				b.selected()
 			}

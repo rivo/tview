@@ -190,7 +190,7 @@ func (m *Modal) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 	return m.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		// Pass mouse events on to the form.
 		consumed, capture = m.form.MouseHandler()(action, event, setFocus)
-		if !consumed && action == MouseLeftDown && m.InRect(event.Position()) {
+		if !consumed && action == MouseLeftClick && m.InRect(event.Position()) {
 			setFocus(m)
 			consumed = true
 		}
