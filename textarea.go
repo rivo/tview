@@ -1220,7 +1220,13 @@ func (t *TextArea) truncateLines(fromLine int) {
 // indicating the lowest row in which searching should start. Set this to 0 if
 // you don't have any information where the cursor might be (but know that this
 // is expensive for long texts).
+//
+// The cursor's desired column will be set to its actual column.
 func (t *TextArea) findCursor(clamp bool, startRow int) {
+	defer func() {
+		t.cursor.column = t.cursor.actualColumn
+	}()
+
 	if !clamp && t.cursor.row >= 0 {
 		return // Nothing to do.
 	}
@@ -1783,7 +1789,9 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyDown: // Move one row down.
 			if event.Modifiers()&tcell.ModAlt == 0 {
 				// Regular movement.
+				column := t.cursor.column
 				t.moveCursor(t.cursor.row+1, t.cursor.column)
+				t.cursor.column = column
 				if event.Modifiers()&tcell.ModShift == 0 {
 					t.selectionStart = t.cursor
 				}
@@ -1803,7 +1811,9 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyUp: // Move one row up.
 			if event.Modifiers()&tcell.ModAlt == 0 {
 				// Regular movement.
+				column := t.cursor.column
 				t.moveCursor(t.cursor.row-1, t.cursor.column)
+				t.cursor.column = column
 				if event.Modifiers()&tcell.ModShift == 0 {
 					t.selectionStart = t.cursor
 				}
@@ -1825,12 +1835,16 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				t.selectionStart = t.cursor
 			}
 		case tcell.KeyPgDn, tcell.KeyCtrlF: // Move one page down.
+			column := t.cursor.column
 			t.moveCursor(t.cursor.row+t.lastHeight, t.cursor.column)
+			t.cursor.column = column
 			if event.Modifiers()&tcell.ModShift == 0 {
 				t.selectionStart = t.cursor
 			}
 		case tcell.KeyPgUp, tcell.KeyCtrlB: // Move one page up.
+			column := t.cursor.column
 			t.moveCursor(t.cursor.row-t.lastHeight, t.cursor.column)
+			t.cursor.column = column
 			if event.Modifiers()&tcell.ModShift == 0 {
 				t.selectionStart = t.cursor
 			}
