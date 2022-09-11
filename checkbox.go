@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/uniseg"
 )
 
 // Checkbox implements a simple box for boolean values which can be checked and
@@ -184,7 +185,7 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	if c.HasFocus() {
 		fieldStyle = fieldStyle.Background(c.fieldTextColor).Foreground(c.fieldBackgroundColor)
 	}
-	checkboxWidth := stringWidth(c.checkedString)
+	checkboxWidth := uniseg.StringWidth(c.checkedString)
 	checkedString := c.checkedString
 	if !c.checked {
 		checkedString = strings.Repeat(" ", checkboxWidth)

@@ -10,7 +10,6 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	colorful "github.com/lucasb-eyer/go-colorful"
-	runewidth "github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 )
 
@@ -810,11 +809,21 @@ func (t *TextView) reindexBuffer(width int) {
 		str = strippedStr
 		if t.wrap && len(str) > 0 {
 			for len(str) > 0 {
-				extract := runewidth.Truncate(str, width, "")
-				if len(extract) == 0 {
-					// We'll extract at least one grapheme cluster.
-					extract, _, _, _ = uniseg.FirstGraphemeClusterInString(str, -1)
+				// Truncate str to width.
+				var splitPos, clusterWidth, lineWidth int
+				state := -1
+				remaining := str
+				for splitPos == 0 || len(remaining) > 0 { // We'll extract at least one grapheme cluster.
+					var cluster string
+					cluster, remaining, clusterWidth, state = uniseg.FirstGraphemeClusterInString(remaining, state)
+					lineWidth += clusterWidth
+					if splitPos > 0 && lineWidth > width {
+						break
+					}
+					splitPos += len(cluster)
 				}
+				extract := str[:splitPos]
+
 				if t.wordWrap && len(extract) < len(str) {
 					// Add any spaces from the next line.
 					if spaces := spacePattern.FindStringIndex(str[len(extract):]); spaces != nil && spaces[0] == 0 {
@@ -905,7 +914,7 @@ func (t *TextView) reindexBuffer(width int) {
 						line := len(t.index)
 						if t.fromHighlight < 0 {
 							t.fromHighlight, t.toHighlight = line, line
-							t.posHighlight = stringWidth(splitLine[:strippedTagStart])
+							t.posHighlight = uniseg.StringWidth(splitLine[:strippedTagStart])
 						} else if line > t.toHighlight {
 							t.toHighlight = line
 						}
@@ -923,7 +932,7 @@ func (t *TextView) reindexBuffer(width int) {
 
 			// Append this line.
 			line.NextPos = originalPos
-			line.Width = stringWidth(splitLine)
+			line.Width = uniseg.StringWidth(splitLine)
 			t.index = append(t.index, line)
 		}
 
@@ -935,7 +944,7 @@ func (t *TextView) reindexBuffer(width int) {
 				if spaces != nil && spaces[len(spaces)-1][1] == len(str) {
 					oldNextPos := line.NextPos
 					line.NextPos -= spaces[len(spaces)-1][1] - spaces[len(spaces)-1][0]
-					line.Width -= stringWidth(t.buffer[line.Line][line.NextPos:oldNextPos])
+					line.Width -= uniseg.StringWidth(t.buffer[line.Line][line.NextPos:oldNextPos])
 				}
 			}
 		}

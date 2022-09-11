@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/uniseg"
 )
 
 // dropDownOption is one option that can be selected in a drop-down primitive.
@@ -373,7 +374,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	if d.open && len(d.prefix) > 0 {
 		// Show the prefix.
 		currentOptionPrefixWidth := TaggedStringWidth(d.currentOptionPrefix)
-		prefixWidth := stringWidth(d.prefix)
+		prefixWidth := uniseg.StringWidth(d.prefix)
 		listItemText := d.options[d.list.GetCurrentItem()].Text
 		Print(screen, d.currentOptionPrefix, x, y, fieldWidth, AlignLeft, d.fieldTextColor)
 		Print(screen, d.prefix, x+currentOptionPrefixWidth, y, fieldWidth-currentOptionPrefixWidth, AlignLeft, d.prefixTextColor)

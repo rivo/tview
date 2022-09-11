@@ -1421,7 +1421,7 @@ func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, 
 	if cluster == "\t" {
 		width = TabSize
 	} else {
-		width = stringWidth(cluster)
+		width = boundaries >> uniseg.ShiftWidth
 	}
 
 	return cluster, text, boundaries, width, pos, endPos

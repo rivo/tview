@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/gdamore/tcell/v2"
-	runewidth "github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 )
 
@@ -166,7 +165,7 @@ func overlayStyle(style tcell.Style, fgColor, bgColor, attributes string) tcell.
 func decomposeString(text string, findColors, findRegions bool) (colorIndices [][]int, colors [][]string, regionIndices [][]int, regions [][]string, escapeIndices [][]int, stripped string, width int) {
 	// Shortcut for the trivial case.
 	if !findColors && !findRegions {
-		return nil, nil, nil, nil, nil, text, stringWidth(text)
+		return nil, nil, nil, nil, nil, text, uniseg.StringWidth(text)
 	}
 
 	// Get positions of any tags.
@@ -216,7 +215,7 @@ func decomposeString(text string, findColors, findRegions bool) (colorIndices []
 	stripped = string(buf)
 
 	// Get the width of the stripped string.
-	width = stringWidth(stripped)
+	width = uniseg.StringWidth(stripped)
 
 	return
 }
@@ -441,28 +440,6 @@ func TaggedStringWidth(text string) int {
 	return width
 }
 
-// stringWidth returns the number of horizontal cells needed to print the given
-// text. It splits the text into its grapheme clusters, calculates each
-// cluster's width, and adds them up to a total.
-func stringWidth(text string) (width int) {
-	state := -1
-	for len(text) > 0 {
-		var (
-			chWidth int
-			cl      string
-		)
-		cl, text, _, state = uniseg.FirstGraphemeClusterInString(text, state)
-		for _, r := range cl {
-			chWidth = runewidth.RuneWidth(r)
-			if chWidth > 0 {
-				break // Our best guess at this point is to use the width of the first non-zero-width rune.
-			}
-		}
-		width += chWidth
-	}
-	return
-}
-
 // WordWrap splits a text such that each resulting line does not exceed the
 // given screen width. Possible split points are after any punctuation or
 // whitespace. Whitespace after split points will be dropped.
@@ -571,8 +548,8 @@ func WordWrap(text string, width int) (lines []string) {
 // recognized and substituted by the print functions of this package. For
 // example, to include a tag-like string in a box title or in a TextView:
 //
-//   box.SetTitle(tview.Escape("[squarebrackets]"))
-//   fmt.Fprint(textView, tview.Escape(`["quoted"]`))
+//	box.SetTitle(tview.Escape("[squarebrackets]"))
+//	fmt.Fprint(textView, tview.Escape(`["quoted"]`))
 func Escape(text string) string {
 	return nonEscapePattern.ReplaceAllString(text, "$1[]")
 }
@@ -595,16 +572,8 @@ func iterateString(text string, callback func(main rune, comb []rune, textPos, t
 		var cluster string
 		cluster, text, boundaries, state = uniseg.StepString(text, state)
 
-		var width int
-		runes := make([]rune, 0, len(cluster))
-		for _, r := range cluster {
-			runes = append(runes, r)
-			w := runewidth.RuneWidth(r)
-			if width == 0 && w > 0 {
-				width = w // Our best guess at this point is to use the width of the first non-zero-width rune.
-			}
-		}
-
+		width := boundaries >> uniseg.ShiftWidth
+		runes := []rune(cluster)
 		var comb []rune
 		if len(runes) > 1 {
 			comb = runes[1:]
