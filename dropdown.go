@@ -547,7 +547,11 @@ func (d *DropDown) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			return d.InRect(x, y), nil // No, and it's not expanded either. Ignore.
 		}
 
-		// Handle dragging. Clicks are implicitly handled by this logic.
+		// As long as the drop-down is open, we capture all mouse events.
+		if d.open {
+			capture = d
+		}
+
 		switch action {
 		case MouseLeftDown:
 			consumed = d.open || inRect
@@ -564,7 +568,6 @@ func (d *DropDown) MouseHandler() func(action MouseAction, event *tcell.EventMou
 				// dragging. Because we don't act upon it, it's not a problem.
 				d.list.MouseHandler()(MouseLeftClick, event, setFocus)
 				consumed = true
-				capture = d
 			}
 		case MouseLeftUp:
 			if d.dragging {
