@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -83,6 +84,9 @@ type Application struct {
 	// Set to true if mouse events are enabled.
 	enableMouse bool
 
+	// Set keys to close the application. default is [Ctrl-C]
+	stopKeys []tcell.Key
+
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the default input handler (nil if nothing should
 	// be forwarded).
@@ -123,6 +127,7 @@ type Application struct {
 // NewApplication creates and returns a new application.
 func NewApplication() *Application {
 	return &Application{
+		stopKeys:          []tcell.Key{/* tcell.KeyESC,*/ tcell.KeyCtrlC},
 		events:            make(chan tcell.Event, queueSize),
 		updates:           make(chan queuedUpdate, queueSize),
 		screenReplacement: make(chan tcell.Screen, 1),
@@ -206,6 +211,35 @@ func (a *Application) EnableMouse(enable bool) *Application {
 	}
 	a.enableMouse = enable
 	return a
+}
+
+func (a *Application) SetStopKeys(keys []tcell.Key) *Application {
+	a.Lock()
+	defer a.Unlock()
+	a.stopKeys = keys
+	return a
+}
+func (a *Application) AppendStopKey(key tcell.Key) *Application {
+	a.Lock()
+	defer a.Unlock()
+	if !slices.Contains(a.stopKeys, key) {
+		a.stopKeys = append(a.stopKeys, key)
+	}
+	return a
+}
+func (a *Application) RemoveStopKey(key tcell.Key) *Application {
+	a.Lock()
+	defer a.Unlock()
+	if slices.Contains(a.stopKeys, key) {
+		var i = slices.Index(a.stopKeys, key)
+		a.stopKeys = append(a.stopKeys[:i], a.stopKeys[i+1:]...)
+	}
+	return a
+}
+func (a *Application) GetStopKeys() []tcell.Key {
+	a.Lock()
+	defer a.Unlock()
+	return a.stopKeys
 }
 
 // Run starts the application and thus the event loop. This function returns
@@ -323,8 +357,8 @@ EventLoop:
 					draw = true
 				}
 
-				// Ctrl-C closes the application.
-				if event.Key() == tcell.KeyCtrlC {
+				// stopKeys closes the application.
+				if slices.Contains(a.stopKeys, event.Key()) {
 					a.Stop()
 					break
 				}
