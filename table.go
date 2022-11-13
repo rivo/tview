@@ -329,6 +329,9 @@ func (t *tableDefaultContent) RemoveColumn(column int) {
 		}
 		t.cells[row] = append(t.cells[row][:column], t.cells[row][column+1:]...)
 	}
+	if column >= 0 && column <= t.lastColumn {
+		t.lastColumn--
+	}
 }
 
 // InsertRow inserts a new row at the given position.
