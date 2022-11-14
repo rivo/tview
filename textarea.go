@@ -1,7 +1,6 @@
 package tview
 
 import (
-	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -2063,63 +2062,6 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			}
 		}
 	})
-}
-
-// THIS FUNCTION WILL BE REMOVED ONCE WE DEEM THE TEXT AREA STABLE! DO NOT USE!
-func (t *TextArea) Dump() string {
-	var buf strings.Builder
-
-	// Dump spans.
-	buf.WriteString("Spans:\n\n")
-	index := 0
-	for index >= 0 {
-		span := t.spans[index]
-		var text string
-		if span.length < 0 {
-			text = t.initialText[span.offset : span.offset-span.length]
-		} else {
-			text = t.editText.String()[span.offset : span.offset+span.length]
-		}
-		if len(text) > 9 {
-			text = fmt.Sprintf("%s...%s", text[:3], text[len(text)-3:])
-		}
-		fmt.Fprintf(&buf, `[blue]%d:[white]{[yellow]%d[white] %q [red]%d[white]} `, index, span.previous, text, span.next)
-		index = span.next
-	}
-
-	// Dump undo stack.
-	buf.WriteString("\n\nUndo stack:\n\n")
-	for undoIndex, undo := range t.undoStack {
-		if t.nextUndo == undoIndex {
-			buf.WriteString("^^^^^^\n")
-		}
-		fmt.Fprintf(&buf, `[yellow]%d[white]>[blue]%d[yellow] `, undo.before, undo.originalBefore)
-		index := undo.before
-		for {
-			if index == undo.originalAfter {
-				index = undo.after
-			}
-			span := t.spans[index]
-			var text string
-			if span.length < 0 {
-				text = t.initialText[span.offset : span.offset-span.length]
-			} else {
-				text = t.editText.String()[span.offset : span.offset+span.length]
-			}
-			if len(text) > 9 {
-				text = fmt.Sprintf("%s...%s", text[:3], text[len(text)-3:])
-			}
-			fmt.Fprintf(&buf, `[blue]%d:[white]{[yellow]%d[white] %q [red]%d[white]} `, index, span.previous, text, span.next)
-			if index == undo.after {
-				break
-			}
-			index = span.next
-		}
-		fmt.Fprintf(&buf, "[yellow]%d[white]>[blue]%d[yellow]", undo.after, undo.originalAfter)
-		fmt.Fprintf(&buf, "  %d\n", undo.pos)
-	}
-
-	return buf.String()
 }
 
 // MouseHandler returns the mouse handler for this primitive.
