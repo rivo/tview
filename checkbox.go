@@ -130,6 +130,11 @@ func (c *Checkbox) GetFieldWidth() int {
 	return 1
 }
 
+// GetFieldHeight returns this primitive's field height.
+func (c *Checkbox) GetFieldHeight() int {
+	return 1
+}
+
 // SetChangedFunc sets a handler which is called when the checked state of this
 // checkbox was changed by the user. The handler function receives the new
 // state.
@@ -170,13 +175,13 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	// Draw label.
 	if c.labelWidth > 0 {
 		labelWidth := c.labelWidth
-		if labelWidth > rightLimit-x {
-			labelWidth = rightLimit - x
+		if labelWidth > width {
+			labelWidth = width
 		}
 		Print(screen, c.label, x, y, labelWidth, AlignLeft, c.labelColor)
 		x += labelWidth
 	} else {
-		_, drawnWidth := Print(screen, c.label, x, y, rightLimit-x, AlignLeft, c.labelColor)
+		_, drawnWidth := Print(screen, c.label, x, y, width, AlignLeft, c.labelColor)
 		x += drawnWidth
 	}
 

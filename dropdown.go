@@ -244,6 +244,11 @@ func (d *DropDown) GetFieldWidth() int {
 	return fieldWidth
 }
 
+// GetFieldHeight returns this primitive's field height.
+func (d *DropDown) GetFieldHeight() int {
+	return 1
+}
+
 // AddOption adds a new selectable option to this drop-down. The "selected"
 // callback is called when this option was selected. It may be nil.
 func (d *DropDown) AddOption(text string, selected func()) *DropDown {

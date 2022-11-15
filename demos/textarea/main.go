@@ -77,6 +77,7 @@ Type to enter text.
 
 Move while holding Shift or drag the mouse.
 Double-click to select a word.
+[yellow]Ctrl-L[white] to select entire text.
 
 [green]Clipboard
 

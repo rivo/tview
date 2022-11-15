@@ -249,6 +249,11 @@ func (i *InputField) GetFieldWidth() int {
 	return i.fieldWidth
 }
 
+// GetFieldHeight returns this primitive's field height.
+func (i *InputField) GetFieldHeight() int {
+	return 1
+}
+
 // SetMaskCharacter sets a character that masks user input on a screen. A value
 // of 0 disables masking.
 func (i *InputField) SetMaskCharacter(mask rune) *InputField {
@@ -372,13 +377,13 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	_, labelBg, _ := i.labelStyle.Decompose()
 	if i.labelWidth > 0 {
 		labelWidth := i.labelWidth
-		if labelWidth > rightLimit-x {
-			labelWidth = rightLimit - x
+		if labelWidth > width {
+			labelWidth = width
 		}
 		printWithStyle(screen, i.label, x, y, 0, labelWidth, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
 		x += labelWidth
 	} else {
-		_, drawnWidth, _, _ := printWithStyle(screen, i.label, x, y, 0, rightLimit-x, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
+		_, drawnWidth, _, _ := printWithStyle(screen, i.label, x, y, 0, width, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
 		x += drawnWidth
 	}
 

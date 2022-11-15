@@ -336,10 +336,8 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 		return
 	}
 
-	def := tcell.StyleDefault
-
 	// Fill background.
-	background := def.Background(b.backgroundColor)
+	background := tcell.StyleDefault.Background(b.backgroundColor)
 	if !b.dontClear {
 		for y := b.y; y < b.y+b.height; y++ {
 			for x := b.x; x < b.x+b.width; x++ {

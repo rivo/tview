@@ -4,10 +4,16 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// DefaultFormFieldWidth is the default field screen width of form elements
-// whose field width is flexible (0). This is used in the Form class for
-// horizontal layouts.
-var DefaultFormFieldWidth = 10
+var (
+	// DefaultFormFieldWidth is the default field screen width of form elements
+	// whose field width is flexible (0). This is used in the Form class for
+	// horizontal layouts.
+	DefaultFormFieldWidth = 10
+
+	// DefaultFormFieldHeight is the default field height of multi-line form
+	// elements whose field height is flexible (0).
+	DefaultFormFieldHeight = 5
+)
 
 // FormItem is the interface all form items must implement to be able to be
 // included in a form.
@@ -25,6 +31,10 @@ type FormItem interface {
 	// indicates the the field width is flexible and may use as much space as
 	// required.
 	GetFieldWidth() int
+
+	// GetFieldHeight returns the height of the form item's field (the area which
+	// is manipulated by the user). This value must be greater than 0.
+	GetFieldHeight() int
 
 	// SetFinishedFunc sets the handler function for when the user finished
 	// entering data into the item. The handler may receive events for the
@@ -55,7 +65,7 @@ type Form struct {
 	// The alignment of the buttons.
 	buttonsAlign int
 
-	// The number of empty rows between items.
+	// The number of empty cells between items.
 	itemPadding int
 
 	// The index of the item or button which has focus. (Items are counted first,
@@ -164,6 +174,36 @@ func (f *Form) SetFocus(index int) *Form {
 	} else {
 		f.focusedElement = index
 	}
+	return f
+}
+
+// AddTextArea adds a text area to the form. It has a label, an optional initial
+// text, a size (width and height) referring to the actual input area (a
+// fieldWidth of 0 extends it as far right as possible, a fieldHeight of 0 will
+// cause it to be [DefaultFormFieldHeight]), and a maximum number of bytes of
+// text allowed (0 means no limit).
+//
+// The optional callback function is invoked when the content of the text area
+// has changed. Note that especially for larger texts, this is an expensive
+// operation due to technical constraints of the [TextArea] primitive (every key
+// stroke leads to a new reallocation of the entire text).
+func (f *Form) AddTextArea(label, text string, fieldWidth, fieldHeight, maxLength int, changed func(text string)) *Form {
+	if fieldHeight == 0 {
+		fieldHeight = DefaultFormFieldHeight
+	}
+	textArea := NewTextArea().
+		SetLabel(label).
+		SetSize(fieldHeight, fieldWidth).
+		SetMaxLength(maxLength)
+	if text != "" {
+		textArea.SetText(text, true)
+	}
+	if changed != nil {
+		textArea.SetChangedFunc(func() {
+			changed(textArea.GetText())
+		})
+	}
+	f.items = append(f.items, textArea)
 	return f
 }
 
@@ -386,15 +426,19 @@ func (f *Form) Draw(screen tcell.Screen) {
 	maxLabelWidth++ // Add one space.
 
 	// Calculate positions of form items.
-	positions := make([]struct{ x, y, width, height int }, len(f.items)+len(f.buttons))
-	var focusedPosition struct{ x, y, width, height int }
+	type position struct{ x, y, width, height int }
+	positions := make([]position, len(f.items)+len(f.buttons))
+	var (
+		focusedPosition position
+		lineHeight      = 1
+	)
 	for index, item := range f.items {
 		// Calculate the space needed.
 		labelWidth := TaggedStringWidth(item.GetLabel())
 		var itemWidth int
 		if f.horizontal {
 			fieldWidth := item.GetFieldWidth()
-			if fieldWidth == 0 {
+			if fieldWidth <= 0 {
 				fieldWidth = DefaultFormFieldWidth
 			}
 			labelWidth++
@@ -404,11 +448,21 @@ func (f *Form) Draw(screen tcell.Screen) {
 			labelWidth = maxLabelWidth
 			itemWidth = width
 		}
+		itemHeight := item.GetFieldHeight()
+		if itemHeight <= 0 {
+			itemHeight = DefaultFormFieldHeight
+		}
 
 		// Advance to next line if there is no space.
 		if f.horizontal && x+labelWidth+1 >= rightLimit {
 			x = startX
-			y += 2
+			y += lineHeight + 1
+			lineHeight = itemHeight
+		}
+
+		// Update line height.
+		if itemHeight > lineHeight {
+			lineHeight = itemHeight
 		}
 
 		// Adjust the item's attributes.
@@ -427,7 +481,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 		positions[index].x = x
 		positions[index].y = y
 		positions[index].width = itemWidth
-		positions[index].height = 1
+		positions[index].height = itemHeight
 		if item.HasFocus() {
 			focusedPosition = positions[index]
 		}
@@ -436,7 +490,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 		if f.horizontal {
 			x += itemWidth + f.itemPadding
 		} else {
-			y += 1 + f.itemPadding
+			y += itemHeight + f.itemPadding
 		}
 	}
 
@@ -471,8 +525,9 @@ func (f *Form) Draw(screen tcell.Screen) {
 		if f.horizontal {
 			if space < buttonWidth-4 {
 				x = startX
-				y += 2
+				y += lineHeight + 1
 				space = width
+				lineHeight = 1
 			}
 		} else {
 			if space < 1 {
