@@ -150,7 +150,7 @@ func (l *List) GetOffset() (int, int) {
 // always removed.
 //
 // The currently selected item is shifted accordingly. If it is the one that is
-// removed, a "changed" event is fired.
+// removed, a "changed" event is fired, unless no items are left.
 func (l *List) RemoveItem(index int) *List {
 	if len(l.items) == 0 {
 		return l
@@ -177,7 +177,7 @@ func (l *List) RemoveItem(index int) *List {
 
 	// Shift current item.
 	previousCurrentItem := l.currentItem
-	if l.currentItem >= index {
+	if l.currentItem > index || l.currentItem == len(l.items) {
 		l.currentItem--
 	}
 
