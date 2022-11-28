@@ -713,6 +713,7 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 				}
 				l.currentItem = index
 			}
+			setFocus(l)
 			consumed = true
 		case MouseScrollUp:
 			if l.itemOffset > 0 {
@@ -727,7 +728,6 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			if _, _, _, height := l.GetInnerRect(); lines > height {
 				l.itemOffset++
 			}
-			setFocus(l)
 			consumed = true
 		}
 
