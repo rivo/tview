@@ -1137,7 +1137,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 					break // No space for the text anymore.
 				}
 				drawBorder(columnX-1, rowY, Borders.Vertical)
-			} else if column < columnCount-1 {
+			} else if columnIndex < len(columns)-1 {
 				// Draw separator.
 				drawBorder(columnX+columnWidth, rowY, t.separator)
 			}
