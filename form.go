@@ -38,8 +38,10 @@ type FormItem interface {
 
 	// SetFinishedFunc sets the handler function for when the user finished
 	// entering data into the item. The handler may receive events for the
-	// Enter key (we're done), the Escape key (cancel input), the Tab key (move to
-	// next field), and the Backtab key (move to previous field).
+	// Enter key (we're done), the Escape key (cancel input), the Tab key (move
+	// to next field), the Backtab key (move to previous field), or a negative
+	// value, indicating that the action for the last known key should be
+	// repeated.
 	SetFinishedFunc(handler func(key tcell.Key)) FormItem
 }
 
@@ -88,6 +90,10 @@ type Form struct {
 	// The color of the button text.
 	buttonTextColor tcell.Color
 
+	// The last (valid) key that wsa sent to a "finished" handler or -1 if no
+	// such key is known yet.
+	lastFinishedKey tcell.Key
+
 	// An optional function which is called when the user hits Escape.
 	cancel func()
 }
@@ -104,6 +110,7 @@ func NewForm() *Form {
 		fieldTextColor:        Styles.PrimaryTextColor,
 		buttonBackgroundColor: Styles.ContrastBackgroundColor,
 		buttonTextColor:       Styles.PrimaryTextColor,
+		lastFinishedKey:       -1,
 	}
 
 	return f
@@ -203,6 +210,26 @@ func (f *Form) AddTextArea(label, text string, fieldWidth, fieldHeight, maxLengt
 			changed(textArea.GetText())
 		})
 	}
+	f.items = append(f.items, textArea)
+	return f
+}
+
+// AddTextView adds a text view to the form. It has a label and text, a size
+// (width and height) referring to the actual text element (a fieldWidth of 0
+// extends it as far right as possible, a fieldHeight of 0 will cause it to be
+// [DefaultFormFieldHeight]), a flag to turn on/off dynamic colors, and a flag
+// to turn on/off scrolling. If scrolling is turned off, the text view will not
+// receive focus.
+func (f *Form) AddTextView(label, text string, fieldWidth, fieldHeight int, dynamicColors, scrollable bool) *Form {
+	if fieldHeight == 0 {
+		fieldHeight = DefaultFormFieldHeight
+	}
+	textArea := NewTextView().
+		SetLabel(label).
+		SetSize(fieldHeight, fieldWidth).
+		SetDynamicColors(dynamicColors).
+		SetScrollable(scrollable).
+		SetText(text)
 	f.items = append(f.items, textArea)
 	return f
 }
@@ -614,7 +641,11 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 	if f.focusedElement < 0 || f.focusedElement >= len(f.items)+len(f.buttons) {
 		f.focusedElement = 0
 	}
-	handler := func(key tcell.Key) {
+	var handler func(key tcell.Key)
+	handler = func(key tcell.Key) {
+		if key >= 0 {
+			f.lastFinishedKey = key
+		}
 		switch key {
 		case tcell.KeyTab, tcell.KeyEnter:
 			f.focusedElement++
@@ -631,6 +662,11 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 			} else {
 				f.focusedElement = 0
 				f.Focus(delegate)
+			}
+		default:
+			if key < 0 && f.lastFinishedKey >= 0 {
+				// Repeat the last action.
+				handler(f.lastFinishedKey)
 			}
 		}
 	}
