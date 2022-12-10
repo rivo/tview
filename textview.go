@@ -45,7 +45,7 @@ type textViewRegion struct {
 }
 
 // TextViewWriter is a writer that can be used to write to and clear a TextView
-// in batches, i.e. multiple writes with the lock only being aquired once. Don't
+// in batches, i.e. multiple writes with the lock only being acquired once. Don't
 // instantiated this class directly but use the TextView's BatchWriter method
 // instead.
 type TextViewWriter struct {
@@ -64,7 +64,7 @@ func (w TextViewWriter) Clear() {
 }
 
 // Write implements the io.Writer interface. It behaves like the TextView's
-// Write() method except that it does not aquire the lock.
+// Write() method except that it does not acquire the lock.
 func (w TextViewWriter) Write(p []byte) (n int, err error) {
 	return w.t.write(p)
 }
@@ -841,7 +841,7 @@ func (t *TextView) write(p []byte) (n int, err error) {
 
 // BatchWriter returns a new writer that can be used to write into the buffer
 // but without Locking/Unlocking the buffer on every write, as TextView's
-// Write() and Clear() functions do. The lock will be aquired once when
+// Write() and Clear() functions do. The lock will be acquired once when
 // BatchWriter is called, and will be released when the returned writer is
 // closed. Example:
 //
