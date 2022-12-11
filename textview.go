@@ -376,6 +376,15 @@ func (t *TextView) SetTextColor(color tcell.Color) *TextView {
 	return t
 }
 
+// SetBackgroundColor overrides its implementation in Box to set the background
+// color of this primitive. For backwards compatibility reasons, it also sets
+// the background color of the main text element.
+func (t *TextView) SetBackgroundColor(color tcell.Color) *Box {
+	t.Box.SetBackgroundColor(color)
+	t.textStyle = t.textStyle.Background(color)
+	return t.Box
+}
+
 // SetTextStyle sets the initial style of the text (which can be changed
 // dynamically by sending color strings in square brackets to the text view if
 // dynamic colors are enabled). This style's background color also determines
