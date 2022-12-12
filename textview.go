@@ -395,7 +395,9 @@ func (t *TextView) SetTextStyle(style tcell.Style) *TextView {
 }
 
 // SetText sets the text of this text view to the provided string. Previously
-// contained text will be removed.
+// contained text will be removed. As with writing to the text view io.Writer
+// interface directly, this does not trigger an automatic redraw but it will
+// trigger the "changed" callback if one is set.
 func (t *TextView) SetText(text string) *TextView {
 	batch := t.BatchWriter()
 	defer batch.Close()
