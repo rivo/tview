@@ -263,6 +263,12 @@ func (b *Box) SetBorder(show bool) *Box {
 	return b
 }
 
+// SetBorderStyle sets the box's border style.
+func (b *Box) SetBorderStyle(style tcell.Style) *Box {
+	b.borderStyle = style
+	return b
+}
+
 // SetBorderColor sets the box's border color.
 func (b *Box) SetBorderColor(color tcell.Color) *Box {
 	b.borderStyle = b.borderStyle.Foreground(color)

@@ -10,17 +10,14 @@ import (
 type Button struct {
 	*Box
 
-	// The text to be displayed before the input area.
-	label string
+	// The text to be displayed inside the button.
+	text string
 
-	// The label color.
-	labelColor tcell.Color
+	// The button's style (when deactivated).
+	style tcell.Style
 
-	// The label color when the button is in focus.
-	labelColorActivated tcell.Color
-
-	// The background color when the button is in focus.
-	backgroundColorActivated tcell.Color
+	// The button's style (when activated).
+	activatedStyle tcell.Style
 
 	// An optional function which is called when the button was selected.
 	selected func()
@@ -33,45 +30,56 @@ type Button struct {
 
 // NewButton returns a new input field.
 func NewButton(label string) *Button {
-	box := NewBox().SetBackgroundColor(Styles.ContrastBackgroundColor)
+	box := NewBox()
 	box.SetRect(0, 0, TaggedStringWidth(label)+4, 1)
 	return &Button{
-		Box:                      box,
-		label:                    label,
-		labelColor:               Styles.PrimaryTextColor,
-		labelColorActivated:      Styles.InverseTextColor,
-		backgroundColorActivated: Styles.PrimaryTextColor,
+		Box:            box,
+		text:           label,
+		style:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		activatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.InverseTextColor),
 	}
 }
 
 // SetLabel sets the button text.
 func (b *Button) SetLabel(label string) *Button {
-	b.label = label
+	b.text = label
 	return b
 }
 
 // GetLabel returns the button text.
 func (b *Button) GetLabel() string {
-	return b.label
+	return b.text
 }
 
 // SetLabelColor sets the color of the button text.
 func (b *Button) SetLabelColor(color tcell.Color) *Button {
-	b.labelColor = color
+	b.style = b.style.Foreground(color)
+	return b
+}
+
+// SetStyle sets the style of the button used when it is not focused.
+func (b *Button) SetStyle(style tcell.Style) *Button {
+	b.style = style
 	return b
 }
 
 // SetLabelColorActivated sets the color of the button text when the button is
 // in focus.
 func (b *Button) SetLabelColorActivated(color tcell.Color) *Button {
-	b.labelColorActivated = color
+	b.activatedStyle = b.activatedStyle.Foreground(color)
 	return b
 }
 
 // SetBackgroundColorActivated sets the background color of the button text when
 // the button is in focus.
 func (b *Button) SetBackgroundColorActivated(color tcell.Color) *Button {
-	b.backgroundColorActivated = color
+	b.activatedStyle = b.activatedStyle.Background(color)
+	return b
+}
+
+// SetActivatedStyle sets the style of the button used when it is focused.
+func (b *Button) SetActivatedStyle(style tcell.Style) *Button {
+	b.activatedStyle = style
 	return b
 }
 
@@ -96,27 +104,27 @@ func (b *Button) SetExitFunc(handler func(key tcell.Key)) *Button {
 // Draw draws this primitive onto the screen.
 func (b *Button) Draw(screen tcell.Screen) {
 	// Draw the box.
-	borderColor := b.GetBorderColor()
-	backgroundColor := b.GetBackgroundColor()
+	style := b.style
+	_, backgroundColor, _ := style.Decompose()
 	if b.HasFocus() {
-		b.SetBackgroundColor(b.backgroundColorActivated)
-		b.SetBorderColor(b.labelColorActivated)
+		style = b.activatedStyle
+		_, backgroundColor, _ = style.Decompose()
+
+		// Highlight button for one drawing cycle.
+		borderColor := b.GetBorderColor()
+		b.SetBorderColor(backgroundColor)
 		defer func() {
 			b.SetBorderColor(borderColor)
 		}()
 	}
+	b.SetBackgroundColor(backgroundColor)
 	b.Box.DrawForSubclass(screen, b)
-	b.backgroundColor = backgroundColor
 
 	// Draw label.
 	x, y, width, height := b.GetInnerRect()
 	if width > 0 && height > 0 {
 		y = y + height/2
-		labelColor := b.labelColor
-		if b.HasFocus() {
-			labelColor = b.labelColorActivated
-		}
-		Print(screen, b.label, x, y, width, AlignCenter, labelColor)
+		printWithStyle(screen, b.text, x, y, 0, width, AlignCenter, style, true)
 	}
 }
 

@@ -84,11 +84,11 @@ type Form struct {
 	// The text color of the input area.
 	fieldTextColor tcell.Color
 
-	// The background color of the buttons.
-	buttonBackgroundColor tcell.Color
+	// The style of the buttons when they are not focused.
+	buttonStyle tcell.Style
 
-	// The color of the button text.
-	buttonTextColor tcell.Color
+	// The style of the buttons when they are focused.
+	buttonActivatedStyle tcell.Style
 
 	// The last (valid) key that wsa sent to a "finished" handler or -1 if no
 	// such key is known yet.
@@ -103,14 +103,14 @@ func NewForm() *Form {
 	box := NewBox().SetBorderPadding(1, 1, 1, 1)
 
 	f := &Form{
-		Box:                   box,
-		itemPadding:           1,
-		labelColor:            Styles.SecondaryTextColor,
-		fieldBackgroundColor:  Styles.ContrastBackgroundColor,
-		fieldTextColor:        Styles.PrimaryTextColor,
-		buttonBackgroundColor: Styles.ContrastBackgroundColor,
-		buttonTextColor:       Styles.PrimaryTextColor,
-		lastFinishedKey:       -1,
+		Box:                  box,
+		itemPadding:          1,
+		labelColor:           Styles.SecondaryTextColor,
+		fieldBackgroundColor: Styles.ContrastBackgroundColor,
+		fieldTextColor:       Styles.PrimaryTextColor,
+		buttonStyle:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		buttonActivatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
+		lastFinishedKey:      -1,
 	}
 
 	return f
@@ -158,15 +158,31 @@ func (f *Form) SetButtonsAlign(align int) *Form {
 	return f
 }
 
-// SetButtonBackgroundColor sets the background color of the buttons.
+// SetButtonBackgroundColor sets the background color of the buttons. This is
+// also the text color of the buttons when they are focused.
 func (f *Form) SetButtonBackgroundColor(color tcell.Color) *Form {
-	f.buttonBackgroundColor = color
+	f.buttonStyle = f.buttonStyle.Background(color)
+	f.buttonActivatedStyle = f.buttonActivatedStyle.Foreground(color)
 	return f
 }
 
-// SetButtonTextColor sets the color of the button texts.
+// SetButtonTextColor sets the color of the button texts. This is also the
+// background of the buttons when they are focused.
 func (f *Form) SetButtonTextColor(color tcell.Color) *Form {
-	f.buttonTextColor = color
+	f.buttonStyle = f.buttonStyle.Foreground(color)
+	f.buttonActivatedStyle = f.buttonActivatedStyle.Background(color)
+	return f
+}
+
+// SetButtonStyle sets the style of the buttons when they are not focused.
+func (f *Form) SetButtonStyle(style tcell.Style) *Form {
+	f.buttonStyle = style
+	return f
+}
+
+// SetButtonActivatedStyle sets the style of the buttons when they are focused.
+func (f *Form) SetButtonActivatedStyle(style tcell.Style) *Form {
+	f.buttonActivatedStyle = style
 	return f
 }
 
@@ -564,10 +580,8 @@ func (f *Form) Draw(screen tcell.Screen) {
 		if buttonWidth > space {
 			buttonWidth = space
 		}
-		button.SetLabelColor(f.buttonTextColor).
-			SetLabelColorActivated(f.buttonBackgroundColor).
-			SetBackgroundColorActivated(f.buttonTextColor).
-			SetBackgroundColor(f.buttonBackgroundColor)
+		button.SetStyle(f.buttonStyle).
+			SetActivatedStyle(f.buttonActivatedStyle)
 
 		buttonIndex := index + len(f.items)
 		positions[buttonIndex].x = x
@@ -671,16 +685,22 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 		}
 	}
 
-	if f.focusedElement < len(f.items) {
-		// We're selecting an item.
-		item := f.items[f.focusedElement]
+	// Set the handler for all items and buttons.
+	for index, item := range f.items {
 		item.SetFinishedFunc(handler)
-		delegate(item)
-	} else {
-		// We're selecting a button.
-		button := f.buttons[f.focusedElement-len(f.items)]
+		if f.focusedElement == index {
+			func(i FormItem) { // Wrapping might not be necessary anymore in future Go versions.
+				defer delegate(i)
+			}(item)
+		}
+	}
+	for index, button := range f.buttons {
 		button.SetExitFunc(handler)
-		delegate(button)
+		if f.focusedElement == index+len(f.items) {
+			func(b *Button) { // Wrapping might not be necessary anymore in future Go versions.
+				defer delegate(b)
+			}(button)
+		}
 	}
 }
 
