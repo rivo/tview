@@ -108,6 +108,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [tuihub: A utility hub/dashboard for personal use](https://github.com/ashis0013/tuihub)
 - [l'oggo: A terminal app for structured log streaming (GCP stack driver, k8s, local streaming)](https://github.com/aurc/loggo)
 - [reminder: Terminal based interactive app for organising tasks with minimal efforts.](https://github.com/goyalmunish/reminder)
+- [tufw: A terminal UI for ufw.](https://github.com/peltho/tufw)
 
 ## Documentation
 
