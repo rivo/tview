@@ -374,6 +374,8 @@ func (t *TreeView) SetTopLevel(topLevel int) *TreeView {
 //
 //	treeView.SetGraphics(false).
 //	  SetPrefixes([]string{"* ", "- ", "x "})
+//
+// Deeper levels will cycle through the prefixes.
 func (t *TreeView) SetPrefixes(prefixes []string) *TreeView {
 	t.prefixes = prefixes
 	return t
@@ -449,6 +451,7 @@ func (t *TreeView) Move(offset int) *TreeView {
 	}
 	t.movement = treeMove
 	t.step = offset
+	t.process(false)
 	return t
 }
 
