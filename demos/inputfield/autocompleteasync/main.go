@@ -75,7 +75,7 @@ func main() {
 		return nil
 	})
 
-	if err := app.SetRoot(inputField, true).Run(); err != nil {
+	if err := app.EnableMouse(true).SetRoot(inputField, true).Run(); err != nil {
 		panic(err)
 	}
 }
