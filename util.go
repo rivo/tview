@@ -10,11 +10,13 @@ import (
 	"github.com/rivo/uniseg"
 )
 
-// Text alignment within a box.
+// Text alignment within a box. Also used to align images.
 const (
 	AlignLeft = iota
 	AlignCenter
 	AlignRight
+	AlignTop    = 0
+	AlignBottom = 2
 )
 
 // Common regular expressions.
