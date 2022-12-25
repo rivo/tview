@@ -3,6 +3,8 @@ package tview
 import (
 	"image"
 	"math"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 // Types of dithering applied to images.
@@ -15,17 +17,48 @@ const (
 // The number of colors supported by true color terminals (R*G*B = 256*256*256).
 const TrueColor = 16777216
 
+// This map describes what each block element looks like. A 1 bit represents a
+// pixel that is drawn, a 0 bit represents a pixel that is not drawn. The least
+// significant bit is the top left pixel, the most significant bit is the bottom
+// right pixel, moving row by row from left to right, top to bottom.
+var blockElements = map[rune]uint64{
+	BlockLowerOneEighthBlock:            0b1111111100000000000000000000000000000000000000000000000000000000,
+	BlockLowerOneQuarterBlock:           0b1111111111111111000000000000000000000000000000000000000000000000,
+	BlockLowerThreeEighthsBlock:         0b1111111111111111111111110000000000000000000000000000000000000000,
+	BlockLowerHalfBlock:                 0b1111111111111111111111111111111100000000000000000000000000000000,
+	BlockLowerFiveEighthsBlock:          0b1111111111111111111111111111111111111111000000000000000000000000,
+	BlockLowerThreeQuartersBlock:        0b1111111111111111111111111111111111111111111111110000000000000000,
+	BlockLowerSevenEighthsBlock:         0b1111111111111111111111111111111111111111111111111111111100000000,
+	BlockLeftSevenEighthsBlock:          0b0111111101111111011111110111111101111111011111110111111101111111,
+	BlockLeftThreeQuartersBlock:         0b0011111100111111001111110011111100111111001111110011111100111111,
+	BlockLeftFiveEighthsBlock:           0b0001111100011111000111110001111100011111000111110001111100011111,
+	BlockLeftHalfBlock:                  0b0000111100001111000011110000111100001111000011110000111100001111,
+	BlockLeftThreeEighthsBlock:          0b0000011100000111000001110000011100000111000001110000011100000111,
+	BlockLeftOneQuarterBlock:            0b0000001100000011000000110000001100000011000000110000001100000011,
+	BlockLeftOneEighthBlock:             0b0000000100000001000000010000000100000001000000010000000100000001,
+	BlockQuadrantLowerLeft:              0b0000111100001111000011110000111100000000000000000000000000000000,
+	BlockQuadrantLowerRight:             0b1111000011110000111100001111000000000000000000000000000000000000,
+	BlockQuadrantUpperLeft:              0b0000000000000000000000000000000000001111000011110000111100001111,
+	BlockQuadrantUpperRight:             0b0000000000000000000000000000000011110000111100001111000011110000,
+	BlockQuadrantUpperLeftAndLowerRight: 0b1111000011110000111100001111000000001111000011110000111100001111,
+}
+
+// pixel represents a character on screen used to draw part of an image.
+type pixel struct {
+	style   tcell.Style
+	element rune // The block element.
+}
+
 // Image implements a widget that displays one image. The original image
-// (specified with [SetImage]) is resized according to the widget's size (see
-// [SetSize]), using the colors available in the terminal (see [SetColors]),
-// applying dithering if necessary (see [SetDithering]).
+// (specified with [SetImage]) is resized according to the specified size (see
+// [SetSize]), using the specified (see [SetColors]), while applying dithering
+// if necessary (see [SetDithering]).
 //
 // Images are approximated by graphical characters in the terminal. The
 // resolution is therefore limited by the number of characters that can be drawn
-// in the terminal and the colors available in the terminal.
-//
-// Don't rely on the exact pixels drawn by this widget. The image drawing
-// algorithm may change in the future to improve the appearance of the image.
+// in the terminal and the colors available in the terminal. The quality of the
+// final image also depends on the terminal's font and spacing settings, none of
+// which are under the control of this package.
 type Image struct {
 	*Box
 
@@ -56,25 +89,33 @@ type Image struct {
 	// Horizontal and vertical alignment, one of the "Align" constants.
 	alignHorizontal, alignVertical int
 
+	// The text to be displayed before the image.
+	label string
+
+	// The label style.
+	labelStyle tcell.Style
+
+	// The screen width of the label area. A value of 0 means use the width of
+	// the label text.
+	labelWidth int
+
 	// The actual image size (in cells) when it was drawn the last time.
 	lastWidth, lastHeight int
 
 	// The actual image (in cells) when it was drawn the last time. The size of
-	// this slice is 4 * lastWidth * lastHeight (with a factor of 4 because we
-	// can draw four pixels per cell), indexed by y*lastWidth*2 + x. Each pixel
-	// is an RGB value (0-255).
-	pixels [][3]int
+	// this slice is lastWidth * lastHeight, indexed by y*lastWidth + x.
+	pixels []pixel
 }
 
 // NewImage returns a new image widget with an empty image (use [SetImage] to
 // specify the image to be displayed). The image will use the widget's entire
 // available space. The dithering algorithm is set to Floyd-Steinberg dithering.
-// The terminal's cell aspect ratio is set to 1.
+// The terminal's cell aspect ratio is set to 0.5.
 func NewImage() *Image {
 	return &Image{
 		Box:             NewBox(),
 		dithering:       ImageDitheringFloydSteinberg,
-		aspectRatio:     1,
+		aspectRatio:     0.5,
 		alignHorizontal: AlignCenter,
 		alignVertical:   AlignCenter,
 	}
@@ -131,7 +172,7 @@ func (i *Image) SetBackgroundColor(r, g, b int8) *Image {
 }
 
 // SetAspectRatio sets the width of a terminal's cell divided by its height.
-// You may change the default of 1 if your terminal uses a different aspect
+// You may change the default of 0.5 if your terminal uses a different aspect
 // ratio. This is used to calculate the size of the image if one of the sizes
 // is 0. The function will panic if the aspect ratio is 0 or less.
 func (i *Image) SetAspectRatio(aspectRatio float64) *Image {
@@ -153,6 +194,35 @@ func (i *Image) SetAlign(vertical, horizontal int) *Image {
 	return i
 }
 
+// SetLabel sets the text to be displayed before the image.
+func (i *Image) SetLabel(label string) *Image {
+	i.label = label
+	return i
+}
+
+// GetLabel returns the text to be displayed before the image.
+func (i *Image) GetLabel() string {
+	return i.label
+}
+
+// SetLabelWidth sets the screen width of the label. A value of 0 will cause the
+// primitive to use the width of the label string.
+func (i *Image) SetLabelWidth(width int) *Image {
+	i.labelWidth = width
+	return i
+}
+
+// SetLabelStyle sets the style of the label.
+func (i *Image) SetLabelStyle(style tcell.Style) *Image {
+	i.labelStyle = style
+	return i
+}
+
+// GetLabelStyle returns the style of the label.
+func (i *Image) GetLabelStyle() tcell.Style {
+	return i.labelStyle
+}
+
 // render re-populates the [Image.pixels] slice besed on the current settings,
 // if [Image.lastWidth] and [Image.lastHeight] don't match the current image's
 // size. It also sets the new image size in these two variables.
@@ -171,6 +241,15 @@ func (i *Image) render() {
 	}
 	width, height := i.width, i.height
 	_, _, innerWidth, innerHeight := i.GetInnerRect()
+	if i.labelWidth > 0 {
+		innerWidth -= i.labelWidth
+	} else {
+		innerWidth -= TaggedStringWidth(i.label)
+	}
+	if innerWidth <= 0 {
+		i.pixels = nil
+		return
+	}
 	if width == 0 && height == 0 {
 		// Use all available space.
 		width, height = innerWidth, innerHeight
@@ -206,14 +285,20 @@ func (i *Image) render() {
 	}
 	i.lastWidth, i.lastHeight = width, height // This could still be larger than the available space but that's ok for now.
 
-	// Generate the initial pixels by resizing the image.
-	i.resize()
+	// Generate the initial pixels by resizing the image (8x8 per cell).
+	pixels := i.resize()
+
+	// Turn them into block elements with background/foreground colors.
+	i.stamp(pixels)
 }
 
-// resize resizes the image to the current size and stores the result in
-// [Image.pixels]. It is assumed that [Image.lastWidth] and [Image.lastHeight]
-// are positive values.
-func (i *Image) resize() {
+// resize resizes the image to the current size and returns the result as a
+// slice of pixels. It is assumed that [Image.lastWidth] (w) and
+// [Image.lastHeight] (h) are positive, non-zero values, and the slice has a
+// size of 64*w*h, with each pixel being represented by 3 float64 values in the
+// range of 0-1. The factor of 64 is due to the fact that we calculate 8x8
+// pixels per cell.
+func (i *Image) resize() [][3]float64 {
 	// Because most of the time, we will be downsizing the image, we don't even
 	// attempt to do any fancy interpolation. For each target pixel, we
 	// calculate a weighted average of the source pixels using their coverage
@@ -221,14 +306,14 @@ func (i *Image) resize() {
 
 	bounds := i.image.Bounds()
 	srcWidth, srcHeight := bounds.Dx(), bounds.Dy()
-	tgtWidth, tgtHeight := i.lastWidth*2, i.lastHeight*2
-	coverageWidth, coverageHeight := float64(srcWidth)/float64(tgtWidth), float64(srcHeight)/float64(tgtHeight)
-	i.pixels = make([][3]int, tgtWidth*tgtHeight)
+	tgtWidth, tgtHeight := i.lastWidth*8, i.lastHeight*8
+	coverageWidth, coverageHeight := float64(tgtWidth)/float64(srcWidth), float64(tgtHeight)/float64(srcHeight)
+	pixels := make([][3]float64, tgtWidth*tgtHeight)
 	weights := make([]float64, tgtWidth*tgtHeight)
 	for srcY := bounds.Min.Y; srcY < bounds.Max.Y; srcY++ {
 		for srcX := bounds.Min.X; srcX < bounds.Max.X; srcX++ {
 			r32, g32, b32, _ := i.image.At(srcX, srcY).RGBA()
-			r, g, b := int(r32>>8), int(g32>>8), int(b32>>8)
+			r, g, b := float64(r32)/0xffff, float64(g32)/0xffff, float64(b32)/0xffff
 
 			// Iterate over all target pixels. Outer loop is Y.
 			startY := float64(srcY-bounds.Min.Y) * coverageHeight
@@ -258,10 +343,11 @@ func (i *Image) resize() {
 
 					// Add a weighted contribution to the target pixel.
 					index := tgtY*tgtWidth + tgtX
-					i.pixels[index][0] += r
-					i.pixels[index][1] += g
-					i.pixels[index][2] += b
-					weights[index] += coverageX * coverageY
+					coverage := coverageX * coverageY
+					pixels[index][0] += r * coverage
+					pixels[index][1] += g * coverage
+					pixels[index][2] += b * coverage
+					weights[index] += coverage
 				}
 			}
 		}
@@ -270,9 +356,266 @@ func (i *Image) resize() {
 	// Normalize the pixels.
 	for index, weight := range weights {
 		if weight > 0 {
-			i.pixels[index][0] = int(float64(i.pixels[index][0]) / weight)
-			i.pixels[index][1] = int(float64(i.pixels[index][1]) / weight)
-			i.pixels[index][2] = int(float64(i.pixels[index][2]) / weight)
+			pixels[index][0] /= weight
+			pixels[index][1] /= weight
+			pixels[index][2] /= weight
+		}
+	}
+
+	return pixels
+}
+
+// stamp takes the pixels generated by [Image.resize] and populates the
+// [Image.pixels] slice accordingly.
+func (i *Image) stamp(resized [][3]float64) {
+	// For each 8x8 pixel block, we find the best block element to represent it,
+	// given the available colors.
+	i.pixels = make([]pixel, i.lastWidth*i.lastHeight)
+	colors := i.colors
+	if colors == 0 {
+		colors = availableColors
+	}
+	for row := 0; row < i.lastHeight; row++ {
+		for col := 0; col < i.lastWidth; col++ {
+			// Calculate an error for each potential block element + color. Keep
+			// the one with the lowest error.
+			minMSE := math.MaxFloat64 // Mean squared error.
+			for element, bits := range blockElements {
+				// Calculate the average color for the pixels covered by the set
+				// bits and unset bits.
+				var (
+					bg, fg  [3]float64
+					setBits float64
+					bit     uint64 = 1
+				)
+				for y := 0; y < 8; y++ {
+					for x := 0; x < 8; x++ {
+						index := (row*8+y)*i.lastWidth*8 + (col*8 + x)
+						if bits&bit != 0 {
+							fg[0] += resized[index][0]
+							fg[1] += resized[index][1]
+							fg[2] += resized[index][2]
+							setBits++
+						} else {
+							bg[0] += resized[index][0]
+							bg[1] += resized[index][1]
+							bg[2] += resized[index][2]
+						}
+						bit <<= 1
+					}
+				}
+				fg[0] /= setBits
+				fg[1] /= setBits
+				fg[2] /= setBits
+				bg[0] /= 64 - setBits
+				bg[1] /= 64 - setBits
+				bg[2] /= 64 - setBits
+
+				// Quantize to the nearest acceptable color.
+				for _, color := range []*[3]float64{&fg, &bg} {
+					if colors <= 2 {
+						// Monochrome. The following weights correspond better
+						// to human perception than the arithmetic mean.
+						gray := 0.299*color[0] + 0.587*color[1] + 0.114*color[2]
+						if gray < 0.5 {
+							*color = [3]float64{0, 0, 0}
+						} else {
+							*color = [3]float64{1, 1, 1}
+						}
+					} else {
+						for index, ch := range color {
+							switch {
+							case colors <= 8:
+								// Colors vary wildly for each terminal. Expect
+								// suboptimal results.
+								if ch < 0.5 {
+									color[index] = 0
+								} else {
+									color[index] = 1
+								}
+							case colors <= 256:
+								color[index] = math.Round(ch*6) / 6
+							}
+						}
+					}
+				}
+
+				// Calculate the error.
+				var mse float64
+				bit = 1
+				for y := 0; y < 8; y++ {
+					for x := 0; x < 8; x++ {
+						index := (row*8+y)*i.lastWidth*8 + (col*8 + x)
+						for ch := 0; ch < 3; ch++ {
+							err := resized[index][ch]
+							if bits&bit != 0 {
+								err -= fg[ch]
+							} else {
+								err -= bg[ch]
+							}
+							mse += err * err
+						}
+						bit <<= 1
+					}
+				}
+
+				// Do we have a better match?
+				if mse < minMSE {
+					// Yes. Save it.
+					minMSE = mse
+					index := row*i.lastWidth + col
+					i.pixels[index].element = element
+					i.pixels[index].style = tcell.StyleDefault.
+						Foreground(tcell.NewRGBColor(int32(math.Min(255, fg[0]*255)), int32(math.Min(255, fg[1]*255)), int32(math.Min(255, fg[2]*255)))).
+						Background(tcell.NewRGBColor(int32(math.Min(255, bg[0]*255)), int32(math.Min(255, bg[1]*255)), int32(math.Min(255, bg[2]*255))))
+				}
+			}
+
+			// Check if there is a shade block which results in a smaller error.
+
+			// What's the overall average color?
+			var avg [3]float64
+			for y := 0; y < 8; y++ {
+				for x := 0; x < 8; x++ {
+					index := (row*8+y)*i.lastWidth*8 + (col*8 + x)
+					for ch := 0; ch < 3; ch++ {
+						avg[ch] += resized[index][ch] / 64
+					}
+				}
+			}
+
+			// Quantize and choose shade element.
+			element := BlockFullBlock
+			var fg, bg tcell.Color
+			shades := []rune{' ', BlockLightShade, BlockMediumShade, BlockDarkShade, BlockFullBlock}
+			if colors <= 2 {
+				// Monochrome.
+				gray := 0.299*avg[0] + 0.587*avg[1] + 0.114*avg[2] // See above for details.
+				shade := int(math.Round(gray * 4))
+				element = shades[shade]
+				for ch := 0; ch < 3; ch++ {
+					avg[ch] = float64(shade) / 4
+				}
+				bg = tcell.ColorBlack
+				fg = tcell.ColorWhite
+			} else if colors > 256 {
+				// True color.
+				fg = tcell.NewRGBColor(int32(math.Min(255, avg[0]*255)), int32(math.Min(255, avg[1]*255)), int32(math.Min(255, avg[2]*255)))
+				bg = fg
+			} else {
+				// 8 or 256 colors.
+				steps := 1.0
+				if colors > 8 {
+					steps = 6.0
+				}
+				var (
+					lo, hi, pos [3]float64
+					shade       float64
+				)
+				for ch := 0; ch < 3; ch++ {
+					lo[ch] = math.Floor(avg[ch]*steps) / steps
+					hi[ch] = math.Ceil(avg[ch]*steps) / steps
+					if r := hi[ch] - lo[ch]; r > 0 {
+						pos[ch] = (avg[ch] - lo[ch]) / r
+						if math.Abs(pos[ch]-0.5) < math.Abs(shade-0.5) {
+							shade = pos[ch]
+						}
+					}
+				}
+				shade = math.Round(shade * 4)
+				element = shades[int(shade)]
+				shade /= 4
+				for ch := 0; ch < 3; ch++ { // Find the closest channel value.
+					best := math.Abs(avg[ch] - (lo[ch] + (hi[ch]-lo[ch])*shade)) // Start shade from lo to hi.
+					if value := math.Abs(avg[ch] - (hi[ch] - (hi[ch]-lo[ch])*shade)); value < best {
+						best = value // Swap lo and hi.
+						lo[ch], hi[ch] = hi[ch], lo[ch]
+					}
+					if value := math.Abs(avg[ch] - lo[ch]); value < best {
+						best = value // Use lo.
+						hi[ch] = lo[ch]
+					}
+					if value := math.Abs(avg[ch] - hi[ch]); value < best {
+						lo[ch] = hi[ch] // Use hi.
+					}
+					avg[ch] = lo[ch] + (hi[ch]-lo[ch])*shade // Quantize.
+				}
+				bg = tcell.NewRGBColor(int32(math.Min(255, lo[0]*255)), int32(math.Min(255, lo[1]*255)), int32(math.Min(255, lo[2]*255)))
+				fg = tcell.NewRGBColor(int32(math.Min(255, hi[0]*255)), int32(math.Min(255, hi[1]*255)), int32(math.Min(255, hi[2]*255)))
+			}
+
+			// Calculate the error.
+			var mse float64
+			for y := 0; y < 8; y++ {
+				for x := 0; x < 8; x++ {
+					index := (row*8+y)*i.lastWidth*8 + (col*8 + x)
+					for ch := 0; ch < 3; ch++ {
+						err := resized[index][ch] - avg[ch]
+						mse += err * err
+					}
+				}
+			}
+
+			// Is this shade element better than the block element?
+			if mse < minMSE {
+				// Yes. Save it.
+				index := row*i.lastWidth + col
+				i.pixels[index].element = element
+				i.pixels[index].style = tcell.StyleDefault.Foreground(fg).Background(bg)
+			}
+		}
+	}
+}
+
+// Draw draws this primitive onto the screen.
+func (i *Image) Draw(screen tcell.Screen) {
+	i.DrawForSubclass(screen, i)
+
+	// Regenerate image if necessary.
+	i.render()
+
+	// Draw label.
+	viewX, viewY, viewWidth, viewHeight := i.GetInnerRect()
+	_, labelBg, _ := i.labelStyle.Decompose()
+	if i.labelWidth > 0 {
+		labelWidth := i.labelWidth
+		if labelWidth > viewWidth {
+			labelWidth = viewWidth
+		}
+		printWithStyle(screen, i.label, viewX, viewY, 0, labelWidth, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
+		viewX += labelWidth
+		viewWidth -= labelWidth
+	} else {
+		_, drawnWidth, _, _ := printWithStyle(screen, i.label, viewX, viewY, 0, viewWidth, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
+		viewX += drawnWidth
+		viewWidth -= drawnWidth
+	}
+
+	// Determine image placement.
+	x, y, width, height := viewX, viewY, i.lastWidth, i.lastHeight
+	if i.alignHorizontal == AlignCenter {
+		x += (viewWidth - width) / 2
+	} else if i.alignHorizontal == AlignRight {
+		x += viewWidth - width
+	}
+	if i.alignVertical == AlignCenter {
+		y += (viewHeight - height) / 2
+	} else if i.alignVertical == AlignBottom {
+		y += viewHeight - height
+	}
+
+	// Draw the image.
+	for row := 0; row < height; row++ {
+		if y+row < viewY || y+row >= viewY+viewHeight {
+			continue
+		}
+		for col := 0; col < width; col++ {
+			if x+col < viewX || x+col >= viewX+viewWidth {
+				continue
+			}
+
+			index := row*width + col
+			screen.SetContent(x+col, y+row, i.pixels[index].element, nil, i.pixels[index].style)
 		}
 	}
 }
