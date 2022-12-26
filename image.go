@@ -49,15 +49,16 @@ type pixel struct {
 }
 
 // Image implements a widget that displays one image. The original image
-// (specified with [SetImage]) is resized according to the specified size (see
-// [SetSize]), using the specified (see [SetColors]), while applying dithering
-// if necessary (see [SetDithering]).
+// (specified with [Image.SetImage]) is resized according to the specified size
+// (see [Image.SetSize]), using the specified number of colors (see
+// [Image.SetColors]), while applying dithering if necessary (see
+// [Image.SetDithering]).
 //
 // Images are approximated by graphical characters in the terminal. The
 // resolution is therefore limited by the number of characters that can be drawn
 // in the terminal and the colors available in the terminal. The quality of the
 // final image also depends on the terminal's font and spacing settings, none of
-// which are under the control of this package.
+// which are under the control of this package. Results may vary.
 type Image struct {
 	*Box
 
@@ -107,10 +108,10 @@ type Image struct {
 	finished func(tcell.Key)
 }
 
-// NewImage returns a new image widget with an empty image (use [SetImage] to
-// specify the image to be displayed). The image will use the widget's entire
+// NewImage returns a new image widget with an empty image (use [Image.SetImage]
+// to specify the image to be displayed). The image will use the widget's entire
 // available space. The dithering algorithm is set to Floyd-Steinberg dithering.
-// The terminal's cell aspect ratio is set to 0.5.
+// The terminal's cell aspect ratio defaults to 0.5.
 func NewImage() *Image {
 	return &Image{
 		Box:             NewBox(),
@@ -142,7 +143,7 @@ func (i *Image) SetSize(rows, columns int) *Image {
 
 // SetColors sets the number of colors to use. This should be the number of
 // colors supported by the terminal. If 0, the number of colors is chosen based
-// on the $TERM environment variable (which may or may not be reliable).
+// on the TERM environment variable (which may or may not be reliable).
 //
 // Only the values 0, 2, 8, 256, and 16777216 ([TrueColor]) are supported. Other
 // values will be rounded up to the next supported value, to a maximum of
@@ -182,9 +183,10 @@ func (i *Image) SetDithering(dithering int) *Image {
 }
 
 // SetAspectRatio sets the width of a terminal's cell divided by its height.
-// You may change the default of 0.5 if your terminal uses a different aspect
-// ratio. This is used to calculate the size of the image if one of the sizes
-// is 0. The function will panic if the aspect ratio is 0 or less.
+// You may change the default of 0.5 if your terminal / font has a different
+// aspect ratio. This is used to calculate the size of the image if the
+// specified width or height is 0. The function will panic if the aspect ratio
+// is 0 or less.
 func (i *Image) SetAspectRatio(aspectRatio float64) *Image {
 	if aspectRatio <= 0 {
 		panic("aspect ratio must be greater than 0")
@@ -197,7 +199,8 @@ func (i *Image) SetAspectRatio(aspectRatio float64) *Image {
 // SetAlign sets the vertical and horizontal alignment of the image within the
 // widget's space. The possible values are [AlignTop], [AlignCenter], and
 // [AlignBottom] for vertical alignment and [AlignLeft], [AlignCenter], and
-// [AlignRight] for horizontal alignment. The default is [AlignCenter] for both.
+// [AlignRight] for horizontal alignment. The default is [AlignCenter] for both
+// (or [AlignTop] and [AlignLeft] if the image is part of a [Form]).
 func (i *Image) SetAlign(vertical, horizontal int) *Image {
 	i.alignHorizontal = horizontal
 	i.alignVertical = vertical

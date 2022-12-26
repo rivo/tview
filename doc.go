@@ -18,9 +18,10 @@ The package implements the following widgets:
   - [InputField]: One-line input fields to enter text.
   - [DropDown]: Drop-down selection fields.
   - [Checkbox]: Selectable checkbox for boolean values.
+  - [Image]: Displays images.
   - [Button]: Buttons which get activated when the user selects them.
-  - Form: Forms composed of input fields, drop down selections, checkboxes, and
-    buttons.
+  - [Form]: Forms composed of input fields, drop down selections, checkboxes,
+    and buttons.
   - [Modal]: A centered window with a text message and one or more buttons.
   - [Grid]: A grid based layout manager.
   - [Flex]: A Flexbox based layout manager.
