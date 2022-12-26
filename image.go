@@ -154,6 +154,23 @@ func (i *Image) SetColors(colors int) *Image {
 	return i
 }
 
+// GetColors returns the number of colors that will be used while drawing the
+// image. This is one of the values listed in [Image.SetColors], except 0 which
+// will be replaced by the actual number of colors used.
+func (i *Image) GetColors() int {
+	switch {
+	case i.colors == 0:
+		return availableColors
+	case i.colors <= 2:
+		return 2
+	case i.colors <= 8:
+		return 8
+	case i.colors <= 256:
+		return 256
+	}
+	return TrueColor
+}
+
 // SetDithering sets the dithering algorithm to use, one of the constants
 // starting with "Dithering", for example [DitheringFloydSteinberg] (the
 // default).
@@ -371,10 +388,7 @@ func (i *Image) stamp(resized [][3]float64) {
 	// For each 8x8 pixel block, we find the best block element to represent it,
 	// given the available colors.
 	i.pixels = make([]pixel, i.lastWidth*i.lastHeight)
-	colors := i.colors
-	if colors == 0 {
-		colors = availableColors
-	}
+	colors := i.GetColors()
 	for row := 0; row < i.lastHeight; row++ {
 		for col := 0; col < i.lastWidth; col++ {
 			// Calculate an error for each potential block element + color. Keep
@@ -427,7 +441,7 @@ func (i *Image) stamp(resized [][3]float64) {
 
 				// Quantize to the nearest acceptable color.
 				for _, color := range []*[3]float64{&fg, &bg} {
-					if colors <= 2 {
+					if colors == 2 {
 						// Monochrome. The following weights correspond better
 						// to human perception than the arithmetic mean.
 						gray := 0.299*color[0] + 0.587*color[1] + 0.114*color[2]
@@ -439,7 +453,7 @@ func (i *Image) stamp(resized [][3]float64) {
 					} else {
 						for index, ch := range color {
 							switch {
-							case colors <= 8:
+							case colors == 8:
 								// Colors vary wildly for each terminal. Expect
 								// suboptimal results.
 								if ch < 0.5 {
@@ -447,7 +461,7 @@ func (i *Image) stamp(resized [][3]float64) {
 								} else {
 									color[index] = 1
 								}
-							case colors <= 256:
+							case colors == 256:
 								color[index] = math.Round(ch*6) / 6
 							}
 						}
@@ -515,7 +529,7 @@ func (i *Image) stamp(resized [][3]float64) {
 			element := BlockFullBlock
 			var fg, bg tcell.Color
 			shades := []rune{' ', BlockLightShade, BlockMediumShade, BlockDarkShade, BlockFullBlock}
-			if colors <= 2 {
+			if colors == 2 {
 				// Monochrome.
 				gray := 0.299*avg[0] + 0.587*avg[1] + 0.114*avg[2] // See above for details.
 				shade := int(math.Round(gray * 4))
@@ -525,14 +539,14 @@ func (i *Image) stamp(resized [][3]float64) {
 				}
 				bg = tcell.ColorBlack
 				fg = tcell.ColorWhite
-			} else if colors > 256 {
+			} else if colors == TrueColor {
 				// True color.
 				fg = tcell.NewRGBColor(int32(math.Min(255, avg[0]*255)), int32(math.Min(255, avg[1]*255)), int32(math.Min(255, avg[2]*255)))
 				bg = fg
 			} else {
 				// 8 or 256 colors.
 				steps := 1.0
-				if colors > 8 {
+				if colors == 256 {
 					steps = 6.0
 				}
 				var (
@@ -599,7 +613,7 @@ func (i *Image) stamp(resized [][3]float64) {
 			}
 
 			// Apply dithering.
-			if i.dithering == DitheringFloydSteinberg {
+			if colors < TrueColor && i.dithering == DitheringFloydSteinberg {
 				// The dithering mask determines how the error is distributed.
 				// Each element has three values: dx, dy, and weight (in 16th).
 				var mask = [4][3]int{
@@ -609,22 +623,32 @@ func (i *Image) stamp(resized [][3]float64) {
 					{1, 1, 1},
 				}
 
-				// We dither the whole 8x8 block, transferring errors to its
-				// outer borders.
-				var index int
-				for y := 0; y < 8; y++ {
-					for x := 0; x < 8; x++ {
-						for ch := 0; ch < 3; ch++ {
-							err := final[index][ch] - resized[(row*8+y)*i.lastWidth*8+(col*8+x)][ch]
-							for _, dist := range mask {
-								targetX, targetY := x+dist[0], y+dist[1]
-								if targetX < 0 || col*8+targetX >= i.lastWidth*8 || targetY < 0 || row*8+targetY >= i.lastHeight*8 {
-									continue
+				// We dither the 8x8 block as a 2x2 block, transferring errors
+				// to its 2x2 neighbors.
+				for ch := 0; ch < 3; ch++ {
+					for y := 0; y < 2; y++ {
+						for x := 0; x < 2; x++ {
+							// What's the error for this 4x4 block?
+							var err float64
+							for dy := 0; dy < 4; dy++ {
+								for dx := 0; dx < 4; dx++ {
+									err += (final[(y*4+dy)*8+(x*4+dx)][ch] - resized[(row*8+(y*4+dy))*i.lastWidth*8+(col*8+(x*4+dx))][ch]) / 16
 								}
-								resized[(row*8+targetY)*i.lastWidth*8+(col*8+targetX)][ch] -= err * float64(dist[2]) / 16
+							}
+
+							// Distribute it to the 2x2 neighbors.
+							for _, dist := range mask {
+								for dy := 0; dy < 4; dy++ {
+									for dx := 0; dx < 4; dx++ {
+										targetX, targetY := (x+dist[0])*4+dx, (y+dist[1])*4+dy
+										if targetX < 0 || col*8+targetX >= i.lastWidth*8 || targetY < 0 || row*8+targetY >= i.lastHeight*8 {
+											continue
+										}
+										resized[(row*8+targetY)*i.lastWidth*8+(col*8+targetX)][ch] -= err * float64(dist[2]) / 16
+									}
+								}
 							}
 						}
-						index++
 					}
 				}
 			}
