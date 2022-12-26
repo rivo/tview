@@ -128,7 +128,8 @@ func overlayStyle(style tcell.Style, fgColor, bgColor, attributes string) tcell.
 			Blink(defAttr&tcell.AttrBlink > 0).
 			Reverse(defAttr&tcell.AttrReverse > 0).
 			Underline(defAttr&tcell.AttrUnderline > 0).
-			Dim(defAttr&tcell.AttrDim > 0)
+			Dim(defAttr&tcell.AttrDim > 0).
+			StrikeThrough(defAttr&tcell.AttrStrikeThrough > 0)
 	} else if attributes != "" {
 		style = style.Normal()
 		for _, flag := range attributes {
