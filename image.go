@@ -55,10 +55,11 @@ type pixel struct {
 // [Image.SetDithering]).
 //
 // Images are approximated by graphical characters in the terminal. The
-// resolution is therefore limited by the number of characters that can be drawn
-// in the terminal and the colors available in the terminal. The quality of the
-// final image also depends on the terminal's font and spacing settings, none of
-// which are under the control of this package. Results may vary.
+// resolution is therefore limited by the number and type of characters that can
+// be drawn in the terminal and the colors available in the terminal. The
+// quality of the final image also depends on the terminal's font and spacing
+// settings, none of which are under the control of this package. Results may
+// vary.
 type Image struct {
 	*Box
 
