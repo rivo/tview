@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"image"
+
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -110,7 +112,7 @@ func NewForm() *Form {
 		fieldTextColor:       Styles.PrimaryTextColor,
 		buttonStyle:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		buttonActivatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
-		lastFinishedKey:      -1,
+		lastFinishedKey:      tcell.KeyTab, // To skip over inactive elements at the beginning of the form.
 	}
 
 	return f
@@ -304,6 +306,21 @@ func (f *Form) AddCheckbox(label string, checked bool, changed func(checked bool
 		SetLabel(label).
 		SetChecked(checked).
 		SetChangedFunc(changed))
+	return f
+}
+
+// AddImage adds an image to the form. It has a label and the image will fit in
+// the specified width and height (its aspect ratio is preserved). See
+// [Image.SetColors] for a description of the "colors" parameter. Images are not
+// interactive and are skipped over in a form. The "width" value may be 0
+// (adjust dynamically) but "height" should generally be a positive value.
+func (f *Form) AddImage(label string, image image.Image, width, height, colors int) *Form {
+	f.items = append(f.items, NewImage().
+		SetLabel(label).
+		SetImage(image).
+		SetSize(height, width).
+		SetAlign(AlignTop, AlignLeft).
+		SetColors(colors))
 	return f
 }
 

@@ -76,7 +76,7 @@ type List struct {
 	done func()
 }
 
-// NewList returns a new form.
+// NewList returns a new list.
 func NewList() *List {
 	return &List{
 		Box:                NewBox(),

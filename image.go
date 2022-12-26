@@ -79,9 +79,6 @@ type Image struct {
 	// "ImageDithering".
 	dithering int
 
-	// The background color to use (RGB) for transparent pixels.
-	backgroundColor [3]int8
-
 	// The width of a terminal's cell divided by its height.
 	aspectRatio float64
 
@@ -104,6 +101,10 @@ type Image struct {
 	// The actual image (in cells) when it was drawn the last time. The size of
 	// this slice is lastWidth * lastHeight, indexed by y*lastWidth + x.
 	pixels []pixel
+
+	// A callback function set by the Form class and called when the user leaves
+	// this form item.
+	finished func(tcell.Key)
 }
 
 // NewImage returns a new image widget with an empty image (use [SetImage] to
@@ -173,17 +174,9 @@ func (i *Image) GetColors() int {
 
 // SetDithering sets the dithering algorithm to use, one of the constants
 // starting with "Dithering", for example [DitheringFloydSteinberg] (the
-// default).
+// default). Dithering is not applied when rendering in true-color.
 func (i *Image) SetDithering(dithering int) *Image {
 	i.dithering = dithering
-	i.lastWidth, i.lastHeight = 0, 0
-	return i
-}
-
-// SetBackgroundColor sets the background color to use (RGB) for transparent
-// pixels in the original image. The default is black (0, 0, 0).
-func (i *Image) SetBackgroundColor(r, g, b int8) *Image {
-	i.backgroundColor = [3]int8{r, g, b}
 	i.lastWidth, i.lastHeight = 0, 0
 	return i
 }
@@ -229,6 +222,40 @@ func (i *Image) SetLabelWidth(width int) *Image {
 	return i
 }
 
+// GetFieldWidth returns this primitive's field width. This is the image's width
+// or, if the width is 0 or less, the proportional width of the image based on
+// its height as returned by [Image.GetFieldHeight]. If there is no image, 0 is
+// returned.
+func (i *Image) GetFieldWidth() int {
+	if i.width <= 0 {
+		if i.image == nil {
+			return 0
+		}
+		bounds := i.image.Bounds()
+		height := i.GetFieldHeight()
+		return bounds.Dx() * height / bounds.Dy()
+	}
+	return i.width
+}
+
+// GetFieldHeight returns this primitive's field height. This is the image's
+// height or 8 if the height is 0 or less.
+func (i *Image) GetFieldHeight() int {
+	if i.height <= 0 {
+		return 8
+	}
+	return i.height
+}
+
+// SetFormAttributes sets attributes shared by all form items.
+func (i *Image) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	i.labelWidth = labelWidth
+	i.backgroundColor = bgColor
+	i.SetLabelStyle(tcell.StyleDefault.Foreground(labelColor).Background(bgColor))
+	i.lastWidth, i.lastHeight = 0, 0
+	return i
+}
+
 // SetLabelStyle sets the style of the label.
 func (i *Image) SetLabelStyle(style tcell.Style) *Image {
 	i.labelStyle = style
@@ -238,6 +265,22 @@ func (i *Image) SetLabelStyle(style tcell.Style) *Image {
 // GetLabelStyle returns the style of the label.
 func (i *Image) GetLabelStyle() tcell.Style {
 	return i.labelStyle
+}
+
+// SetFinishedFunc sets a callback invoked when the user leaves this form item.
+func (i *Image) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
+	i.finished = handler
+	return i
+}
+
+// Focus is called when this primitive receives focus.
+func (i *Image) Focus(delegate func(p Primitive)) {
+	// If we're part of a form, there's nothing the user can do here so we're
+	// finished.
+	if i.finished != nil {
+		i.finished(-1)
+		return
+	}
 }
 
 // render re-populates the [Image.pixels] slice besed on the current settings,
