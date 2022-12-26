@@ -9,9 +9,8 @@ import (
 
 // Types of dithering applied to images.
 const (
-	ImageDitheringNone           = iota // No dithering.
-	ImageDitheringThreshold             // Grey scale thresholding at 50%.
-	ImageDitheringFloydSteinberg        // Floyd-Steinberg dithering (the default).
+	DitheringNone           = iota // No dithering.
+	DitheringFloydSteinberg        // Floyd-Steinberg dithering (the default).
 )
 
 // The number of colors supported by true color terminals (R*G*B = 256*256*256).
@@ -114,7 +113,7 @@ type Image struct {
 func NewImage() *Image {
 	return &Image{
 		Box:             NewBox(),
-		dithering:       ImageDitheringFloydSteinberg,
+		dithering:       DitheringFloydSteinberg,
 		aspectRatio:     0.5,
 		alignHorizontal: AlignCenter,
 		alignVertical:   AlignCenter,
@@ -156,7 +155,8 @@ func (i *Image) SetColors(colors int) *Image {
 }
 
 // SetDithering sets the dithering algorithm to use, one of the constants
-// starting with "ImageDithering", for example [ImageDitheringFloydSteinberg].
+// starting with "Dithering", for example [DitheringFloydSteinberg] (the
+// default).
 func (i *Image) SetDithering(dithering int) *Image {
 	i.dithering = dithering
 	i.lastWidth, i.lastHeight = 0, 0
@@ -379,7 +379,12 @@ func (i *Image) stamp(resized [][3]float64) {
 		for col := 0; col < i.lastWidth; col++ {
 			// Calculate an error for each potential block element + color. Keep
 			// the one with the lowest error.
+
+			// Note that the values in "resize" may lie outside [0, 1] due to
+			// the error distribution during dithering.
+
 			minMSE := math.MaxFloat64 // Mean squared error.
+			var final [64][3]float64  // The final pixel values.
 			for element, bits := range blockElements {
 				// Calculate the average color for the pixels covered by the set
 				// bits and unset bits.
@@ -404,12 +409,21 @@ func (i *Image) stamp(resized [][3]float64) {
 						bit <<= 1
 					}
 				}
-				fg[0] /= setBits
-				fg[1] /= setBits
-				fg[2] /= setBits
-				bg[0] /= 64 - setBits
-				bg[1] /= 64 - setBits
-				bg[2] /= 64 - setBits
+				for ch := 0; ch < 3; ch++ {
+					fg[ch] /= setBits
+					if fg[ch] < 0 {
+						fg[ch] = 0
+					} else if fg[ch] > 1 {
+						fg[ch] = 1
+					}
+					bg[ch] /= 64 - setBits
+					if bg[ch] < 0 {
+						bg[ch] = 0
+					}
+					if bg[ch] > 1 {
+						bg[ch] = 1
+					}
+				}
 
 				// Quantize to the nearest acceptable color.
 				for _, color := range []*[3]float64{&fg, &bg} {
@@ -440,22 +454,27 @@ func (i *Image) stamp(resized [][3]float64) {
 					}
 				}
 
-				// Calculate the error.
-				var mse float64
+				// Calculate the error (and the final pixel values).
+				var (
+					mse         float64
+					values      [64][3]float64
+					valuesIndex int
+				)
 				bit = 1
 				for y := 0; y < 8; y++ {
 					for x := 0; x < 8; x++ {
+						if bits&bit != 0 {
+							values[valuesIndex] = fg
+						} else {
+							values[valuesIndex] = bg
+						}
 						index := (row*8+y)*i.lastWidth*8 + (col*8 + x)
 						for ch := 0; ch < 3; ch++ {
-							err := resized[index][ch]
-							if bits&bit != 0 {
-								err -= fg[ch]
-							} else {
-								err -= bg[ch]
-							}
+							err := resized[index][ch] - values[valuesIndex][ch]
 							mse += err * err
 						}
 						bit <<= 1
+						valuesIndex++
 					}
 				}
 
@@ -463,6 +482,7 @@ func (i *Image) stamp(resized [][3]float64) {
 				if mse < minMSE {
 					// Yes. Save it.
 					minMSE = mse
+					final = values
 					index := row*i.lastWidth + col
 					i.pixels[index].element = element
 					i.pixels[index].style = tcell.StyleDefault.
@@ -481,6 +501,13 @@ func (i *Image) stamp(resized [][3]float64) {
 					for ch := 0; ch < 3; ch++ {
 						avg[ch] += resized[index][ch] / 64
 					}
+				}
+			}
+			for ch := 0; ch < 3; ch++ {
+				if avg[ch] < 0 {
+					avg[ch] = 0
+				} else if avg[ch] > 1 {
+					avg[ch] = 1
 				}
 			}
 
@@ -544,8 +571,12 @@ func (i *Image) stamp(resized [][3]float64) {
 				fg = tcell.NewRGBColor(int32(math.Min(255, hi[0]*255)), int32(math.Min(255, hi[1]*255)), int32(math.Min(255, hi[2]*255)))
 			}
 
-			// Calculate the error.
-			var mse float64
+			// Calculate the error (and the final pixel values).
+			var (
+				mse         float64
+				values      [64][3]float64
+				valuesIndex int
+			)
 			for y := 0; y < 8; y++ {
 				for x := 0; x < 8; x++ {
 					index := (row*8+y)*i.lastWidth*8 + (col*8 + x)
@@ -553,15 +584,49 @@ func (i *Image) stamp(resized [][3]float64) {
 						err := resized[index][ch] - avg[ch]
 						mse += err * err
 					}
+					values[valuesIndex] = avg
+					valuesIndex++
 				}
 			}
 
 			// Is this shade element better than the block element?
 			if mse < minMSE {
 				// Yes. Save it.
+				final = values
 				index := row*i.lastWidth + col
 				i.pixels[index].element = element
 				i.pixels[index].style = tcell.StyleDefault.Foreground(fg).Background(bg)
+			}
+
+			// Apply dithering.
+			if i.dithering == DitheringFloydSteinberg {
+				// The dithering mask determines how the error is distributed.
+				// Each element has three values: dx, dy, and weight (in 16th).
+				var mask = [4][3]int{
+					{1, 0, 7},
+					{-1, 1, 3},
+					{0, 1, 5},
+					{1, 1, 1},
+				}
+
+				// We dither the whole 8x8 block, transferring errors to its
+				// outer borders.
+				var index int
+				for y := 0; y < 8; y++ {
+					for x := 0; x < 8; x++ {
+						for ch := 0; ch < 3; ch++ {
+							err := final[index][ch] - resized[(row*8+y)*i.lastWidth*8+(col*8+x)][ch]
+							for _, dist := range mask {
+								targetX, targetY := x+dist[0], y+dist[1]
+								if targetX < 0 || col*8+targetX >= i.lastWidth*8 || targetY < 0 || row*8+targetY >= i.lastHeight*8 {
+									continue
+								}
+								resized[(row*8+targetY)*i.lastWidth*8+(col*8+targetX)][ch] -= err * float64(dist[2]) / 16
+							}
+						}
+						index++
+					}
+				}
 			}
 		}
 	}
