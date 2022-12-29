@@ -11,15 +11,30 @@ import (
 	"github.com/rivo/uniseg"
 )
 
+const (
+	AutocompletedNavigate = iota // The user navigated the autocomplete list (using the errow keys).
+	AutocompletedTab             // The user selected an autocomplete entry using the tab key.
+	AutocompletedEnter           // The user selected an autocomplete entry using the enter key.
+	AutocompletedClick           // The user selected an autocomplete entry by clicking the mouse button on it.
+)
+
 // InputField is a one-line box (three lines if there is a title) where the
-// user can enter text. Use SetAcceptanceFunc() to accept or reject input,
-// SetChangedFunc() to listen for changes, and SetMaskCharacter() to hide input
-// from onlookers (e.g. for password input).
+// user can enter text. Use [InputField.SetAcceptanceFunc] to accept or reject
+// input, [InputField.SetChangedFunc] to listen for changes, and
+// [InputField.SetMaskCharacter] to hide input from onlookers (e.g. for password
+// input).
+//
+// The input field also has an optional autocomplete feature. It is initialized
+// by the [InputField.SetAutocompleteFunc] function. For more control over the
+// autocomplete drop-down's behavior, you can also set the
+// [InputField.SetAutocompletedFunc].
 //
 // The following keys can be used for navigation and editing:
 //
 //   - Left arrow: Move left by one character.
 //   - Right arrow: Move right by one character.
+//   - Down arrow: Open the autocomplete drop-down.
+//   - Tab, Enter: Select the current autocomplete entry.
 //   - Home, Ctrl-A, Alt-a: Move to the beginning of the line.
 //   - End, Ctrl-E, Alt-e: Move to the end of the line.
 //   - Alt-left, Alt-b: Move left by one word.
@@ -83,6 +98,14 @@ type InputField struct {
 		selected   tcell.Style
 		background tcell.Color
 	}
+
+	// An optional function which is called when the user selects an
+	// autocomplete entry. The text and index of the selected entry (within the
+	// list) is provided, as well as the user action causing the selection (one
+	// of the "Autocompleted" values). The function should return true if the
+	// autocomplete list should be closed. If nil, the input field will be
+	// updated automatically when the user navigates the autocomplete list.
+	autocompleted func(text string, index int, source int) bool
 
 	// An optional function which may reject the last character that was entered.
 	accept func(text string, ch rune) bool
@@ -270,6 +293,24 @@ func (i *InputField) SetMaskCharacter(mask rune) *InputField {
 func (i *InputField) SetAutocompleteFunc(callback func(currentText string) (entries []string)) *InputField {
 	i.autocomplete = callback
 	i.Autocomplete()
+	return i
+}
+
+// SetAutocompletedFunc sets a callback function which is invoked when the user
+// selects an entry from the autocomplete drop-down list. The function is passed
+// the text of the selected entry (stripped of any color tags), the index of the
+// entry, and the user action that caused the selection, e.g.
+// [AutocompletedNavigate]. It returns true if the autocomplete drop-down should
+// be closed after the callback returns or false if it should remain open, in
+// which case [InputField.Autocomplete] is called to update the drop-down's
+// contents.
+//
+// If no such callback is set (or nil is provided), the input field will be
+// updated with the selection any time the user navigates the autocomplete
+// drop-down list. So this function essentially gives you more control over the
+// autocomplete functionality.
+func (i *InputField) SetAutocompletedFunc(autocompleted func(text string, index int, source int) bool) *InputField {
+	i.autocompleted = autocompleted
 	return i
 }
 
@@ -550,21 +591,6 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			return true
 		}
 
-		// Change the autocomplete selection.
-		autocompleteSelect := func(offset int) {
-			count := i.autocompleteList.GetItemCount()
-			newEntry := i.autocompleteList.GetCurrentItem() + offset
-			if newEntry >= count {
-				newEntry = 0
-			} else if newEntry < 0 {
-				newEntry = count - 1
-			}
-			i.autocompleteList.SetCurrentItem(newEntry)
-			currentText, _ = i.autocompleteList.GetItemText(newEntry) // Don't trigger changed function twice.
-			currentText = stripTags(currentText)
-			i.SetText(currentText)
-		}
-
 		// Finish up.
 		finish := func(key tcell.Key) {
 			if i.done != nil {
@@ -575,9 +601,51 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			}
 		}
 
-		// Process key event.
+		// If we have an autocomplete list, there are certain keys we will
+		// forward to it.
 		i.autocompleteListMutex.Lock()
 		defer i.autocompleteListMutex.Unlock()
+		if i.autocompleteList != nil {
+			i.autocompleteList.SetChangedFunc(nil)
+			switch key := event.Key(); key {
+			case tcell.KeyEscape: // Close the list.
+				i.autocompleteList = nil
+				return
+			case tcell.KeyEnter, tcell.KeyTab: // Intentional selection.
+				if i.autocompleted != nil {
+					index := i.autocompleteList.GetCurrentItem()
+					text, _ := i.autocompleteList.GetItemText(index)
+					source := AutocompletedEnter
+					if key == tcell.KeyTab {
+						source = AutocompletedTab
+					}
+					if i.autocompleted(stripTags(text), index, source) {
+						i.autocompleteList = nil
+						currentText = i.GetText()
+					}
+				} else {
+					i.autocompleteList = nil
+				}
+				return
+			case tcell.KeyDown, tcell.KeyUp, tcell.KeyPgDn, tcell.KeyPgUp:
+				i.autocompleteList.SetChangedFunc(func(index int, text, secondaryText string, shortcut rune) {
+					text = stripTags(text)
+					if i.autocompleted != nil {
+						if i.autocompleted(text, index, AutocompletedNavigate) {
+							i.autocompleteList = nil
+							currentText = i.GetText()
+						}
+					} else {
+						i.SetText(text)
+						currentText = stripTags(text) // We want to keep the autocomplete list open and unchanged.
+					}
+				})
+				i.autocompleteList.InputHandler()(event, setFocus)
+				return
+			}
+		}
+
+		// Process key event for the input field.
 		switch key := event.Key(); key {
 		case tcell.KeyRune: // Regular character.
 			if event.Modifiers()&tcell.ModAlt > 0 {
@@ -646,37 +714,12 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			home()
 		case tcell.KeyEnd, tcell.KeyCtrlE:
 			end()
-		case tcell.KeyEnter:
-			if i.autocompleteList != nil {
-				autocompleteSelect(0)
-				i.autocompleteList = nil
-			} else {
-				finish(key)
-			}
-		case tcell.KeyEscape:
-			if i.autocompleteList != nil {
-				i.autocompleteList = nil
-			} else {
-				finish(key)
-			}
-		case tcell.KeyTab:
-			if i.autocompleteList != nil {
-				autocompleteSelect(0)
-			} else {
-				finish(key)
-			}
 		case tcell.KeyDown:
-			if i.autocompleteList != nil {
-				autocompleteSelect(1)
-			} else {
-				finish(key)
-			}
-		case tcell.KeyUp, tcell.KeyBacktab: // Autocomplete selection.
-			if i.autocompleteList != nil {
-				autocompleteSelect(-1)
-			} else {
-				finish(key)
-			}
+			i.autocompleteListMutex.Unlock() // We're still holding a lock.
+			i.Autocomplete()
+			i.autocompleteListMutex.Lock()
+		case tcell.KeyEnter, tcell.KeyEscape, tcell.KeyTab, tcell.KeyBacktab:
+			finish(key)
 		}
 	})
 }
@@ -684,6 +727,39 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 // MouseHandler returns the mouse handler for this primitive.
 func (i *InputField) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return i.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		currentText := i.GetText()
+		defer func() {
+			if i.GetText() != currentText {
+				i.Autocomplete()
+				if i.changed != nil {
+					i.changed(i.text)
+				}
+			}
+		}()
+
+		// If we have an autocomplete list, forward the mouse event to it.
+		i.autocompleteListMutex.Lock()
+		defer i.autocompleteListMutex.Unlock()
+		if i.autocompleteList != nil {
+			i.autocompleteList.SetChangedFunc(func(index int, text, secondaryText string, shortcut rune) {
+				text = stripTags(text)
+				if i.autocompleted != nil {
+					if i.autocompleted(text, index, AutocompletedClick) {
+						i.autocompleteList = nil
+						currentText = i.GetText()
+					}
+					return
+				}
+				i.SetText(text)
+				i.autocompleteList = nil
+			})
+			if consumed, _ = i.autocompleteList.MouseHandler()(action, event, setFocus); consumed {
+				setFocus(i)
+				return
+			}
+		}
+
+		// Is mouse event within the input field?
 		x, y := event.Position()
 		_, rectY, _, _ := i.GetInnerRect()
 		if !i.InRect(x, y) {
