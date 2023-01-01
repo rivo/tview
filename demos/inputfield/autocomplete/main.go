@@ -33,6 +33,12 @@ func main() {
 		}
 		return
 	})
+	inputField.SetAutocompletedFunc(func(text string, index, source int) bool {
+		if source != tview.AutocompletedNavigate {
+			inputField.SetText(text)
+		}
+		return source == tview.AutocompletedEnter || source == tview.AutocompletedClick
+	})
 	if err := app.EnableMouse(true).SetRoot(inputField, true).Run(); err != nil {
 		panic(err)
 	}
