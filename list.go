@@ -559,6 +559,9 @@ func (l *List) Draw(screen tcell.Screen) {
 // view.
 func (l *List) adjustOffset() {
 	_, _, _, height := l.GetInnerRect()
+	if height == 0 {
+		return
+	}
 	if l.currentItem < l.itemOffset {
 		l.itemOffset = l.currentItem
 	} else if l.showSecondaryText {
