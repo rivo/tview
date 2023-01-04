@@ -403,6 +403,12 @@ func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return i
 }
 
+// Blur is called when this primitive loses focus.
+func (i *InputField) Blur() {
+	i.Box.Blur()
+	i.autocompleteList = nil // Hide the autocomplete drop-down.
+}
+
 // Draw draws this primitive onto the screen.
 func (i *InputField) Draw(screen tcell.Screen) {
 	i.Box.DrawForSubclass(screen, i)
