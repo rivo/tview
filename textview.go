@@ -1463,6 +1463,9 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		if !t.InRect(x, y) {
 			return false, nil
 		}
+		if !t.scrollable {
+			return false,nil
+		}
 
 		switch action {
 		case MouseLeftDown:
