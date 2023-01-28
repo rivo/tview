@@ -7,12 +7,24 @@ import (
 
 func main() {
 	app := tview.NewApplication()
-	form := tview.NewForm().
-		AddDropDown("Title", []string{"Mr.", "Ms.", "Mrs.", "Dr.", "Prof."}, 0, nil).
+
+	maleTitles := []string{"Mr.", "Dr.", "Prof."}
+	femaleTitles := []string{"Ms.", "Mrs.", "Dr.", "Prof."}
+
+	form := tview.NewForm()
+	form.AddDropDown("Title", maleTitles, 0, nil).
 		AddInputField("First name", "", 20, nil, nil).
 		AddInputField("Last name", "", 20, nil, nil).
 		AddTextArea("Address", "", 40, 0, 0, nil).
-		AddTextView("Notes", "This is just a demo.\nYou can enter whatever you wish.", 40, 2, true, false).
+		AddRadio("Sex", 0, true, func(newValue int) {
+			dd := form.GetFormItem(0).(*tview.DropDown)
+			if newValue == 0 {
+				dd.SetOptions(maleTitles, nil)
+			} else {
+				dd.SetOptions(femaleTitles, nil)
+			}
+		}, "male", "female").
+		AddTextView("Notes", "This is just a demo.\nYou can enter whatever you wish.\nMind how the radio changes title options", 40, 3, true, false).
 		AddCheckbox("Age 18+", false, nil).
 		AddPasswordField("Password", "", 10, '*', nil).
 		AddButton("Save", nil).
