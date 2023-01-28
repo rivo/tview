@@ -49,7 +49,7 @@ type Flex struct {
 // background before any items are drawn, set it to a box with the desired
 // color:
 //
-//   flex.Box = NewBox()
+// flex.Box = NewBox()
 func NewFlex() *Flex {
 	f := &Flex{
 		direction: FlexColumn,
@@ -134,6 +134,15 @@ func (f *Flex) ResizeItem(p Primitive, fixedSize, proportion int) *Flex {
 			item.Proportion = proportion
 		}
 	}
+	return f
+}
+
+// ResizeItemAt sets a new size for the item ath the given index.
+// For details regarding the size parameters, see AddItem().
+func (f *Flex) ResizeItemAt(index int, fixedSize, proportion int) *Flex {
+	item := f.items[index]
+	item.FixedSize = fixedSize
+	item.Proportion = proportion
 	return f
 }
 
