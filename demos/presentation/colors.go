@@ -29,5 +29,5 @@ func Colors(nextSlide func()) (title string, content tview.Primitive) {
 	table.SetBorderPadding(1, 1, 2, 2).
 		SetBorder(true).
 		SetTitle("A [red]c[yellow]o[green]l[darkcyan]o[blue]r[darkmagenta]f[red]u[yellow]l[white] [black:red]c[:yellow]o[:green]l[:darkcyan]o[:blue]r[:darkmagenta]f[:red]u[:yellow]l[white:] [::bu]title")
-	return "Colors", Center(78, 19, table)
+	return "Colors", tview.NewCenter(table, 78, 19)
 }
