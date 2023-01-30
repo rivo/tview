@@ -35,7 +35,7 @@ type Grid struct {
 	items []*gridItem
 
 	// The definition of the rows and columns of the grid. See
-	// [TextView.SetRows] / [TextView.SetColumns] for details.
+	// [Grid.SetRows] / [Grid.SetColumns] for details.
 	rows, columns []int
 
 	// The minimum sizes for rows and columns.
@@ -110,7 +110,7 @@ func (g *Grid) SetColumns(columns ...int) *Grid {
 }
 
 // SetRows defines how the rows of the grid are distributed. These values behave
-// the same as the column values provided with [TextView.SetColumns], see there
+// the same as the column values provided with [Grid.SetColumns], see there
 // for a definition and examples.
 //
 // The provided values correspond to row heights, the first value defining
@@ -120,9 +120,9 @@ func (g *Grid) SetRows(rows ...int) *Grid {
 	return g
 }
 
-// SetSize is a shortcut for [TextView.SetRows] and [TextView.SetColumns] where
+// SetSize is a shortcut for [Grid.SetRows] and [Grid.SetColumns] where
 // all row and column values are set to the given size values. See
-// [TextView.SetColumns] for details on sizes.
+// [Grid.SetColumns] for details on sizes.
 func (g *Grid) SetSize(numRows, numColumns, rowSize, columnSize int) *Grid {
 	g.rows = make([]int, numRows)
 	for index := range g.rows {
