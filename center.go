@@ -62,6 +62,7 @@ func (c *Center) Draw(screen tcell.Screen) {
 		height = inHeight
 	}
 
+	c.Box.Draw(screen)
 	c.primitive.SetRect(x, y, width, height)
 	c.primitive.Draw(screen)
 }
