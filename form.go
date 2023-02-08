@@ -761,6 +761,12 @@ func (f *Form) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 
 		// Determine items to pass mouse events to.
 		for _, item := range f.items {
+			// Exclude TextView items from mouse-down events as they are
+			// read-only items and thus should not be focused.
+			if _, ok := item.(*TextView); ok && action == MouseLeftDown {
+				continue
+			}
+
 			consumed, capture = item.MouseHandler()(action, event, setFocus)
 			if consumed {
 				return
