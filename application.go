@@ -83,6 +83,9 @@ type Application struct {
 	// Set to true if mouse events are enabled.
 	enableMouse bool
 
+	// Set to true if application should stop when control + C is pressed
+	stopOnCtrlC bool
+
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the default input handler (nil if nothing should
 	// be forwarded).
@@ -126,6 +129,7 @@ func NewApplication() *Application {
 		events:            make(chan tcell.Event, queueSize),
 		updates:           make(chan queuedUpdate, queueSize),
 		screenReplacement: make(chan tcell.Screen, 1),
+		stopOnCtrlC:       true,
 	}
 }
 
@@ -207,6 +211,15 @@ func (a *Application) EnableMouse(enable bool) *Application {
 	}
 	a.enableMouse = enable
 	return a
+}
+
+// SetStopOnCtrlC controls the behavior when control+c is pressed. When enabled
+// (the default behavior) control+c closes the application.
+// When enabled control+c is instead passed down to the primitive that has focus.
+func (a *Application) SetStopOnCtrlC(enable bool) {
+	a.Lock()
+	defer a.Unlock()
+	a.stopOnCtrlC = enable
 }
 
 // Run starts the application and thus the event loop. This function returns
@@ -325,7 +338,7 @@ EventLoop:
 				}
 
 				// Ctrl-C closes the application.
-				if event.Key() == tcell.KeyCtrlC {
+				if event.Key() == tcell.KeyCtrlC && a.stopOnCtrlC {
 					a.Stop()
 					break
 				}
