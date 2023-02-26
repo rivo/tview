@@ -135,9 +135,16 @@ func NewApplication() *Application {
 // different one) by returning it or stop the key event processing by returning
 // nil.
 //
-// Note that this also affects the default event handling of the application
-// itself: Such a handler can intercept the Ctrl-C event which closes the
-// application.
+// The only default global key event is Ctrl-C which stops the application. It
+// requires special handling:
+//
+//   - If you do not wish to change the default behavior, return the original
+//     event object passed to your input capture function.
+//   - If you wish to block Ctrl-C from any functionality, return nil.
+//   - If you do not wish Ctrl-C to stop the application but still want to
+//     forward the Ctrl-C event to primitives down the hierarchy, return a new
+//     key event with the same key and modifiers, e.g.
+//     tcell.NewEventKey(tcell.KeyCtrlC, 0, tcell.ModNone).
 func (a *Application) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Application {
 	a.inputCapture = capture
 	return a
@@ -315,6 +322,7 @@ EventLoop:
 
 				// Intercept keys.
 				var draw bool
+				originalEvent := event
 				if inputCapture != nil {
 					event = inputCapture(event)
 					if event == nil {
@@ -325,7 +333,7 @@ EventLoop:
 				}
 
 				// Ctrl-C closes the application.
-				if event.Key() == tcell.KeyCtrlC {
+				if event == originalEvent && event.Key() == tcell.KeyCtrlC {
 					a.Stop()
 					break
 				}
