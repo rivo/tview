@@ -112,6 +112,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [tufw: A terminal UI for ufw.](https://github.com/peltho/tufw)
 - [gh: the GitHub CLI](https://github.com/cli/cli)
 - [piptui: Terminal UI to manage pip packages](https://github.com/glendsoza/piptui/)
+- [cross-clipboard: A cross-platform clipboard sharing](https://github.com/ntsd/cross-clipboard)
 
 ## Documentation
 
