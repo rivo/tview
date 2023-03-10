@@ -49,7 +49,7 @@ type Flex struct {
 // background before any items are drawn, set it to a box with the desired
 // color:
 //
-//   flex.Box = NewBox()
+//	flex.Box = NewBox()
 func NewFlex() *Flex {
 	f := &Flex{
 		direction: FlexColumn,
@@ -237,7 +237,6 @@ func (f *Flex) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 				return
 			}
 		}
-
 		return
 	})
 }
