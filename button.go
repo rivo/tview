@@ -89,6 +89,13 @@ func (b *Button) SetLabelColorActivated(color tcell.Color) *Button {
 	return b
 }
 
+// SetBackgroundColor sets the background color of the button text when
+// the button is not in focus. Overrides embeddedBox method.
+func (b *Button) SetBackgroundColor(color tcell.Color) *Button {
+	b.style = b.style.Background(color)
+	return b
+}
+
 // SetBackgroundColorActivated sets the background color of the button text when
 // the button is in focus.
 func (b *Button) SetBackgroundColorActivated(color tcell.Color) *Button {
@@ -200,7 +207,7 @@ func (b *Button) Draw(screen tcell.Screen) {
 			b.SetBorderColor(borderColor)
 		}()
 	}
-	b.SetBackgroundColor(backgroundColor)
+	b.Box.SetBackgroundColor(backgroundColor)
 	b.Box.DrawForSubclass(screen, b)
 
 	// Draw label.
