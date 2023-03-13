@@ -19,6 +19,9 @@ type Button struct {
 	// The button's style (when activated).
 	activatedStyle tcell.Style
 
+	// The button's style (when disabled)
+	disabledStyle tcell.Style
+
 	// An optional function which is called when the button was selected.
 	selected func()
 
@@ -26,6 +29,12 @@ type Button struct {
 	// key is provided indicating which key was pressed to leave (tab or
 	// backtab).
 	exit func(tcell.Key)
+
+	// Label's alignment, by default AlignCenter
+	align int
+
+	// An optional attribute, when button is disabled
+	disabled bool
 }
 
 // NewButton returns a new input field.
@@ -35,8 +44,11 @@ func NewButton(label string) *Button {
 	return &Button{
 		Box:            box,
 		text:           label,
+		align:          AlignCenter,
+		disabled:       false,
 		style:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		activatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.InverseTextColor),
+		disabledStyle:  tcell.StyleDefault.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorLightGray),
 	}
 }
 
@@ -54,6 +66,13 @@ func (b *Button) GetLabel() string {
 // SetLabelColor sets the color of the button text.
 func (b *Button) SetLabelColor(color tcell.Color) *Button {
 	b.style = b.style.Foreground(color)
+	return b
+}
+
+// SetLabelAlign sets the label alignment within the button. This must be
+// either AlignLeft, AlignCenter, or AlignRight.
+func (b *Button) SetLabelAlign(align int) *Button {
+	b.align = align
 	return b
 }
 
@@ -83,6 +102,53 @@ func (b *Button) SetActivatedStyle(style tcell.Style) *Button {
 	return b
 }
 
+// SetLabelColorDisabled sets the color of the button text when the button is
+// disabled.
+func (b *Button) SetLabelColorDisabled(color tcell.Color) *Button {
+	b.disabledStyle = b.disabledStyle.Foreground(color)
+	return b
+}
+
+// SetBackgroundColorDisabled sets the background color of the button text when
+// the button is disabled.
+func (b *Button) SetBackgroundColorDisabled(color tcell.Color) *Button {
+	b.disabledStyle = b.disabledStyle.Background(color)
+	return b
+}
+
+// SetDisabledStyle sets the style of the button used when it is disabled.
+func (b *Button) SetDisabledStyle(style tcell.Style) *Button {
+	b.disabledStyle = style
+	return b
+}
+
+// SetStyleAttrs sets the label's style attributes. You can combine
+// different attributes using bitmask operations:
+//
+//	button.SetStyleAttrs(tcell.AttrUnderline | tcell.AttrBold)
+func (b *Button) SetStyleAttrs(attrs tcell.AttrMask) *Button {
+	b.style = b.style.Attributes(attrs)
+	return b
+}
+
+// SetActivatedStyleAttrs sets the label's activatedStyle attributes. You can combine
+// different attributes using bitmask operations:
+//
+//	button.SetActivatedStyleAttrs(tcell.AttrUnderline | tcell.AttrBold)
+func (b *Button) SetActivatedStyleAttrs(attrs tcell.AttrMask) *Button {
+	b.activatedStyle = b.activatedStyle.Attributes(attrs)
+	return b
+}
+
+// SetDisabledStyleAttrs sets the label's disabledStyle attributes. You can combine
+// different attributes using bitmask operations:
+//
+//	button.SetDisabledStyleAttrs(tcell.AttrUnderline | tcell.AttrBold)
+func (b *Button) SetDisabledStyleAttrs(attrs tcell.AttrMask) *Button {
+	b.disabledStyle = b.disabledStyle.Attributes(attrs)
+	return b
+}
+
 // SetSelectedFunc sets a handler which is called when the button was selected.
 func (b *Button) SetSelectedFunc(handler func()) *Button {
 	b.selected = handler
@@ -101,10 +167,27 @@ func (b *Button) SetExitFunc(handler func(key tcell.Key)) *Button {
 	return b
 }
 
+// SetDisabled sets the flag that, if true, button is not available for interactions
+func (b *Button) SetDisabled() *Button {
+	b.disabled = true
+	return b
+}
+
+// SetEnabled sets the flag that, if false, button is available for interactions
+func (b *Button) SetEnabled() *Button {
+	b.disabled = false
+	return b
+}
+
 // Draw draws this primitive onto the screen.
 func (b *Button) Draw(screen tcell.Screen) {
+	var style tcell.Style
 	// Draw the box.
-	style := b.style
+	if !b.disabled {
+		style = b.style
+	} else {
+		style = b.disabledStyle
+	}
 	_, backgroundColor, _ := style.Decompose()
 	if b.HasFocus() {
 		style = b.activatedStyle
@@ -124,7 +207,7 @@ func (b *Button) Draw(screen tcell.Screen) {
 	x, y, width, height := b.GetInnerRect()
 	if width > 0 && height > 0 {
 		y = y + height/2
-		printWithStyle(screen, b.text, x, y, 0, width, AlignCenter, style, true)
+		printWithStyle(screen, b.text, x, y, 0, width, b.align, style, true)
 	}
 }
 
@@ -134,7 +217,7 @@ func (b *Button) InputHandler() func(event *tcell.EventKey, setFocus func(p Prim
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyEnter: // Selected.
-			if b.selected != nil {
+			if b.selected != nil && !b.disabled {
 				b.selected()
 			}
 		case tcell.KeyBacktab, tcell.KeyTab, tcell.KeyEscape: // Leave. No action.
@@ -153,11 +236,11 @@ func (b *Button) MouseHandler() func(action MouseAction, event *tcell.EventMouse
 		}
 
 		// Process mouse event.
-		if action == MouseLeftDown {
+		if action == MouseLeftDown && !b.disabled {
 			setFocus(b)
 			consumed = true
 		} else if action == MouseLeftClick {
-			if b.selected != nil {
+			if b.selected != nil && !b.disabled {
 				b.selected()
 			}
 			consumed = true
