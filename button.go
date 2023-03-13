@@ -48,7 +48,7 @@ func NewButton(label string) *Button {
 		disabled:       false,
 		style:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		activatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.InverseTextColor),
-		disabledStyle:  tcell.StyleDefault.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorLightGray),
+		disabledStyle:  tcell.StyleDefault.Background(Styles.DisabledBackgroundColor).Foreground(Styles.DisabledTextColor),
 	}
 }
 
