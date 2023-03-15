@@ -64,6 +64,9 @@ func NewCheckbox() *Checkbox {
 // SetChecked sets the state of the checkbox.
 func (c *Checkbox) SetChecked(checked bool) *Checkbox {
 	c.checked = checked
+	if c.changed != nil {
+		c.changed(checked)
+	}
 	return c
 }
 
