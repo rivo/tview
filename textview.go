@@ -309,6 +309,11 @@ func (t *TextView) GetFieldHeight() int {
 	return t.height
 }
 
+// SetDisabled sets whether or not the item is disabled / read-only.
+func (t *TextView) SetDisabled(disabled bool) FormItem {
+	return t // Text views are always read-only.
+}
+
 // SetScrollable sets the flag that decides whether or not the text view is
 // scrollable. If true, text is kept in a buffer and can be navigated. If false,
 // the last line will always be visible.
@@ -760,7 +765,6 @@ func (t *TextView) Focus(delegate func(p Primitive)) {
 	// Implemented here with locking because this is used by layout primitives.
 	t.Lock()
 	defer t.Unlock()
-	t.Box.Focus(delegate)
 
 	// But if we're part of a form and not scrollable, there's nothing the user
 	// can do here so we're finished.
@@ -768,6 +772,8 @@ func (t *TextView) Focus(delegate func(p Primitive)) {
 		t.finished(-1)
 		return
 	}
+
+	t.Box.Focus(delegate)
 }
 
 // HasFocus returns whether or not this primitive has focus.
@@ -1148,7 +1154,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 	// Draw the text element if necessary.
 	_, bg, _ := t.textStyle.Decompose()
-	if bg != t.GetBackgroundColor() {
+	if bg != t.backgroundColor {
 		for row := 0; row < height; row++ {
 			for column := 0; column < width; column++ {
 				screen.SetContent(x+column, y+row, ' ', nil, t.textStyle)

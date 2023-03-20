@@ -192,6 +192,9 @@ type textAreaUndoItem struct {
 type TextArea struct {
 	*Box
 
+	// Whether or not this text area is disabled/read-only.
+	disabled bool
+
 	// The size of the text area. If set to 0, the text area will use the entire
 	// available space.
 	width, height int
@@ -749,6 +752,15 @@ func (t *TextArea) GetFieldHeight() int {
 	return t.height
 }
 
+// SetDisabled sets whether or not the item is disabled / read-only.
+func (t *TextArea) SetDisabled(disabled bool) FormItem {
+	t.disabled = disabled
+	if t.finished != nil {
+		t.finished(-1)
+	}
+	return t
+}
+
 // SetMaxLength sets the maximum number of bytes allowed in the text area. A
 // value of 0 means there is no limit. If the text area currently contains more
 // bytes than this, it may violate this constraint.
@@ -846,6 +858,18 @@ func (t *TextArea) SetMovedFunc(handler func()) *TextArea {
 func (t *TextArea) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	t.finished = handler
 	return t
+}
+
+// Focus is called when this primitive receives focus.
+func (t *TextArea) Focus(delegate func(p Primitive)) {
+	// If we're part of a form and this item is disabled, there's nothing the
+	// user can do here so we're finished.
+	if t.finished != nil && t.disabled {
+		t.finished(-1)
+		return
+	}
+
+	t.Box.Focus(delegate)
 }
 
 // SetFormAttributes sets attributes shared by all form items.
@@ -1066,7 +1090,10 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 
 	// Draw the input element if necessary.
 	_, bg, _ := t.textStyle.Decompose()
-	if bg != t.GetBackgroundColor() {
+	if t.disabled {
+		bg = t.backgroundColor
+	}
+	if bg != t.backgroundColor {
 		for row := 0; row < height; row++ {
 			for column := 0; column < width; column++ {
 				screen.SetContent(x+column, y+row, ' ', nil, t.textStyle)
@@ -1144,6 +1171,9 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 			fromRow > line ||
 			fromRow == line && fromColumn > posX {
 			style = t.textStyle
+			if t.disabled {
+				style = style.Background(t.backgroundColor)
+			}
 		}
 
 		// Draw character.
@@ -1810,6 +1840,10 @@ func (t *TextArea) getSelectedText() string {
 // InputHandler returns the handler for this primitive.
 func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		if t.disabled {
+			return
+		}
+
 		// All actions except a few specific ones are "other" actions.
 		newLastAction := taActionOther
 		defer func() {
@@ -2197,6 +2231,10 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 // MouseHandler returns the mouse handler for this primitive.
 func (t *TextArea) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return t.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if t.disabled {
+			return false, nil
+		}
+
 		x, y := event.Position()
 		rectX, rectY, _, _ := t.GetInnerRect()
 		if !t.InRect(x, y) {
