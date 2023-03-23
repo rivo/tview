@@ -20,6 +20,9 @@ type dropDownOption struct {
 type DropDown struct {
 	*Box
 
+	// Whether or not this drop-down is disabled/read-only.
+	disabled bool
+
 	// The options from which the user can choose.
 	options []*dropDownOption
 
@@ -249,6 +252,15 @@ func (d *DropDown) GetFieldHeight() int {
 	return 1
 }
 
+// SetDisabled sets whether or not the item is disabled / read-only.
+func (d *DropDown) SetDisabled(disabled bool) FormItem {
+	d.disabled = disabled
+	if d.finished != nil {
+		d.finished(-1)
+	}
+	return d
+}
+
 // AddOption adds a new selectable option to this drop-down. The "selected"
 // callback is called when this option was selected. It may be nil.
 func (d *DropDown) AddOption(text string, selected func()) *DropDown {
@@ -371,6 +383,9 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	if d.HasFocus() && !d.open {
 		fieldStyle = fieldStyle.Background(d.fieldTextColor)
 	}
+	if d.disabled {
+		fieldStyle = fieldStyle.Background(d.backgroundColor)
+	}
 	for index := 0; index < fieldWidth; index++ {
 		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
 	}
@@ -393,7 +408,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 			text = d.currentOptionPrefix + d.options[d.currentOption].Text + d.currentOptionSuffix
 		}
 		// Just show the current selection.
-		if d.HasFocus() && !d.open {
+		if d.HasFocus() && !d.open && !d.disabled {
 			color = d.fieldBackgroundColor
 		}
 		Print(screen, text, x, y, fieldWidth, AlignLeft, color)
@@ -432,6 +447,10 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return d.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		if d.disabled {
+			return
+		}
+
 		// If the list has focus, let it process its own key events.
 		if d.list.HasFocus() {
 			if handler := d.list.InputHandler(); handler != nil {
@@ -534,6 +553,13 @@ func (d *DropDown) closeList(setFocus func(Primitive)) {
 
 // Focus is called by the application when the primitive receives focus.
 func (d *DropDown) Focus(delegate func(p Primitive)) {
+	// If we're part of a form and this item is disabled, there's nothing the
+	// user can do here so we're finished.
+	if d.finished != nil && d.disabled {
+		d.finished(-1)
+		return
+	}
+
 	if d.open {
 		delegate(d.list)
 	} else {
@@ -552,6 +578,10 @@ func (d *DropDown) HasFocus() bool {
 // MouseHandler returns the mouse handler for this primitive.
 func (d *DropDown) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return d.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if d.disabled {
+			return false, nil
+		}
+
 		// Was the mouse event in the drop-down box itself (or on its label)?
 		x, y := event.Position()
 		rectX, rectY, rectWidth, _ := d.GetInnerRect()

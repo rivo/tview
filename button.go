@@ -10,6 +10,9 @@ import (
 type Button struct {
 	*Box
 
+	// If set to true, the button cannot be activated.
+	disabled bool
+
 	// The text to be displayed inside the button.
 	text string
 
@@ -19,7 +22,7 @@ type Button struct {
 	// The button's style (when activated).
 	activatedStyle tcell.Style
 
-	// The button's style (when disabled)
+	// The button's style (when disabled).
 	disabledStyle tcell.Style
 
 	// An optional function which is called when the button was selected.
@@ -32,9 +35,6 @@ type Button struct {
 
 	// Label's alignment, by default AlignCenter
 	align int
-
-	// An optional attribute, when button is disabled
-	disabled bool
 }
 
 // NewButton returns a new input field.
@@ -109,6 +109,27 @@ func (b *Button) SetActivatedStyle(style tcell.Style) *Button {
 	return b
 }
 
+// SetDisabledStyle sets the style of the button used when it is disabled.
+func (b *Button) SetDisabledStyle(style tcell.Style) *Button {
+	b.disabledStyle = style
+	return b
+}
+
+// SetDisabled sets whether or not the button is disabled. Disabled buttons
+// cannot be activated.
+//
+// If the button is part of a form, you should set focus to the form itself
+// after calling this function to set focus to the next non-disabled form item.
+func (b *Button) SetDisabled(disabled bool) *Button {
+	b.disabled = disabled
+	return b
+}
+
+// IsDisabled returns whether or not the button is disabled.
+func (b *Button) IsDisabled() bool {
+	return b.disabled
+}
+
 // SetLabelColorDisabled sets the color of the button text when the button is
 // disabled.
 func (b *Button) SetLabelColorDisabled(color tcell.Color) *Button {
@@ -120,12 +141,6 @@ func (b *Button) SetLabelColorDisabled(color tcell.Color) *Button {
 // the button is disabled.
 func (b *Button) SetBackgroundColorDisabled(color tcell.Color) *Button {
 	b.disabledStyle = b.disabledStyle.Background(color)
-	return b
-}
-
-// SetDisabledStyle sets the style of the button used when it is disabled.
-func (b *Button) SetDisabledStyle(style tcell.Style) *Button {
-	b.disabledStyle = style
 	return b
 }
 
@@ -174,11 +189,6 @@ func (b *Button) SetExitFunc(handler func(key tcell.Key)) *Button {
 	return b
 }
 
-// SetDisabled sets the flag that, if true, button is not available for interactions
-func (b *Button) SetDisabled() *Button {
-	b.disabled = true
-	return b
-}
 
 // SetEnabled sets the flag that, if false, button is available for interactions
 func (b *Button) SetEnabled() *Button {
@@ -188,15 +198,13 @@ func (b *Button) SetEnabled() *Button {
 
 // Draw draws this primitive onto the screen.
 func (b *Button) Draw(screen tcell.Screen) {
-	var style tcell.Style
 	// Draw the box.
-	if !b.disabled {
-		style = b.style
-	} else {
+	style := b.style
+	if b.disabled {
 		style = b.disabledStyle
 	}
 	_, backgroundColor, _ := style.Decompose()
-	if b.HasFocus() {
+	if b.HasFocus() && !b.disabled {
 		style = b.activatedStyle
 		_, backgroundColor, _ = style.Decompose()
 
@@ -221,10 +229,14 @@ func (b *Button) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (b *Button) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return b.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		if b.disabled {
+			return
+		}
+
 		// Process key event.
 		switch key := event.Key(); key {
 		case tcell.KeyEnter: // Selected.
-			if b.selected != nil && !b.disabled {
+			if b.selected != nil {
 				b.selected()
 			}
 		case tcell.KeyBacktab, tcell.KeyTab, tcell.KeyEscape: // Leave. No action.
@@ -238,16 +250,20 @@ func (b *Button) InputHandler() func(event *tcell.EventKey, setFocus func(p Prim
 // MouseHandler returns the mouse handler for this primitive.
 func (b *Button) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return b.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if b.disabled {
+			return false, nil
+		}
+
 		if !b.InRect(event.Position()) {
 			return false, nil
 		}
 
 		// Process mouse event.
-		if action == MouseLeftDown && !b.disabled {
+		if action == MouseLeftDown {
 			setFocus(b)
 			consumed = true
 		} else if action == MouseLeftClick {
-			if b.selected != nil && !b.disabled {
+			if b.selected != nil {
 				b.selected()
 			}
 			consumed = true

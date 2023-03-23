@@ -45,6 +45,10 @@ type FormItem interface {
 	// value, indicating that the action for the last known key should be
 	// repeated.
 	SetFinishedFunc(handler func(key tcell.Key)) FormItem
+
+	// SetDisabled sets whether or not the item is disabled / read-only. A form
+	// must have at least one item that is not disabled.
+	SetDisabled(disabled bool) FormItem
 }
 
 // Form allows you to combine multiple one-line form elements into a vertical
@@ -91,6 +95,9 @@ type Form struct {
 
 	// The style of the buttons when they are focused.
 	buttonActivatedStyle tcell.Style
+
+	// The style of the buttons when they are disabled.
+	buttonDisabledStyle tcell.Style
 
 	// The last (valid) key that wsa sent to a "finished" handler or -1 if no
 	// such key is known yet.
@@ -662,12 +669,6 @@ func (f *Form) Draw(screen tcell.Screen) {
 
 // Focus is called by the application when the primitive receives focus.
 func (f *Form) Focus(delegate func(p Primitive)) {
-	if len(f.items)+len(f.buttons) == 0 {
-		f.Box.Focus(delegate)
-		return
-	}
-	f.hasFocus = false
-
 	// Hand on the focus to one of our child elements.
 	if f.focusedElement < 0 || f.focusedElement >= len(f.items)+len(f.buttons) {
 		f.focusedElement = 0
@@ -702,22 +703,41 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 		}
 	}
 
-	// Set the handler for all items and buttons.
+	// Track whether a form item has focus.
+	var itemFocused bool
+	f.hasFocus = false
+
+	// Set the handler and focus for all items and buttons.
+	for index, button := range f.buttons {
+		button.SetExitFunc(handler)
+		if f.focusedElement == index+len(f.items) {
+			if button.IsDisabled() {
+				f.focusedElement++
+				if f.focusedElement >= len(f.items)+len(f.buttons) {
+					f.focusedElement = 0
+				}
+				continue
+			}
+
+			itemFocused = true
+			func(b *Button) { // Wrapping might not be necessary anymore in future Go versions.
+				defer delegate(b)
+			}(button)
+		}
+	}
 	for index, item := range f.items {
 		item.SetFinishedFunc(handler)
 		if f.focusedElement == index {
+			itemFocused = true
 			func(i FormItem) { // Wrapping might not be necessary anymore in future Go versions.
 				defer delegate(i)
 			}(item)
 		}
 	}
-	for index, button := range f.buttons {
-		button.SetExitFunc(handler)
-		if f.focusedElement == index+len(f.items) {
-			func(b *Button) { // Wrapping might not be necessary anymore in future Go versions.
-				defer delegate(b)
-			}(button)
-		}
+
+	// If no item was focused, focus the form itself.
+	if !itemFocused {
+		f.Box.Focus(delegate)
 	}
 }
 
@@ -782,6 +802,7 @@ func (f *Form) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		// A mouse down anywhere else will return the focus to the last selected
 		// element.
 		if action == MouseLeftDown && f.InRect(event.Position()) {
+			f.Focus(setFocus)
 			consumed = true
 		}
 

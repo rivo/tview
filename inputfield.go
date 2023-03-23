@@ -49,6 +49,9 @@ const (
 type InputField struct {
 	*Box
 
+	// Whether or not this input field is disabled/read-only.
+	disabled bool
+
 	// The text that was entered.
 	text string
 
@@ -277,6 +280,15 @@ func (i *InputField) GetFieldHeight() int {
 	return 1
 }
 
+// SetDisabled sets whether or not the item is disabled / read-only.
+func (i *InputField) SetDisabled(disabled bool) FormItem {
+	i.disabled = disabled
+	if i.finished != nil {
+		i.finished(-1)
+	}
+	return i
+}
+
 // SetMaskCharacter sets a character that masks user input on a screen. A value
 // of 0 disables masking.
 func (i *InputField) SetMaskCharacter(mask rune) *InputField {
@@ -403,6 +415,18 @@ func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
 	return i
 }
 
+// Focus is called when this primitive receives focus.
+func (i *InputField) Focus(delegate func(p Primitive)) {
+	// If we're part of a form and this item is disabled, there's nothing the
+	// user can do here so we're finished.
+	if i.finished != nil && i.disabled {
+		i.finished(-1)
+		return
+	}
+
+	i.Box.Focus(delegate)
+}
+
 // Blur is called when this primitive loses focus.
 func (i *InputField) Blur() {
 	i.Box.Blur()
@@ -449,6 +473,9 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	}
 	if rightLimit-x < fieldWidth {
 		fieldWidth = rightLimit - x
+	}
+	if i.disabled {
+		inputStyle = inputStyle.Background(i.backgroundColor)
 	}
 	if inputBg != tcell.ColorDefault {
 		for index := 0; index < fieldWidth; index++ {
@@ -552,6 +579,10 @@ func (i *InputField) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return i.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		if i.disabled {
+			return
+		}
+
 		// Trigger changed events.
 		currentText := i.text
 		defer func() {
@@ -733,6 +764,10 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 // MouseHandler returns the mouse handler for this primitive.
 func (i *InputField) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return i.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if i.disabled {
+			return false, nil
+		}
+
 		currentText := i.GetText()
 		defer func() {
 			if i.GetText() != currentText {
