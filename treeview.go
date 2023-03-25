@@ -345,7 +345,9 @@ func (t *TreeView) GetRoot() *TreeNode {
 // selections. Selected nodes must be visible and selectable, or else the
 // selection will be changed to the top-most selectable and visible node.
 //
-// This function does NOT trigger the "changed" callback.
+// This function does NOT trigger the "changed" callback because the actual node
+// that will be selected is not known until the tree is drawn. That is also when
+// the "changed" callback will be triggered.
 func (t *TreeView) SetCurrentNode(node *TreeNode) *TreeView {
 	t.currentNode = node
 	return t
