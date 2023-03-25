@@ -551,6 +551,11 @@ func (d *DropDown) closeList(setFocus func(Primitive)) {
 	}
 }
 
+// IsOpen returns true if the drop-down list is currently open.
+func (d *DropDown) IsOpen() bool {
+	return d.open
+}
+
 // Focus is called by the application when the primitive receives focus.
 func (d *DropDown) Focus(delegate func(p Primitive)) {
 	// If we're part of a form and this item is disabled, there's nothing the
