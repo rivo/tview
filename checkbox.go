@@ -64,9 +64,15 @@ func NewCheckbox() *Checkbox {
 	}
 }
 
-// SetChecked sets the state of the checkbox.
+// SetChecked sets the state of the checkbox. This also triggers the "changed"
+// callback if the state changes with this call.
 func (c *Checkbox) SetChecked(checked bool) *Checkbox {
-	c.checked = checked
+	if c.checked != checked {
+		if c.changed != nil {
+			c.changed(checked)
+		}
+		c.checked = checked
+	}
 	return c
 }
 
@@ -148,8 +154,7 @@ func (c *Checkbox) SetDisabled(disabled bool) FormItem {
 }
 
 // SetChangedFunc sets a handler which is called when the checked state of this
-// checkbox was changed by the user. The handler function receives the new
-// state.
+// checkbox was changed. The handler function receives the new state.
 func (c *Checkbox) SetChangedFunc(handler func(checked bool)) *Checkbox {
 	c.changed = handler
 	return c
