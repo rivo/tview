@@ -584,9 +584,7 @@ func (t *TreeView) process(drawingAfter bool) {
 				}
 			}
 		}
-		t.step = 0
 		t.currentNode = t.nodes[selectedIndex]
-		t.movement = treeNone
 
 		// Move selection into viewport.
 		if t.movement != treeScroll {
@@ -595,6 +593,11 @@ func (t *TreeView) process(drawingAfter bool) {
 			}
 			if selectedIndex < t.offsetY {
 				t.offsetY = selectedIndex
+			}
+			if t.movement != treeHome && t.movement != treeEnd {
+				// treeScroll, treeHome, and treeEnd are handled by Draw().
+				t.movement = treeNone
+				t.step = 0
 			}
 		}
 	} else {
@@ -635,7 +638,7 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 	}
 
 	// Scroll the tree, t.movement is treeNone after process() when there is a
-	// selection.
+	// selection, except for treeScroll, treeHome, and treeEnd.
 	x, y, width, height := t.GetInnerRect()
 	switch t.movement {
 	case treeMove, treeScroll:
