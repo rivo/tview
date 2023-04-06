@@ -127,6 +127,10 @@ type InputField struct {
 
 	fieldX int // The x-coordinate of the input field as determined during the last call to Draw().
 	offset int // The number of bytes of the text string skipped ahead while drawing.
+
+	// If this field is set to true then the Autocomplete List has the same width
+	// as the fieldWidth
+	autocompleteMatchFieldWidth bool
 }
 
 // NewInputField returns a new input field.
@@ -287,6 +291,12 @@ func (i *InputField) SetDisabled(disabled bool) FormItem {
 		i.finished(-1)
 	}
 	return i
+}
+
+// SetAutocompleteMatchFieldWidth sets whether or not the AutoComplete List
+// should have a width equal to the fieldWidth
+func (i *InputField) SetAutocompleteMatchFieldWidth(match bool) {
+	i.autocompleteMatchFieldWidth = match
 }
 
 // SetMaskCharacter sets a character that masks user input on a screen. A value
@@ -544,12 +554,15 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	if i.autocompleteList != nil {
 		// How much space do we need?
 		lheight := i.autocompleteList.GetItemCount()
-		lwidth := 0
-		for index := 0; index < lheight; index++ {
-			entry, _ := i.autocompleteList.GetItemText(index)
-			width := TaggedStringWidth(entry)
-			if width > lwidth {
-				lwidth = width
+		lwidth := i.fieldWidth
+		if !i.autocompleteMatchFieldWidth {
+			lwidth = 0
+			for index := 0; index < lheight; index++ {
+				entry, _ := i.autocompleteList.GetItemText(index)
+				width := TaggedStringWidth(entry)
+				if width > lwidth {
+					lwidth = width
+				}
 			}
 		}
 
