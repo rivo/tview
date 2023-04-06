@@ -554,7 +554,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	if i.autocompleteList != nil {
 		// How much space do we need?
 		lheight := i.autocompleteList.GetItemCount()
-		lwidth := i.fieldWidth
+		lwidth := fieldWidth
 		if !i.autocompleteMatchFieldWidth {
 			lwidth = 0
 			for index := 0; index < lheight; index++ {
