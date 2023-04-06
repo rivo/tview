@@ -171,7 +171,23 @@ are executed in the main goroutine and thus should not use
 # Type Hierarchy
 
 All widgets listed above contain the [Box] type. All of [Box]'s functions are
-therefore available for all widgets, too.
+therefore available for all widgets, too. Please note that if you are using the
+functions of [Box] on a subclass, they will return a *Box, not the subclass. So
+while tview supports method chaining in many places, these chains must be broken
+when using [Box]'s functions. Example:
+
+	// This will cause "textArea" to be an empty Box.
+	textArea := tview.NewTextArea().
+		SetMaxLength(256).
+		SetPlaceholder("Enter text here").
+		SetBorder(true)
+
+You will need to call [Box.SetBorder] separately:
+
+	textArea := tview.NewTextArea().
+		SetMaxLength(256).
+		SetPlaceholder("Enter text here")
+	texArea.SetBorder(true)
 
 All widgets also implement the [Primitive] interface.
 
