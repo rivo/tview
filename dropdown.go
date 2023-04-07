@@ -71,6 +71,10 @@ type DropDown struct {
 	// possible.
 	fieldWidth int
 
+	// Set true when automatic seletion of an item in the drop-down list
+	// based on the prefix is enabled (default is true).
+	autoSelection bool
+
 	// An optional function which is called when the user indicated that they
 	// are done selecting options. The key which was pressed is provided (tab,
 	// shift-tab, or escape).
@@ -105,6 +109,7 @@ func NewDropDown() *DropDown {
 		fieldBackgroundColor: Styles.ContrastBackgroundColor,
 		fieldTextColor:       Styles.PrimaryTextColor,
 		prefixTextColor:      Styles.ContrastSecondaryTextColor,
+		autoSelection:        true,
 	}
 
 	return d
@@ -465,7 +470,7 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			d.prefix = ""
 
 			// If the first key was a letter already, it becomes part of the prefix.
-			if r := event.Rune(); key == tcell.KeyRune && r != ' ' {
+			if r := event.Rune(); key == tcell.KeyRune && r != ' ' && d.autoSelection {
 				d.prefix += string(r)
 				d.evalPrefix()
 			}
@@ -520,7 +525,12 @@ func (d *DropDown) openList(setFocus func(Primitive)) {
 			d.options[d.currentOption].Selected()
 		}
 	}).SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyRune {
+		if event.Key() == tcell.KeyEscape {
+			d.currentOption = optionBefore
+			d.closeList(setFocus)
+		} else if !d.autoSelection {
+			d.prefix = ""
+		} else if event.Key() == tcell.KeyRune {
 			d.prefix += string(event.Rune())
 			d.evalPrefix()
 		} else if event.Key() == tcell.KeyBackspace || event.Key() == tcell.KeyBackspace2 {
@@ -529,11 +539,6 @@ func (d *DropDown) openList(setFocus func(Primitive)) {
 				d.prefix = string(r[:len(r)-1])
 			}
 			d.evalPrefix()
-		} else if event.Key() == tcell.KeyEscape {
-			d.currentOption = optionBefore
-			d.closeList(setFocus)
-		} else {
-			d.prefix = ""
 		}
 
 		return event
@@ -627,4 +632,10 @@ func (d *DropDown) MouseHandler() func(action MouseAction, event *tcell.EventMou
 
 		return
 	})
+}
+
+// SetAutomaticSelection enable/disable the automatic seletion
+// of an item in the drop-down list based on the prefix.
+func (d *DropDown) SetAutomaticSelection(status bool) {
+	d.autoSelection = status
 }
