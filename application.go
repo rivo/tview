@@ -201,6 +201,11 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 	return a
 }
 
+// GetScreenSize returns the size of the screen.
+func (a *Application) GetScreenSize() (int, int) {
+	return a.screen.Size()
+}
+
 // EnableMouse enables mouse events or disables them (if "false" is provided).
 func (a *Application) EnableMouse(enable bool) *Application {
 	a.Lock()
