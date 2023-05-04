@@ -290,6 +290,8 @@ func (i *Image) Focus(delegate func(p Primitive)) {
 		i.finished(-1)
 		return
 	}
+
+	i.Box.Focus(delegate)
 }
 
 // render re-populates the [Image.pixels] slice besed on the current settings,
