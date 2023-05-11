@@ -187,7 +187,7 @@ func (n *TreeNode) ExpandAll() *TreeNode {
 // CollapseAll collapses this node and all descendent nodes.
 func (n *TreeNode) CollapseAll() *TreeNode {
 	n.Walk(func(node, parent *TreeNode) bool {
-		n.expanded = false
+		node.expanded = false
 		return true
 	})
 	return n
