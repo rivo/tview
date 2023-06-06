@@ -82,7 +82,7 @@ func (m *Modal) SetButtonTextColor(color tcell.Color) *Modal {
 // SetDoneFunc sets a handler which is called when one of the buttons was
 // pressed. It receives the index of the button as well as its label text. The
 // handler is also called when the user presses the Escape key. The index will
-// then be negative and the label text an emptry string.
+// then be negative and the label text an empty string.
 func (m *Modal) SetDoneFunc(handler func(buttonIndex int, buttonLabel string)) *Modal {
 	m.done = handler
 	return m
