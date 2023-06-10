@@ -385,6 +385,7 @@ func (t *TextArea) SetText(text string, cursorAtTheEnd bool) *TextArea {
 	t.cursor.row, t.cursor.actualColumn, t.cursor.column = 0, 0, 0
 	t.cursor.pos = [3]int{1, 0, -1}
 	t.undoStack = t.undoStack[:0]
+	t.nextUndo = 0
 
 	if len(text) > 0 {
 		t.spans = append(t.spans, textAreaSpan{
