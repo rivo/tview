@@ -114,6 +114,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [piptui: Terminal UI to manage pip packages](https://github.com/glendsoza/piptui/)
 - [cross-clipboard: A cross-platform clipboard sharing](https://github.com/ntsd/cross-clipboard)
 - [tui-deck: nextcloud deck frontend](https://github.com/mebitek/tui-deck)
+- [ktop: A top-like tool for your Kubernetes clusters](https://github.com/vladimirvivien/ktop)
 
 ## Documentation
 
