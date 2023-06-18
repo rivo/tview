@@ -22,7 +22,9 @@ Among these components are:
 
 They come with lots of customization options and can be easily extended to fit your needs.
 
-## Installation
+## Usage
+
+To add this package to your project:
 
 ```bash
 go get github.com/rivo/tview
