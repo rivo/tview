@@ -8,7 +8,7 @@ import (
 
 // Modal is a centered message window used to inform the user or prompt them
 // for an immediate decision. It needs to have at least one button (added via
-// AddButtons()) or it will never disappear.
+// [Modal.AddButtons]) or it will never disappear.
 //
 // See https://github.com/rivo/tview/wiki/Modal for an example.
 type Modal struct {
@@ -76,6 +76,18 @@ func (m *Modal) SetButtonBackgroundColor(color tcell.Color) *Modal {
 // SetButtonTextColor sets the color of the button texts.
 func (m *Modal) SetButtonTextColor(color tcell.Color) *Modal {
 	m.form.SetButtonTextColor(color)
+	return m
+}
+
+// SetButtonStyle sets the style of the buttons when they are not focused.
+func (m *Modal) SetButtonStyle(style tcell.Style) *Modal {
+	m.form.SetButtonStyle(style)
+	return m
+}
+
+// SetButtonActivatedStyle sets the style of the buttons when they are focused.
+func (m *Modal) SetButtonActivatedStyle(style tcell.Style) *Modal {
+	m.form.SetButtonActivatedStyle(style)
 	return m
 }
 
