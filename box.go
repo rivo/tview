@@ -82,6 +82,13 @@ func NewBox() *Box {
 	return b
 }
 
+// SetDontClear sets whether the draw function 
+// clears the bg with defined color
+func (b *Box) SetDontClear(dontClear bool) *Box {
+	b.dontClear = dontClear
+	return b
+}
+
 // SetBorderPadding sets the size of the borders around the box content.
 func (b *Box) SetBorderPadding(top, bottom, left, right int) *Box {
 	b.paddingTop, b.paddingBottom, b.paddingLeft, b.paddingRight = top, bottom, left, right
