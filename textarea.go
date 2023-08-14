@@ -885,7 +885,7 @@ func (t *TextArea) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 // replace deletes a range of text and inserts the given text at that position.
 // If the resulting text would exceed the maximum length, the function does not
 // do anything. The function returns the end position of the deleted/inserted
-// range. The provided row is the row of the deleted range start.
+// range.
 //
 // The function can hang if "deleteStart" is located after "deleteEnd".
 //
@@ -893,7 +893,8 @@ func (t *TextArea) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 // either appended to the end of a span or a span is shortened at the beginning
 // or the end (and nothing else).
 //
-// This function does not modify [TextArea.lineStarts].
+// This function only modifies [TextArea.lineStarts] to update span references
+// but does not change it to reflect the new layout.
 func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continuation bool) [3]int {
 	// Maybe nothing needs to be done?
 	if deleteStart == deleteEnd && insert == "" || t.maxLength > 0 && len(insert) > 0 && t.length+len(insert) >= t.maxLength {
