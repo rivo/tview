@@ -387,9 +387,13 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 		if b.title != "" && b.width >= 4 {
 			printed, _ := Print(screen, b.title, b.x+1, b.y, b.width-2, b.titleAlign, b.titleColor)
 			if len(b.title)-printed > 0 && printed > 0 {
-				_, _, style, _ := screen.GetContent(b.x+b.width-2, b.y)
+				xEllipsis := b.x + b.width - 2
+				if b.titleAlign == AlignRight {
+					xEllipsis = b.x + 1
+				}
+				_, _, style, _ := screen.GetContent(xEllipsis, b.y)
 				fg, _, _ := style.Decompose()
-				Print(screen, string(SemigraphicsHorizontalEllipsis), b.x+b.width-2, b.y, 1, AlignLeft, fg)
+				Print(screen, string(SemigraphicsHorizontalEllipsis), xEllipsis, b.y, 1, AlignLeft, fg)
 			}
 		}
 	}

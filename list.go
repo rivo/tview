@@ -253,7 +253,7 @@ func (l *List) SetShortcutStyle(style tcell.Style) *List {
 
 // SetSelectedTextColor sets the text color of selected items. Note that the
 // color of main text characters that are different from the main text color
-// (e.g. color tags) is maintained.
+// (e.g. style tags) is maintained.
 func (l *List) SetSelectedTextColor(color tcell.Color) *List {
 	l.selectedStyle = l.selectedStyle.Foreground(color)
 	return l
@@ -514,7 +514,7 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 
 		// Main text.
-		_, printedWidth, _, end := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, l.mainTextStyle, true)
+		_, end, printedWidth := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, l.mainTextStyle, true)
 		if printedWidth > maxWidth {
 			maxWidth = printedWidth
 		}
@@ -551,7 +551,7 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Secondary text.
 		if l.showSecondaryText {
-			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, l.secondaryTextStyle, true)
+			_, end, printedWidth := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, l.secondaryTextStyle, true)
 			if printedWidth > maxWidth {
 				maxWidth = printedWidth
 			}

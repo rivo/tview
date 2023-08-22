@@ -119,6 +119,7 @@ func NewForm() *Form {
 		fieldTextColor:       Styles.PrimaryTextColor,
 		buttonStyle:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		buttonActivatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
+		buttonDisabledStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
 		lastFinishedKey:      tcell.KeyTab, // To skip over inactive elements at the beginning of the form.
 	}
 
@@ -192,6 +193,12 @@ func (f *Form) SetButtonStyle(style tcell.Style) *Form {
 // SetButtonActivatedStyle sets the style of the buttons when they are focused.
 func (f *Form) SetButtonActivatedStyle(style tcell.Style) *Form {
 	f.buttonActivatedStyle = style
+	return f
+}
+
+// SetButtonDisabledStyle sets the style of the buttons when they are disabled.
+func (f *Form) SetButtonDisabledStyle(style tcell.Style) *Form {
+	f.buttonDisabledStyle = style
 	return f
 }
 
@@ -605,7 +612,8 @@ func (f *Form) Draw(screen tcell.Screen) {
 			buttonWidth = space
 		}
 		button.SetStyle(f.buttonStyle).
-			SetActivatedStyle(f.buttonActivatedStyle)
+			SetActivatedStyle(f.buttonActivatedStyle).
+			SetDisabledStyle(f.buttonDisabledStyle)
 
 		buttonIndex := index + len(f.items)
 		positions[buttonIndex].x = x

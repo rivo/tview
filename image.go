@@ -729,7 +729,7 @@ func (i *Image) Draw(screen tcell.Screen) {
 		viewX += labelWidth
 		viewWidth -= labelWidth
 	} else {
-		_, drawnWidth, _, _ := printWithStyle(screen, i.label, viewX, viewY, 0, viewWidth, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
+		_, _, drawnWidth := printWithStyle(screen, i.label, viewX, viewY, 0, viewWidth, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
 		viewX += drawnWidth
 		viewWidth -= drawnWidth
 	}

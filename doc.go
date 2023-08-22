@@ -64,37 +64,41 @@ You will find more demos in the "demos" subdirectory. It also contains a
 presentation (written using tview) which gives an overview of the different
 widgets and how they can be used.
 
-# Colors
+# Styles, Colors, and Hyperlinks
 
-Throughout this package, colors are specified using the [tcell.Color] type.
-Functions such as [tcell.GetColor], [tcell.NewHexColor], and [tcell.NewRGBColor]
-can be used to create colors from W3C color names or RGB values.
+Throughout this package, styles are specified using the [tcell.Style] type.
+Styles specify colors with the [tcell.Color] type. Functions such as
+[tcell.GetColor], [tcell.NewHexColor], and [tcell.NewRGBColor] can be used to
+create colors from W3C color names or RGB values. The [tcell.Style] type also
+allows you to specify text attributes such as "bold" or "underline" or a URL
+which some terminals use to display hyperlinks.
 
-Almost all strings which are displayed can contain color tags. Color tags are
-W3C color names or six hexadecimal digits following a hash tag, wrapped in
-square brackets. Examples:
+Almost all strings which are displayed may contain style tags. A style tag's
+content is always wrapped in square brackets. In its simplest form, a style tag
+specifies the foreground color of the text. Colors in these tags are W3C color
+names or six hexadecimal digits following a hash tag. Examples:
 
 	This is a [red]warning[white]!
 	The sky is [#8080ff]blue[#ffffff].
 
-A color tag changes the color of the characters following that color tag. This
-applies to almost everything from box titles, list text, form item labels, to
-table cells. In a TextView, this functionality has to be switched on explicitly.
-See the TextView documentation for more information.
+A style tag changes the style of the characters following that style tag. There
+is no style stack and no nesting of style tags.
 
-Color tags may contain not just the foreground (text) color but also the
-background color and additional flags. In fact, the full definition of a color
-tag is as follows:
+Style tags are used in almost everything from box titles, list text, form item
+labels, to table cells. In a [TextView], this functionality has to be switched
+on explicitly. See the [TextView] documentation for more information.
 
-	[<foreground>:<background>:<flags>]
+A style tag's full format looks like this:
 
-Each of the three fields can be left blank and trailing fields can be omitted.
-(Empty square brackets "[]", however, are not considered color tags.) Colors
+	[<foreground>:<background>:<attribute flags>:<url>]
+
+Each of the four fields can be left blank and trailing fields can be omitted.
+(Empty square brackets "[]", however, are not considered style tags.) Fields
 that are not specified will be left unchanged. A field with just a dash ("-")
 means "reset to default".
 
-You can specify the following flags (some flags may not be supported by your
-terminal):
+You can specify the following flags to turn on certain attributes (some flags
+may not be supported by your terminal):
 
 	l: blink
 	b: bold
@@ -103,6 +107,15 @@ terminal):
 	r: reverse (switch foreground and background color)
 	u: underline
 	s: strike-through
+
+Use uppercase letters to turn off the corresponding attribute, for example,
+"B" to turn off bold. Uppercase letters have no effect if the attribute was not
+previously set.
+
+Setting a URL allows you to turn a piece of text into a hyperlink in some
+terminals. Specify a dash ("-") to specify the end of the hyperlink. Hyperlinks
+must only contain single-byte characters (e.g. ASCII), excluding bracket
+characters ("[" or "]").
 
 Examples:
 
@@ -113,9 +126,12 @@ Examples:
 	[::bl]Bold, blinking text
 	[::-]Colors unchanged, flags reset
 	[-]Reset foreground color
-	[-:-:-]Reset everything
+	[::i]Italic and [::I]not italic
+	Click [:::https://example.com]here[:::-] for example.com.
+	Send an email to [:::mailto:her@example.com]her/[:::mail:him@example.com]him[:::-].
+	[-:-:-:-]Reset everything
 	[:]No effect
-	[]Not a valid color tag, will print square brackets as they are
+	[]Not a valid style tag, will print square brackets as they are
 
 In the rare event that you want to display a string such as "[red]" or
 "[#00ff1a]" without applying its effect, you need to put an opening square
@@ -127,7 +143,7 @@ character that may be used in color or region tags will be recognized. Examples:
 	["123"[]    will be output as ["123"]
 	[#6aff00[[] will be output as [#6aff00[]
 	[a#"[[[]    will be output as [a#"[[]
-	[]          will be output as [] (see color tags above)
+	[]          will be output as [] (see style tags above)
 	[[]         will be output as [[] (not an escaped tag)
 
 You can use the Escape() function to insert brackets automatically where needed.

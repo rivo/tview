@@ -977,7 +977,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 		}
 		for _, row := range evaluationRows {
 			if cell := t.content.GetCell(row, column); cell != nil {
-				_, _, _, _, _, _, cellWidth := decomposeString(cell.Text, true, false)
+				cellWidth := TaggedStringWidth(cell.Text)
 				if cell.MaxWidth > 0 && cell.MaxWidth < cellWidth {
 					cellWidth = cell.MaxWidth
 				}
@@ -1154,7 +1154,8 @@ func (t *Table) Draw(screen tcell.Screen) {
 				finalWidth = width - columnX
 			}
 			cell.x, cell.y, cell.width = x+columnX, y+rowY, finalWidth
-			_, printed, _, _ := printWithStyle(screen, cell.Text, x+columnX, y+rowY, 0, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color).Attributes(cell.Attributes), true)
+			start, end, _ := printWithStyle(screen, cell.Text, x+columnX, y+rowY, 0, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color).Attributes(cell.Attributes), true)
+			printed := end - start
 			if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
 				_, _, style, _ := screen.GetContent(x+columnX+finalWidth-1, y+rowY)
 				printWithStyle(screen, string(SemigraphicsHorizontalEllipsis), x+columnX+finalWidth-1, y+rowY, 0, 1, AlignLeft, style, false)

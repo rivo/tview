@@ -413,7 +413,7 @@ func (t *TextView) SetText(text string) *TextView {
 }
 
 // GetText returns the current text of this text view. If "stripAllTags" is set
-// to true, any region/color tags are stripped from the text.
+// to true, any region/style tags are stripped from the text.
 func (t *TextView) GetText(stripAllTags bool) string {
 	// Get the buffer.
 	buffer := t.buffer
@@ -686,7 +686,7 @@ func (t *TextView) ScrollToHighlight() *TextView {
 }
 
 // GetRegionText returns the text of the region with the given ID. If dynamic
-// colors are enabled, color tags are stripped from the text. Newlines are
+// colors are enabled, style tags are stripped from the text. Newlines are
 // always returned as '\n' runes.
 //
 // If the region does not exist or if regions are turned off, an empty string
@@ -702,7 +702,7 @@ func (t *TextView) GetRegionText(regionID string) string {
 	)
 
 	for _, str := range t.buffer {
-		// Find all color tags in this line.
+		// Find all style tags in this line.
 		var colorTagIndices [][]int
 		if t.dynamicColors {
 			colorTagIndices = colorPattern.FindAllStringIndex(str, -1)
@@ -721,7 +721,7 @@ func (t *TextView) GetRegionText(regionID string) string {
 		// Analyze this line.
 		var currentTag, currentRegion int
 		for pos, ch := range str {
-			// Skip any color tags.
+			// Skip any style tags.
 			if currentTag < len(colorTagIndices) && pos >= colorTagIndices[currentTag][0] && pos < colorTagIndices[currentTag][1] {
 				tag := currentTag
 				if pos == colorTagIndices[tag][1]-1 {
@@ -972,7 +972,7 @@ func (t *TextView) reindexBuffer(width int) {
 				// Which tag comes next?
 				nextTag := make([][3]int, 0, 3)
 				if colorPos < len(colorTagIndices) {
-					nextTag = append(nextTag, [3]int{colorTagIndices[colorPos][0], colorTagIndices[colorPos][1], 0}) // 0 = color tag.
+					nextTag = append(nextTag, [3]int{colorTagIndices[colorPos][0], colorTagIndices[colorPos][1], 0}) // 0 = style tag.
 				}
 				if regionPos < len(regionIndices) {
 					nextTag = append(nextTag, [3]int{regionIndices[regionPos][0], regionIndices[regionPos][1], 1}) // 1 = region tag.
@@ -1007,7 +1007,7 @@ func (t *TextView) reindexBuffer(width int) {
 				// Process the tag.
 				switch nextTag[tagIndex][2] {
 				case 0:
-					// Process color tags.
+					// Process style tags.
 					foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colorTags[colorPos])
 					colorPos++
 				case 1:
@@ -1136,7 +1136,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		x += labelWidth
 		width -= labelWidth
 	} else {
-		_, drawnWidth, _, _ := printWithStyle(screen, t.label, x, y, 0, width, AlignLeft, t.labelStyle, labelBg == tcell.ColorDefault)
+		_, _, drawnWidth := printWithStyle(screen, t.label, x, y, 0, width, AlignLeft, t.labelStyle, labelBg == tcell.ColorDefault)
 		x += drawnWidth
 		width -= drawnWidth
 	}
