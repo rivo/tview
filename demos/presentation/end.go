@@ -14,5 +14,5 @@ func End(nextSlide func()) (title string, content tview.Primitive) {
 	})
 	url := "https://github.com/rivo/tview"
 	fmt.Fprint(textView, url)
-	return "End", Center(len(url), 1, textView)
+	return "End", tview.NewCenter(textView, len(url), 1)
 }

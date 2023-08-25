@@ -20,6 +20,6 @@ func Code(p tview.Primitive, width, height int, code string) tview.Primitive {
 	fmt.Fprint(codeView, code)
 
 	return tview.NewFlex().
-		AddItem(Center(width, height, p), 0, 1, true).
+		AddItem(tview.NewCenter(p, width, height), 0, 1, true).
 		AddItem(codeView, codeWidth, 1, false)
 }

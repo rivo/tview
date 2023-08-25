@@ -10,5 +10,5 @@ func Introduction(nextSlide func()) (title string, content tview.Primitive) {
 		AddItem("Designed to be simple", `"Hello world" is 5 lines of code`, '3', nextSlide).
 		AddItem("Good for data entry", `For charts, use "termui" - for low-level views, use "gocui" - ...`, '4', nextSlide).
 		AddItem("Extensive documentation", "Everything is documented, examples in GitHub wiki, demo code for each widget", '5', nextSlide)
-	return "Introduction", Center(80, 10, list)
+	return "Introduction", tview.NewCenter(list, 80, 10)
 }
