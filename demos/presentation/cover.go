@@ -19,7 +19,7 @@ const logo = `
 
 const (
 	subtitle   = `tview - Rich Widgets for Terminal UIs`
-	navigation = `Ctrl-N: Next slide    Ctrl-P: Previous slide    Ctrl-C: Exit`
+	navigation = `[yellow]Ctrl-N[-]: Next slide    [yellow]Ctrl-P[-]: Previous slide    [yellow]Ctrl-C[-]: Exit`
 	mouse      = `(or use your mouse)`
 )
 

@@ -495,3 +495,102 @@ func parseTag(str string, state *stepState) (length int, style tcell.Style, regi
 
 	return
 }
+
+// TaggedStringWidth returns the width of the given string needed to print it on
+// screen. The text may contain style tags which are not counted.
+func TaggedStringWidth(text string) (width int) {
+	var state *stepState
+	for len(text) > 0 {
+		_, text, state = step(text, state, stepOptionsStyle)
+		width += state.Width()
+	}
+	return
+}
+
+// WordWrap splits a text such that each resulting line does not exceed the
+// given screen width. Split points are determined using the algorithm described
+// in [Unicode Standard Annex #14].
+//
+// This function considers style tags to have no width.
+//
+// [Unicode Standard Annex #14]: https://www.unicode.org/reports/tr14/
+func WordWrap(text string, width int) (lines []string) {
+	if width <= 0 {
+		return
+	}
+
+	var (
+		state                                              *stepState
+		lineWidth, lineLength, lastOption, lastOptionWidth int
+	)
+	str := text
+	for len(str) > 0 {
+		// Parse the next character.
+		var c string
+		c, str, state = step(str, state, stepOptionsStyle)
+		cWidth := state.Width()
+
+		// Would it exceed the line width?
+		if lineWidth+cWidth > width {
+			if lastOptionWidth == 0 {
+				// No split point so far. Just split at the current position.
+				lines = append(lines, text[:lineLength])
+				text = text[lineLength:]
+				lineWidth, lineLength, lastOption, lastOptionWidth = 0, 0, 0, 0
+			} else {
+				// Split at the last split point.
+				lines = append(lines, text[:lastOption])
+				text = text[lastOption:]
+				lineWidth -= lastOptionWidth
+				lineLength -= lastOption
+				lastOption, lastOptionWidth = 0, 0
+			}
+		}
+
+		// Move ahead.
+		lineWidth += cWidth
+		lineLength += state.GrossLength()
+
+		// Check for split points.
+		if lineBreak, optional := state.LineBreak(); lineBreak {
+			if optional {
+				// Remember this split point.
+				lastOption = lineLength
+				lastOptionWidth = lineWidth
+			} else if str != "" || c != "" && uniseg.HasTrailingLineBreakInString(c) {
+				// We must split here.
+				lines = append(lines, strings.TrimRight(text[:lineLength], "\n\r"))
+				text = text[lineLength:]
+				lineWidth, lineLength, lastOption, lastOptionWidth = 0, 0, 0, 0
+			}
+		}
+	}
+	lines = append(lines, text)
+
+	return
+}
+
+// Escape escapes the given text such that color and/or region tags are not
+// recognized and substituted by the print functions of this package. For
+// example, to include a tag-like string in a box title or in a TextView:
+//
+//	box.SetTitle(tview.Escape("[squarebrackets]"))
+//	fmt.Fprint(textView, tview.Escape(`["quoted"]`))
+func Escape(text string) string {
+	return nonEscapePattern.ReplaceAllString(text, "$1[]")
+}
+
+// stripTags strips style tags from the given string. (Region tags are not
+// stripped.)
+func stripTags(text string) string {
+	var (
+		str   strings.Builder
+		state *stepState
+	)
+	for len(text) > 0 {
+		var c string
+		c, text, state = step(text, state, stepOptionsStyle)
+		str.WriteString(c)
+	}
+	return str.String()
+}

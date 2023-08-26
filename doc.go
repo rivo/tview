@@ -53,11 +53,6 @@ application, set the box as its root primitive, and run the event loop. The
 application exits when the application's [Application.Stop] function is called
 or when Ctrl-C is pressed.
 
-If we have a primitive which consumes key presses, we call the application's
-[Application.SetFocus] function to redirect all key presses to that primitive.
-Most primitives then offer ways to install handlers that allow you to react to
-any actions performed on them.
-
 # More Demos
 
 You will find more demos in the "demos" subdirectory. It also contains a
@@ -114,8 +109,8 @@ previously set.
 
 Setting a URL allows you to turn a piece of text into a hyperlink in some
 terminals. Specify a dash ("-") to specify the end of the hyperlink. Hyperlinks
-must only contain single-byte characters (e.g. ASCII), excluding bracket
-characters ("[" or "]").
+must only contain single-byte characters (e.g. ASCII) and they may not contain
+bracket characters ("[" or "]").
 
 Examples:
 
@@ -128,7 +123,7 @@ Examples:
 	[-]Reset foreground color
 	[::i]Italic and [::I]not italic
 	Click [:::https://example.com]here[:::-] for example.com.
-	Send an email to [:::mailto:her@example.com]her/[:::mail:him@example.com]him[:::-].
+	Send an email to [:::mailto:her@example.com]her/[:::mail:him@example.com]him/[:::mail:them@example.com]them[:::-].
 	[-:-:-:-]Reset everything
 	[:]No effect
 	[]Not a valid style tag, will print square brackets as they are
@@ -151,18 +146,24 @@ You can use the Escape() function to insert brackets automatically where needed.
 # Styles
 
 When primitives are instantiated, they are initialized with colors taken from
-the global Styles variable. You may change this variable to adapt the look and
+the global [Styles] variable. You may change this variable to adapt the look and
 feel of the primitives to your preferred style.
+
+Note that most terminals will not report information about their color theme.
+This package therefore does not support using the terminal's color theme. The
+default style is a dark theme and you must change the [Styles] variable to
+switch to a light (or other) theme.
 
 # Unicode Support
 
-This package supports unicode characters including wide characters.
+This package supports all unicode characters supported by your terminal.
 
 # Concurrency
 
 Many functions in this package are not thread-safe. For many applications, this
-may not be an issue: If your code makes changes in response to key events, it
-will execute in the main goroutine and thus will not cause any race conditions.
+is not an issue: If your code makes changes in response to key events, the
+corresponding callback function will execute in the main goroutine and thus will
+not cause any race conditions. (Exceptions to this are documented.)
 
 If you access your primitives from other goroutines, however, you will need to
 synchronize execution. The easiest way to do this is to call
@@ -182,15 +183,17 @@ documentation for details.
 You can also call [Application.Draw] from any goroutine without having to wrap
 it in [Application.QueueUpdate]. And, as mentioned above, key event callbacks
 are executed in the main goroutine and thus should not use
-[Application.QueueUpdate] as that may lead to deadlocks.
+[Application.QueueUpdate] as that may lead to deadlocks. It is also not
+necessary to call [Application.Draw] from such callbacks as it will be called
+automatically.
 
 # Type Hierarchy
 
 All widgets listed above contain the [Box] type. All of [Box]'s functions are
 therefore available for all widgets, too. Please note that if you are using the
-functions of [Box] on a subclass, they will return a *Box, not the subclass. So
-while tview supports method chaining in many places, these chains must be broken
-when using [Box]'s functions. Example:
+functions of [Box] on a subclass, they will return a *Box, not the subclass.
+This is a Golang limitation. So while tview supports method chaining in many
+places, these chains must be broken when using [Box]'s functions. Example:
 
 	// This will cause "textArea" to be an empty Box.
 	textArea := tview.NewTextArea().
@@ -207,7 +210,8 @@ You will need to call [Box.SetBorder] separately:
 
 All widgets also implement the [Primitive] interface.
 
-The tview package is based on https://github.com/gdamore/tcell. It uses types
-and constants from that package (e.g. colors and keyboard values).
+The tview package's rendering is based on version 2 of
+https://github.com/gdamore/tcell. It uses types and constants from that package
+(e.g. colors, styles, and keyboard values).
 */
 package tview

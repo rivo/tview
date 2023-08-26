@@ -18,6 +18,21 @@ const (
 	AutocompletedClick           // The user selected an autocomplete entry by clicking the mouse button on it.
 )
 
+// Predefined InputField acceptance functions.
+var (
+	// InputFieldInteger accepts integers.
+	InputFieldInteger func(text string, ch rune) bool
+
+	// InputFieldFloat accepts floating-point numbers.
+	InputFieldFloat func(text string, ch rune) bool
+
+	// InputFieldMaxLength returns an input field accept handler which accepts
+	// input strings up to a given length. Use it like this:
+	//
+	//   inputField.SetAcceptanceFunc(InputFieldMaxLength(10)) // Accept up to 10 characters.
+	InputFieldMaxLength func(maxLength int) func(text string, ch rune) bool
+)
+
 // InputField is a one-line box (three lines if there is a title) where the
 // user can enter text. Use [InputField.SetAcceptanceFunc] to accept or reject
 // input, [InputField.SetChangedFunc] to listen for changes, and

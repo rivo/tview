@@ -9,10 +9,12 @@ import (
 
 // End shows the final slide.
 func End(nextSlide func()) (title string, content tview.Primitive) {
-	textView := tview.NewTextView().SetDoneFunc(func(key tcell.Key) {
-		nextSlide()
-	})
-	url := "https://github.com/rivo/tview"
+	textView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetDoneFunc(func(key tcell.Key) {
+			nextSlide()
+		})
+	url := "[:::https://github.com/rivo/tview]https://github.com/rivo/tview"
 	fmt.Fprint(textView, url)
-	return "End", Center(len(url), 1, textView)
+	return "End", Center(tview.TaggedStringWidth(url), 1, textView)
 }
