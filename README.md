@@ -117,6 +117,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [cross-clipboard: A cross-platform clipboard sharing](https://github.com/ntsd/cross-clipboard)
 - [tui-deck: nextcloud deck frontend](https://github.com/mebitek/tui-deck)
 - [ktop: A top-like tool for your Kubernetes clusters](https://github.com/vladimirvivien/ktop)
+- [blimp: UI for weather, network latency, application status, & more](https://github.com/merlinfuchs/blimp)
 
 ## Documentation
 
