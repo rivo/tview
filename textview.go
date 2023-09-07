@@ -6,7 +6,6 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	colorful "github.com/lucasb-eyer/go-colorful"
-	"github.com/rivo/uniseg"
 )
 
 // TabSize is the number of spaces with which a tab character will be replaced.
@@ -947,7 +946,7 @@ func (t *TextView) parseAhead(width int, stop func(lineNumber int, line *textVie
 					st := *state
 					lastOptionState = &st
 				}
-			} else if str != "" || c != "" && uniseg.HasTrailingLineBreakInString(c) {
+			} else {
 				// We must split here.
 				if stop(len(t.lineIndex)-1, lastLine) {
 					return
