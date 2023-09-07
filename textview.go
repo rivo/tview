@@ -63,6 +63,9 @@ func (w TextViewWriter) HasFocus() bool {
 // screen columns, but only if the text is left-aligned. If the text is centered
 // or right-aligned, tab characters are simply replaced with [TabSize] spaces.
 //
+// Word wrapping is enabled by default. Use [TextView.SetWrap] and
+// [TextView.SetWordWrap] to change this.
+//
 // # Navigation
 //
 // If the text view is set to be scrollable (which is the default), text is kept
@@ -246,6 +249,7 @@ func NewTextView() *TextView {
 		scrollable: true,
 		align:      AlignLeft,
 		wrap:       true,
+		wordWrap:   true,
 		textStyle:  tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		regionTags: false,
 		styleTags:  false,
