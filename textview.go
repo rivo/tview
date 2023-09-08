@@ -6,7 +6,6 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	colorful "github.com/lucasb-eyer/go-colorful"
-	"github.com/rivo/uniseg"
 )
 
 // TabSize is the number of spaces with which a tab character will be replaced.
@@ -63,6 +62,9 @@ func (w TextViewWriter) HasFocus() bool {
 // Tab characters advance the text to the next tab stop at every [TabSize]
 // screen columns, but only if the text is left-aligned. If the text is centered
 // or right-aligned, tab characters are simply replaced with [TabSize] spaces.
+//
+// Word wrapping is enabled by default. Use [TextView.SetWrap] and
+// [TextView.SetWordWrap] to change this.
 //
 // # Navigation
 //
@@ -247,6 +249,7 @@ func NewTextView() *TextView {
 		scrollable: true,
 		align:      AlignLeft,
 		wrap:       true,
+		wordWrap:   true,
 		textStyle:  tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		regionTags: false,
 		styleTags:  false,
@@ -947,7 +950,7 @@ func (t *TextView) parseAhead(width int, stop func(lineNumber int, line *textVie
 					st := *state
 					lastOptionState = &st
 				}
-			} else if str != "" || c != "" && uniseg.HasTrailingLineBreakInString(c) {
+			} else {
 				// We must split here.
 				if stop(len(t.lineIndex)-1, lastLine) {
 					return

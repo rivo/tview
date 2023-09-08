@@ -104,8 +104,9 @@ func (s *stepState) Style() tcell.Style {
 // to start with a different style or region, you can set the state accordingly
 // but you must then set [state.unisegState] to -1.
 //
-// You may call uniseg.HasTrailingLineBreakInString on the last non-empty
-// cluster to determine if the string ends with a hard line break.
+// There is no need to call uniseg.HasTrailingLineBreakInString on the last
+// non-empty cluster as this function will do this for you and adjust the
+// returned boundaries accordingly.
 func step(str string, state *stepState, opts stepOptions) (cluster, rest string, newState *stepState) {
 	// Set up initial state.
 	if state == nil {
@@ -126,6 +127,11 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 	preState := state.unisegState
 	cluster, rest, state.boundaries, state.unisegState = uniseg.StepString(str, preState)
 	state.grossLength = len(cluster)
+	if rest == "" {
+		if !uniseg.HasTrailingLineBreakInString(cluster) {
+			state.boundaries &^= uniseg.MaskLine
+		}
+	}
 
 	// Parse tags.
 	if opts != 0 {
@@ -173,6 +179,11 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 					state.region = region
 					cluster, rest, state.boundaries, state.unisegState = uniseg.StepString(str[length:], preState)
 					state.grossLength = len(cluster) + length
+					if rest == "" {
+						if !uniseg.HasTrailingLineBreakInString(cluster) {
+							state.boundaries &^= uniseg.MaskLine
+						}
+					}
 				}
 				// Is this an escaped tag?
 				if escapedTagPattern.MatchString(str[length:]) {
@@ -187,7 +198,13 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 						_, l := utf8.DecodeRuneInString(rest[length:])
 						cluster += rest[length : length+l]
 					}
-					cluster, _, state.boundaries, state.unisegState = uniseg.StepString(cluster, preState)
+					var taglessRest string
+					cluster, taglessRest, state.boundaries, state.unisegState = uniseg.StepString(cluster, preState)
+					if taglessRest == "" {
+						if !uniseg.HasTrailingLineBreakInString(cluster) {
+							state.boundaries &^= uniseg.MaskLine
+						}
+					}
 				}
 			}
 		}
@@ -526,8 +543,7 @@ func WordWrap(text string, width int) (lines []string) {
 	str := text
 	for len(str) > 0 {
 		// Parse the next character.
-		var c string
-		c, str, state = step(str, state, stepOptionsStyle)
+		_, str, state = step(str, state, stepOptionsStyle)
 		cWidth := state.Width()
 
 		// Would it exceed the line width?
@@ -557,7 +573,7 @@ func WordWrap(text string, width int) (lines []string) {
 				// Remember this split point.
 				lastOption = lineLength
 				lastOptionWidth = lineWidth
-			} else if str != "" || c != "" && uniseg.HasTrailingLineBreakInString(c) {
+			} else {
 				// We must split here.
 				lines = append(lines, strings.TrimRight(text[:lineLength], "\n\r"))
 				text = text[lineLength:]
