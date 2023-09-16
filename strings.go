@@ -156,7 +156,7 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 			} else if cluster[0] == '[' { // Starting closing sequence.
 				// Swallow the first one.
 				cluster, rest, state.boundaries, state.unisegState = uniseg.StepString(rest, preState)
-				state.grossLength = len(cluster)
+				state.grossLength += len(cluster)
 				if cluster[0] == ']' {
 					state.escapedTagState = etNone
 				} else {
