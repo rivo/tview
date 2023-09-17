@@ -885,7 +885,7 @@ func (t *TextArea) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 // replace deletes a range of text and inserts the given text at that position.
 // If the resulting text would exceed the maximum length, the function does not
 // do anything. The function returns the end position of the deleted/inserted
-// range. The provided row is the row of the deleted range start.
+// range.
 //
 // The function can hang if "deleteStart" is located after "deleteEnd".
 //
@@ -893,7 +893,8 @@ func (t *TextArea) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 // either appended to the end of a span or a span is shortened at the beginning
 // or the end (and nothing else).
 //
-// This function does not modify [TextArea.lineStarts].
+// This function only modifies [TextArea.lineStarts] to update span references
+// but does not change it to reflect the new layout.
 func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continuation bool) [3]int {
 	// Maybe nothing needs to be done?
 	if deleteStart == deleteEnd && insert == "" || t.maxLength > 0 && len(insert) > 0 && t.length+len(insert) >= t.maxLength {
@@ -1073,7 +1074,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 		x += labelWidth
 		width -= labelWidth
 	} else {
-		_, drawnWidth, _, _ := printWithStyle(screen, t.label, x, y, 0, width, AlignLeft, t.labelStyle, labelBg == tcell.ColorDefault)
+		_, _, drawnWidth := printWithStyle(screen, t.label, x, y, 0, width, AlignLeft, t.labelStyle, labelBg == tcell.ColorDefault)
 		x += drawnWidth
 		width -= drawnWidth
 	}
@@ -1200,49 +1201,14 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 // not do anything if the text area already contains text or if there is no
 // placeholder text.
 func (t *TextArea) drawPlaceholder(screen tcell.Screen, x, y, width, height int) {
-	posX, posY := x, y
-	lastLineBreak, lastGraphemeBreak := x, x // Screen positions of the last possible line/grapheme break.
-	iterateString(t.placeholder, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
-		if posX+screenWidth > x+width {
-			// This character doesn't fit. Break over to the next line.
-			// Perform word wrapping first by copying the last word over to
-			// the next line.
-			clearX := lastLineBreak
-			if lastLineBreak == x {
-				clearX = lastGraphemeBreak
-			}
-			posY++
-			if posY >= y+height {
-				return true
-			}
-			newPosX := x
-			for clearX < posX {
-				main, comb, _, _ := screen.GetContent(clearX, posY-1)
-				screen.SetContent(clearX, posY-1, ' ', nil, tcell.StyleDefault.Background(t.backgroundColor))
-				screen.SetContent(newPosX, posY, main, comb, t.placeholderStyle)
-				clearX++
-				newPosX++
-			}
-			lastLineBreak, lastGraphemeBreak, posX = x, x, newPosX
-		}
-
-		// Draw this character.
-		screen.SetContent(posX, posY, main, comb, t.placeholderStyle)
-		posX += screenWidth
-		switch boundaries & uniseg.MaskLine {
-		case uniseg.LineMustBreak:
-			posY++
-			if posY >= y+height {
-				return true
-			}
-			posX = x
-		case uniseg.LineCanBreak:
-			lastLineBreak = posX
-		}
-		lastGraphemeBreak = posX
-
-		return false
-	})
+	// We use a TextView to draw the placeholder. It will take care of word
+	// wrapping etc.
+	textView := NewTextView().
+		SetText(t.placeholder).
+		SetTextStyle(t.placeholderStyle)
+	textView.SetBackgroundColor(t.backgroundColor).
+		SetRect(x, y, width, height)
+	textView.Draw(screen)
 }
 
 // reset resets many of the local variables of the text area because they cannot

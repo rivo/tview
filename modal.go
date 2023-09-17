@@ -1,8 +1,6 @@
 package tview
 
 import (
-	"strings"
-
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -101,7 +99,7 @@ func (m *Modal) SetDoneFunc(handler func(buttonIndex int, buttonLabel string)) *
 }
 
 // SetText sets the message text of the window. The text may contain line
-// breaks but color tag states will not transfer to following lines. Note that
+// breaks but style tag states will not transfer to following lines. Note that
 // words are wrapped, too, based on the final size of the window.
 func (m *Modal) SetText(text string) *Modal {
 	m.text = text
@@ -172,15 +170,7 @@ func (m *Modal) Draw(screen tcell.Screen) {
 
 	// Reset the text and find out how wide it is.
 	m.frame.Clear()
-	var lines []string
-	for _, line := range strings.Split(m.text, "\n") {
-		if len(line) == 0 {
-			lines = append(lines, "")
-			continue
-		}
-		lines = append(lines, WordWrap(line, width)...)
-	}
-	//lines := WordWrap(m.text, width)
+	lines := WordWrap(m.text, width)
 	for _, line := range lines {
 		m.frame.AddText(line, true, AlignCenter, m.textColor)
 	}

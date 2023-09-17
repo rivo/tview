@@ -53,48 +53,47 @@ application, set the box as its root primitive, and run the event loop. The
 application exits when the application's [Application.Stop] function is called
 or when Ctrl-C is pressed.
 
-If we have a primitive which consumes key presses, we call the application's
-[Application.SetFocus] function to redirect all key presses to that primitive.
-Most primitives then offer ways to install handlers that allow you to react to
-any actions performed on them.
-
 # More Demos
 
 You will find more demos in the "demos" subdirectory. It also contains a
 presentation (written using tview) which gives an overview of the different
 widgets and how they can be used.
 
-# Colors
+# Styles, Colors, and Hyperlinks
 
-Throughout this package, colors are specified using the [tcell.Color] type.
-Functions such as [tcell.GetColor], [tcell.NewHexColor], and [tcell.NewRGBColor]
-can be used to create colors from W3C color names or RGB values.
+Throughout this package, styles are specified using the [tcell.Style] type.
+Styles specify colors with the [tcell.Color] type. Functions such as
+[tcell.GetColor], [tcell.NewHexColor], and [tcell.NewRGBColor] can be used to
+create colors from W3C color names or RGB values. The [tcell.Style] type also
+allows you to specify text attributes such as "bold" or "underline" or a URL
+which some terminals use to display hyperlinks.
 
-Almost all strings which are displayed can contain color tags. Color tags are
-W3C color names or six hexadecimal digits following a hash tag, wrapped in
-square brackets. Examples:
+Almost all strings which are displayed may contain style tags. A style tag's
+content is always wrapped in square brackets. In its simplest form, a style tag
+specifies the foreground color of the text. Colors in these tags are W3C color
+names or six hexadecimal digits following a hash tag. Examples:
 
 	This is a [red]warning[white]!
 	The sky is [#8080ff]blue[#ffffff].
 
-A color tag changes the color of the characters following that color tag. This
-applies to almost everything from box titles, list text, form item labels, to
-table cells. In a TextView, this functionality has to be switched on explicitly.
-See the TextView documentation for more information.
+A style tag changes the style of the characters following that style tag. There
+is no style stack and no nesting of style tags.
 
-Color tags may contain not just the foreground (text) color but also the
-background color and additional flags. In fact, the full definition of a color
-tag is as follows:
+Style tags are used in almost everything from box titles, list text, form item
+labels, to table cells. In a [TextView], this functionality has to be switched
+on explicitly. See the [TextView] documentation for more information.
 
-	[<foreground>:<background>:<flags>]
+A style tag's full format looks like this:
 
-Each of the three fields can be left blank and trailing fields can be omitted.
-(Empty square brackets "[]", however, are not considered color tags.) Colors
+	[<foreground>:<background>:<attribute flags>:<url>]
+
+Each of the four fields can be left blank and trailing fields can be omitted.
+(Empty square brackets "[]", however, are not considered style tags.) Fields
 that are not specified will be left unchanged. A field with just a dash ("-")
 means "reset to default".
 
-You can specify the following flags (some flags may not be supported by your
-terminal):
+You can specify the following flags to turn on certain attributes (some flags
+may not be supported by your terminal):
 
 	l: blink
 	b: bold
@@ -103,6 +102,15 @@ terminal):
 	r: reverse (switch foreground and background color)
 	u: underline
 	s: strike-through
+
+Use uppercase letters to turn off the corresponding attribute, for example,
+"B" to turn off bold. Uppercase letters have no effect if the attribute was not
+previously set.
+
+Setting a URL allows you to turn a piece of text into a hyperlink in some
+terminals. Specify a dash ("-") to specify the end of the hyperlink. Hyperlinks
+must only contain single-byte characters (e.g. ASCII) and they may not contain
+bracket characters ("[" or "]").
 
 Examples:
 
@@ -113,9 +121,12 @@ Examples:
 	[::bl]Bold, blinking text
 	[::-]Colors unchanged, flags reset
 	[-]Reset foreground color
-	[-:-:-]Reset everything
+	[::i]Italic and [::I]not italic
+	Click [:::https://example.com]here[:::-] for example.com.
+	Send an email to [:::mailto:her@example.com]her/[:::mail:him@example.com]him/[:::mail:them@example.com]them[:::-].
+	[-:-:-:-]Reset everything
 	[:]No effect
-	[]Not a valid color tag, will print square brackets as they are
+	[]Not a valid style tag, will print square brackets as they are
 
 In the rare event that you want to display a string such as "[red]" or
 "[#00ff1a]" without applying its effect, you need to put an opening square
@@ -127,7 +138,7 @@ character that may be used in color or region tags will be recognized. Examples:
 	["123"[]    will be output as ["123"]
 	[#6aff00[[] will be output as [#6aff00[]
 	[a#"[[[]    will be output as [a#"[[]
-	[]          will be output as [] (see color tags above)
+	[]          will be output as [] (see style tags above)
 	[[]         will be output as [[] (not an escaped tag)
 
 You can use the Escape() function to insert brackets automatically where needed.
@@ -135,18 +146,24 @@ You can use the Escape() function to insert brackets automatically where needed.
 # Styles
 
 When primitives are instantiated, they are initialized with colors taken from
-the global Styles variable. You may change this variable to adapt the look and
+the global [Styles] variable. You may change this variable to adapt the look and
 feel of the primitives to your preferred style.
+
+Note that most terminals will not report information about their color theme.
+This package therefore does not support using the terminal's color theme. The
+default style is a dark theme and you must change the [Styles] variable to
+switch to a light (or other) theme.
 
 # Unicode Support
 
-This package supports unicode characters including wide characters.
+This package supports all unicode characters supported by your terminal.
 
 # Concurrency
 
 Many functions in this package are not thread-safe. For many applications, this
-may not be an issue: If your code makes changes in response to key events, it
-will execute in the main goroutine and thus will not cause any race conditions.
+is not an issue: If your code makes changes in response to key events, the
+corresponding callback function will execute in the main goroutine and thus will
+not cause any race conditions. (Exceptions to this are documented.)
 
 If you access your primitives from other goroutines, however, you will need to
 synchronize execution. The easiest way to do this is to call
@@ -166,15 +183,17 @@ documentation for details.
 You can also call [Application.Draw] from any goroutine without having to wrap
 it in [Application.QueueUpdate]. And, as mentioned above, key event callbacks
 are executed in the main goroutine and thus should not use
-[Application.QueueUpdate] as that may lead to deadlocks.
+[Application.QueueUpdate] as that may lead to deadlocks. It is also not
+necessary to call [Application.Draw] from such callbacks as it will be called
+automatically.
 
 # Type Hierarchy
 
 All widgets listed above contain the [Box] type. All of [Box]'s functions are
 therefore available for all widgets, too. Please note that if you are using the
-functions of [Box] on a subclass, they will return a *Box, not the subclass. So
-while tview supports method chaining in many places, these chains must be broken
-when using [Box]'s functions. Example:
+functions of [Box] on a subclass, they will return a *Box, not the subclass.
+This is a Golang limitation. So while tview supports method chaining in many
+places, these chains must be broken when using [Box]'s functions. Example:
 
 	// This will cause "textArea" to be an empty Box.
 	textArea := tview.NewTextArea().
@@ -191,7 +210,8 @@ You will need to call [Box.SetBorder] separately:
 
 All widgets also implement the [Primitive] interface.
 
-The tview package is based on https://github.com/gdamore/tcell. It uses types
-and constants from that package (e.g. colors and keyboard values).
+The tview package's rendering is based on version 2 of
+https://github.com/gdamore/tcell. It uses types and constants from that package
+(e.g. colors, styles, and keyboard values).
 */
 package tview

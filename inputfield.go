@@ -18,6 +18,21 @@ const (
 	AutocompletedClick           // The user selected an autocomplete entry by clicking the mouse button on it.
 )
 
+// Predefined InputField acceptance functions.
+var (
+	// InputFieldInteger accepts integers.
+	InputFieldInteger func(text string, ch rune) bool
+
+	// InputFieldFloat accepts floating-point numbers.
+	InputFieldFloat func(text string, ch rune) bool
+
+	// InputFieldMaxLength returns an input field accept handler which accepts
+	// input strings up to a given length. Use it like this:
+	//
+	//   inputField.SetAcceptanceFunc(InputFieldMaxLength(10)) // Accept up to 10 characters.
+	InputFieldMaxLength func(maxLength int) func(text string, ch rune) bool
+)
+
 // InputField is a one-line box (three lines if there is a title) where the
 // user can enter text. Use [InputField.SetAcceptanceFunc] to accept or reject
 // input, [InputField.SetChangedFunc] to listen for changes, and
@@ -310,7 +325,7 @@ func (i *InputField) SetAutocompleteFunc(callback func(currentText string) (entr
 
 // SetAutocompletedFunc sets a callback function which is invoked when the user
 // selects an entry from the autocomplete drop-down list. The function is passed
-// the text of the selected entry (stripped of any color tags), the index of the
+// the text of the selected entry (stripped of any style tags), the index of the
 // entry, and the user action that caused the selection, e.g.
 // [AutocompletedNavigate]. It returns true if the autocomplete drop-down should
 // be closed after the callback returns or false if it should remain open, in
@@ -454,7 +469,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		printWithStyle(screen, i.label, x, y, 0, labelWidth, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
 		x += labelWidth
 	} else {
-		_, drawnWidth, _, _ := printWithStyle(screen, i.label, x, y, 0, width, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
+		_, _, drawnWidth := printWithStyle(screen, i.label, x, y, 0, width, AlignLeft, i.labelStyle, labelBg == tcell.ColorDefault)
 		x += drawnWidth
 	}
 
@@ -498,13 +513,20 @@ func (i *InputField) Draw(screen tcell.Screen) {
 			// We have enough space for the full text.
 			printWithStyle(screen, Escape(text), x, y, 0, fieldWidth, AlignLeft, i.fieldStyle, true)
 			i.offset = 0
-			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
-				if textPos >= i.cursorPos {
-					return true
+			// Find cursor position.
+			var (
+				state   *stepState
+				textPos int
+			)
+			str := text
+			for len(str) > 0 {
+				_, str, state = step(str, state, stepOptionsNone)
+				textPos += state.GrossLength()
+				if textPos > i.cursorPos {
+					break
 				}
-				cursorScreenPos += screenWidth
-				return false
-			})
+				cursorScreenPos += state.Width()
+			}
 		} else {
 			// The text doesn't fit. Where is the cursor?
 			if i.cursorPos < 0 {
@@ -520,20 +542,26 @@ func (i *InputField) Draw(screen tcell.Screen) {
 				shiftLeft = subWidth - fieldWidth + 1
 			}
 			currentOffset := i.offset
-			iterateString(text, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
+			var (
+				state   *stepState
+				textPos int
+			)
+			str := text
+			for len(str) > 0 {
+				_, str, state = step(str, state, stepOptionsNone)
 				if textPos >= currentOffset {
 					if shiftLeft > 0 {
-						i.offset = textPos + textWidth
-						shiftLeft -= screenWidth
+						i.offset = textPos + state.GrossLength()
+						shiftLeft -= state.Width()
 					} else {
-						if textPos+textWidth > i.cursorPos {
-							return true
+						if textPos+state.GrossLength() > i.cursorPos {
+							break
 						}
-						cursorScreenPos += screenWidth
+						cursorScreenPos += state.Width()
 					}
 				}
-				return false
-			})
+				textPos += state.GrossLength()
+			}
 			printWithStyle(screen, Escape(text[i.offset:]), x, y, 0, fieldWidth, AlignLeft, i.fieldStyle, true)
 		}
 	}
@@ -598,16 +626,22 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		home := func() { i.cursorPos = 0 }
 		end := func() { i.cursorPos = len(i.text) }
 		moveLeft := func() {
-			iterateStringReverse(i.text[:i.cursorPos], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
-				i.cursorPos -= textWidth
-				return true
-			})
+			var state *stepState
+			str := i.text
+			for len(str) > 0 {
+				_, str, state = step(str, state, stepOptionsNone)
+				if len(str) <= len(i.text)-i.cursorPos {
+					i.cursorPos -= state.GrossLength()
+					if i.cursorPos < 0 {
+						i.cursorPos = 0
+					}
+					break
+				}
+			}
 		}
 		moveRight := func() {
-			iterateString(i.text[i.cursorPos:], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
-				i.cursorPos += textWidth
-				return true
-			})
+			_, _, state := step(i.text[i.cursorPos:], nil, stepOptionsNone)
+			i.cursorPos += state.GrossLength()
 		}
 		moveWordLeft := func() {
 			i.cursorPos = len(regexp.MustCompile(`\S+\s*$`).ReplaceAllString(i.text[:i.cursorPos], ""))
@@ -718,19 +752,24 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			i.cursorPos -= len(i.text) - len(newText)
 			i.text = newText
 		case tcell.KeyBackspace, tcell.KeyBackspace2: // Delete character before the cursor.
-			iterateStringReverse(i.text[:i.cursorPos], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
-				i.text = i.text[:textPos] + i.text[textPos+textWidth:]
-				i.cursorPos -= textWidth
-				return true
-			})
+			var state *stepState
+			str := i.text
+			for len(str) > 0 && i.cursorPos > 0 {
+				_, str, state = step(str, state, stepOptionsNone)
+				if len(str) <= len(i.text)-i.cursorPos {
+					i.cursorPos -= state.GrossLength()
+					i.text = i.text[:i.cursorPos] + i.text[i.cursorPos+state.GrossLength():]
+					break
+				}
+			}
 			if i.offset >= i.cursorPos {
 				i.offset = 0
 			}
 		case tcell.KeyDelete, tcell.KeyCtrlD: // Delete character after the cursor.
-			iterateString(i.text[i.cursorPos:], func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool {
-				i.text = i.text[:i.cursorPos] + i.text[i.cursorPos+textWidth:]
-				return true
-			})
+			if len(i.text) > i.cursorPos {
+				_, rest, _ := step(i.text[i.cursorPos:], nil, stepOptionsNone)
+				i.text = i.text[:i.cursorPos] + rest
+			}
 		case tcell.KeyLeft:
 			if event.Modifiers()&tcell.ModAlt > 0 {
 				moveWordLeft()
@@ -815,14 +854,19 @@ func (i *InputField) MouseHandler() func(action MouseAction, event *tcell.EventM
 			} else if action == MouseLeftClick {
 				// Determine where to place the cursor.
 				if x >= i.fieldX {
-					if !iterateString(i.text[i.offset:], func(main rune, comb []rune, textPos int, textWidth int, screenPos int, screenWidth, boundaries int) bool {
-						if x-i.fieldX < screenPos+screenWidth {
-							i.cursorPos = textPos + i.offset
-							return true
+					var (
+						state     *stepState
+						screenPos int
+						str       = i.text[i.offset:]
+					)
+					i.cursorPos = i.offset
+					for len(str) > 0 {
+						_, str, state = step(str, state, stepOptionsNone)
+						screenPos += state.Width()
+						if screenPos > x-i.fieldX {
+							break
 						}
-						return false
-					}) {
-						i.cursorPos = len(i.text)
+						i.cursorPos += state.GrossLength()
 					}
 				}
 				consumed = true

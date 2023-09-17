@@ -12,7 +12,7 @@ func main() {
 		SetLabel("Enter a number: ").
 		SetPlaceholder("E.g. 1234").
 		SetFieldWidth(10).
-		SetAcceptanceFunc(tview.InputFieldInteger).
+		//SetAcceptanceFunc(tview.InputFieldInteger).
 		SetDoneFunc(func(key tcell.Key) {
 			app.Stop()
 		})

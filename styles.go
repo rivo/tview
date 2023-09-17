@@ -33,7 +33,7 @@ var Styles = Theme{
 	SecondaryTextColor:          tcell.ColorYellow,
 	TertiaryTextColor:           tcell.ColorGreen,
 	InverseTextColor:            tcell.ColorBlue,
-	ContrastSecondaryTextColor:  tcell.ColorDarkBlue,
 	DisabledBackgroundColor:     tcell.ColorDarkSlateGray,
 	DisabledTextColor:           tcell.ColorLightGray,
+	ContrastSecondaryTextColor:  tcell.ColorNavy,
 }

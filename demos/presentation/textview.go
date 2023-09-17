@@ -115,7 +115,7 @@ func TextView2(nextSlide func()) (title string, content tview.Primitive) {
 	codeView := tview.NewTextView().
 		SetWrap(false)
 	fmt.Fprint(codeView, textView2)
-	codeView.SetBorder(true).SetTitle("Buffer content")
+	codeView.SetBorder(true).SetTitle("Raw text")
 
 	textView := tview.NewTextView()
 	textView.SetDynamicColors(true).
