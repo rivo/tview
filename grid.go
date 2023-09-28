@@ -77,11 +77,12 @@ func NewGrid() *Grid {
 
 // SetColumns defines how the columns of the grid are distributed. Each value
 // defines the size of one column, starting with the leftmost column. Values
-// greater 0 represent absolute column widths (gaps not included). Values less
-// or equal 0 represent proportional column widths or fractions of the remaining
-// free space, where 0 is treated the same as -1. That is, a column with a value
-// of -3 will have three times the width of a column with a value of -1 (or 0).
-// The minimum width set with SetMinSize() is always observed.
+// greater than 0 represent absolute column widths (gaps not included). Values
+// less than or equal to 0 represent proportional column widths or fractions of
+// the remaining free space, where 0 is treated the same as -1. That is, a
+// column with a value of -3 will have three times the width of a column with a
+// value of -1 (or 0). The minimum width set with SetMinSize() is always
+// observed.
 //
 // Primitives may extend beyond the columns defined explicitly with this
 // function. A value of 0 is assumed for any undefined column. In fact, if you
