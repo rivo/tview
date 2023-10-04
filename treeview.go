@@ -143,6 +143,11 @@ func (n *TreeNode) RemoveChild(node *TreeNode) *TreeNode {
 	return n
 }
 
+// GetParent returns this node's parent.
+func (n *TreeNode) GetParent() *TreeNode {
+	return n.parent
+}
+
 // SetSelectable sets a flag indicating whether this node can be selected by
 // the user.
 func (n *TreeNode) SetSelectable(selectable bool) *TreeNode {
