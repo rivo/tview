@@ -362,6 +362,35 @@ func (t *TreeView) GetCurrentNode() *TreeNode {
 	return t.currentNode
 }
 
+// GetPath returns all nodes located on the path from the root to the given
+// node, including the root and the node itself. If there is no root node, nil
+// is returned. If there are multiple paths to the node, a random one is chosen
+// and returned.
+func (t *TreeView) GetPath(node *TreeNode) []*TreeNode {
+	if t.root == nil {
+		return nil
+	}
+
+	var f func(current *TreeNode, path []*TreeNode) []*TreeNode
+	f = func(current *TreeNode, path []*TreeNode) []*TreeNode {
+		if current == node {
+			return path
+		}
+
+		for _, child := range current.children {
+			newPath := make([]*TreeNode, len(path), len(path)+1)
+			copy(newPath, path)
+			if p := f(child, append(newPath, child)); p != nil {
+				return p
+			}
+		}
+
+		return nil
+	}
+
+	return f(t.root, []*TreeNode{t.root})
+}
+
 // SetTopLevel sets the first tree level that is visible with 0 referring to the
 // root, 1 to the root's child nodes, and so on. Nodes above the top level are
 // not displayed.
