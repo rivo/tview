@@ -1310,6 +1310,10 @@ func (t *TextArea) extendLines(width, maxLines int) {
 			break
 		}
 	}
+
+	if lineWidth > t.widestLine {
+		t.widestLine = lineWidth
+	}
 }
 
 // truncateLines truncates the trailing lines of the [TextArea.lineStarts]
