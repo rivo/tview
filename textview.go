@@ -1259,7 +1259,7 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	}
 
 	// Purge.
-	if purgeStart > 0 {
+	if purgeStart > 0 && purgeStart < len(t.lineIndex) {
 		newText := t.text.String()[t.lineIndex[purgeStart].offset:]
 		t.text.Reset()
 		t.text.WriteString(newText)
