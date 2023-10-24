@@ -600,6 +600,9 @@ func (a *Application) draw() *Application {
 		root.SetRect(0, 0, width, height)
 	}
 
+	// Clear screen to remove unwanted artifacts from the previous cycle.
+	screen.Clear()
+
 	// Call before handler if there is one.
 	if before != nil {
 		if before(screen) {
