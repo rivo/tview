@@ -4,7 +4,6 @@ import (
 	"math"
 	"os"
 	"regexp"
-	"strconv"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -28,27 +27,6 @@ var (
 
 // Package initialization.
 func init() {
-	// Initialize the predefined input field handlers.
-	InputFieldInteger = func(text string, ch rune) bool {
-		if text == "-" {
-			return true
-		}
-		_, err := strconv.Atoi(text)
-		return err == nil
-	}
-	InputFieldFloat = func(text string, ch rune) bool {
-		if text == "-" || text == "." || text == "-." {
-			return true
-		}
-		_, err := strconv.ParseFloat(text, 64)
-		return err == nil
-	}
-	InputFieldMaxLength = func(maxLength int) func(text string, ch rune) bool {
-		return func(text string, ch rune) bool {
-			return len([]rune(text)) <= maxLength
-		}
-	}
-
 	// Determine the number of colors available in the terminal.
 	info, err := tcell.LookupTerminfo(os.Getenv("TERM"))
 	if err == nil {

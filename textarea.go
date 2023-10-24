@@ -20,11 +20,11 @@ const (
 	// could be longer but it would be highly unusual.
 	maxGraphemeClusterSize = 40
 
-	// The minimum width of text (if available) to be shown left of the cursor.
-	minCursorPrefix = 5
+	// The default value for the [TextArea.minCursorPrefix] variable.
+	minCursorPrefixDefault = 5
 
-	// The minimum width of text (if available) to be shown right of the cursor.
-	minCursorSuffix = 3
+	// The default value for the [TextArea.minCursorSuffix] variable.
+	minCursorSuffixDefault = 3
 )
 
 // Types of user actions on a text area.
@@ -245,6 +245,10 @@ type TextArea struct {
 	// deleted from this slice.
 	spans []textAreaSpan
 
+	// An optional function which transforms grapheme clusters. This can be used
+	// to hide characters from the screen while preserving the original text.
+	transform func(cluster, rest string, boundaries int) (newCluster string, newBoundaries int)
+
 	// Display, navigation, and cursor related fields:
 
 	// If set to true, lines that are longer than the available width are
@@ -275,9 +279,9 @@ type TextArea struct {
 	lineStarts [][3]int
 
 	// The cursor always points to the next position where a new character would
-	// be placed. The selection start is the same as cursor as long as there is
-	// no selection. When there is one, the selection is between selectionStart
-	// and cursor.
+	// be placed. The selection start is the same as the cursor as long as there
+	// is no selection. When there is one, the selection is between
+	// selectionStart and cursor.
 	cursor, selectionStart struct {
 		// The row and column in screen space but relative to the start of the
 		// text which may be outside the text area's box. The column value may
@@ -290,6 +294,12 @@ type TextArea struct {
 		// The textAreaSpan position with state for the actual next character.
 		pos [3]int
 	}
+
+	// The minimum width of text (if available) to be shown left of the cursor.
+	minCursorPrefix int
+
+	// The minimum width of text (if available) to be shown right of the cursor.
+	minCursorSuffix int
 
 	// Set to true when the mouse is dragging to select text.
 	dragging bool
@@ -349,6 +359,8 @@ func NewTextArea() *TextArea {
 		selectedStyle:    tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.PrimitiveBackgroundColor),
 		spans:            make([]textAreaSpan, 2, pieceChainMinCap), // We reserve some space to avoid reallocations right when editing starts.
 		lastAction:       taActionOther,
+		minCursorPrefix:  minCursorPrefixDefault,
+		minCursorSuffix:  minCursorSuffixDefault,
 	}
 	t.editText.Grow(editBufferMinCap)
 	t.spans[0] = textAreaSpan{previous: -1, next: 1}
@@ -439,6 +451,63 @@ func (t *TextArea) GetText() string {
 			text.WriteString(t.editText.String()[span.offset : span.offset+span.length])
 		}
 		spanIndex = t.spans[spanIndex].next
+	}
+
+	return text.String()
+}
+
+// getTextBeforeCursor returns the text of the text area up until the cursor.
+// Note that this will result in a new allocation for the returned text.
+func (t *TextArea) getTextBeforeCursor() string {
+	if t.length == 0 || t.cursor.pos[0] == t.spans[0].next && t.cursor.pos[1] == 0 {
+		return ""
+	}
+
+	var text strings.Builder
+	spanIndex := t.spans[0].next
+	for spanIndex != 1 {
+		span := &t.spans[spanIndex]
+		length := span.length
+		if length < 0 {
+			if t.cursor.pos[0] == spanIndex {
+				length = -t.cursor.pos[1]
+			}
+			text.WriteString(t.initialText[span.offset : span.offset-length])
+		} else {
+			if t.cursor.pos[0] == spanIndex {
+				length = t.cursor.pos[1]
+			}
+			text.WriteString(t.editText.String()[span.offset : span.offset+length])
+		}
+		if t.cursor.pos[0] == spanIndex {
+			break
+		}
+		spanIndex = t.spans[spanIndex].next
+	}
+
+	return text.String()
+}
+
+// getTextAfterCursor returns the text of the text area after the cursor. Note
+// that this will result in a new allocation for the returned text.
+func (t *TextArea) getTextAfterCursor() string {
+	if t.length == 0 || t.cursor.pos[0] == 1 {
+		return ""
+	}
+
+	var text strings.Builder
+	spanIndex := t.cursor.pos[0]
+	cursorOffset := t.cursor.pos[1]
+	for spanIndex != 1 {
+		span := &t.spans[spanIndex]
+		length := span.length
+		if length < 0 {
+			text.WriteString(t.initialText[span.offset+cursorOffset : span.offset-length])
+		} else {
+			text.WriteString(t.editText.String()[span.offset+cursorOffset : span.offset+length])
+		}
+		spanIndex = t.spans[spanIndex].next
+		cursorOffset = 0
 	}
 
 	return text.String()
@@ -733,6 +802,11 @@ func (t *TextArea) SetLabelWidth(width int) *TextArea {
 	return t
 }
 
+// GetLabelWidth returns the screen width of the label.
+func (t *TextArea) GetLabelWidth() int {
+	return t.labelWidth
+}
+
 // SetSize sets the screen size of the input element of the text area. The input
 // element is always located next to the label which is always located in the
 // top left corner. If any of the values are 0 or larger than the available
@@ -762,11 +836,24 @@ func (t *TextArea) SetDisabled(disabled bool) FormItem {
 	return t
 }
 
+// GetDisabled returns whether or not the item is disabled / read-only.
+func (t *TextArea) GetDisabled() bool {
+	return t.disabled
+}
+
 // SetMaxLength sets the maximum number of bytes allowed in the text area. A
 // value of 0 means there is no limit. If the text area currently contains more
 // bytes than this, it may violate this constraint.
 func (t *TextArea) SetMaxLength(maxLength int) *TextArea {
 	t.maxLength = maxLength
+	return t
+}
+
+// setMinCursorPadding sets a minimum width to be reserved left and right of the
+// cursor. This is ignored if wrapping is enabled.
+func (t *TextArea) setMinCursorPadding(prefix, suffix int) *TextArea {
+	t.minCursorPrefix = prefix
+	t.minCursorSuffix = suffix
 	return t
 }
 
@@ -781,11 +868,15 @@ func (t *TextArea) GetLabelStyle() tcell.Style {
 	return t.labelStyle
 }
 
-// SetTextStyle sets the style of the text. Background colors different from the
-// Box's background color may lead to unwanted artefacts.
+// SetTextStyle sets the style of the text.
 func (t *TextArea) SetTextStyle(style tcell.Style) *TextArea {
 	t.textStyle = style
 	return t
+}
+
+// GetTextStyle returns the style of the text.
+func (t *TextArea) GetTextStyle() tcell.Style {
+	return t.textStyle
 }
 
 // SetSelectedStyle sets the style of the selected text.
@@ -798,6 +889,11 @@ func (t *TextArea) SetSelectedStyle(style tcell.Style) *TextArea {
 func (t *TextArea) SetPlaceholderStyle(style tcell.Style) *TextArea {
 	t.placeholderStyle = style
 	return t
+}
+
+// GetPlaceholderStyle returns the style of the placeholder text.
+func (t *TextArea) GetPlaceholderStyle() tcell.Style {
+	return t.placeholderStyle
 }
 
 // GetOffset returns the text's offset, that is, the number of rows and columns
@@ -1124,6 +1220,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	// Placeholder.
 	if t.length == 0 && len(t.placeholder) > 0 {
 		t.drawPlaceholder(screen, x, y, width, height)
+		t.lastHeight, t.lastWidth = height, width
 		return // We're done already.
 	}
 
@@ -1206,8 +1303,7 @@ func (t *TextArea) drawPlaceholder(screen tcell.Screen, x, y, width, height int)
 	textView := NewTextView().
 		SetText(t.placeholder).
 		SetTextStyle(t.placeholderStyle)
-	textView.SetBackgroundColor(t.backgroundColor).
-		SetRect(x, y, width, height)
+	textView.SetRect(x, y, width, height)
 	textView.Draw(screen)
 }
 
@@ -1373,15 +1469,15 @@ func (t *TextArea) findCursor(clamp bool, startRow int) {
 			}
 		}
 		if !t.wrap {
-			if t.cursor.actualColumn < t.columnOffset+minCursorPrefix {
+			if t.cursor.actualColumn < t.columnOffset+t.minCursorPrefix {
 				// We're left of the viewport.
-				t.columnOffset = t.cursor.actualColumn - minCursorPrefix
+				t.columnOffset = t.cursor.actualColumn - t.minCursorPrefix
 				if t.columnOffset < 0 {
 					t.columnOffset = 0
 				}
-			} else if t.cursor.actualColumn >= t.columnOffset+t.lastWidth-minCursorSuffix {
+			} else if t.cursor.actualColumn >= t.columnOffset+t.lastWidth-t.minCursorSuffix {
 				// We're right of the viewport.
-				t.columnOffset = t.cursor.actualColumn - t.lastWidth + minCursorSuffix
+				t.columnOffset = t.cursor.actualColumn - t.lastWidth + t.minCursorSuffix
 				if t.columnOffset >= t.widestLine {
 					t.columnOffset = t.widestLine - 1
 					if t.columnOffset < 0 {
@@ -1475,9 +1571,22 @@ RowLoop:
 	}
 }
 
+// setTransform sets the transform function to be used when drawing the text.
+// This function is called for each grapheme cluster and can be used to modify
+// the cluster, the cluster's screen width, and the cluster's boundaries. The
+// function is called with the original cluster, the rest of the text, the
+// original cluster's width, and the original cluster's boundaries. The function
+// must return the new cluster, the new width, and the new boundaries. This only
+// affects the drawing of the text, not the text content itself. The boundaries
+// values correspond to the values returned by
+// [github.com/rivo/uniseg.StepString].
+func (t *TextArea) setTransform(transform func(cluster, rest string, boundaries int) (newCluster string, newBoundaries int)) {
+	t.transform = transform
+}
+
 // step is similar to [github.com/rivo/uniseg.StepString] but it iterates over
 // the piece chain, starting with "pos", a span position plus state (which may
-// be -1 for the start of the text). The returned "boundaries" value is same
+// be -1 for the start of the text). The returned "boundaries" value is the same
 // value returned by [github.com/rivo/uniseg.StepString], "width" is the screen
 // width of the grapheme. The "pos" and "endPos" positions refer to the start
 // and the end of the "text" string, respectively. For the first call, text may
@@ -1535,6 +1644,10 @@ func (t *TextArea) step(text string, pos, endPos [3]int) (cluster, rest string, 
 			pos[1] -= span.length
 		}
 		span = t.spans[pos[0]]
+	}
+
+	if t.transform != nil {
+		cluster, boundaries = t.transform(cluster, text, boundaries)
 	}
 
 	if cluster == "\t" {

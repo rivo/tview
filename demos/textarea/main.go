@@ -12,6 +12,7 @@ func main() {
 	app := tview.NewApplication()
 
 	textArea := tview.NewTextArea().
+		SetWrap(false).
 		SetPlaceholder("Enter text here...")
 	textArea.SetTitle("Text Area").SetBorder(true)
 	helpInfo := tview.NewTextView().
@@ -34,7 +35,7 @@ func main() {
 	updateInfos()
 
 	mainView := tview.NewGrid().
-		SetRows(0, 1).
+		SetRows(3, 0).
 		AddItem(textArea, 0, 0, 1, 2, 0, 0, true).
 		AddItem(helpInfo, 1, 0, 1, 1, 0, 0, false).
 		AddItem(position, 1, 1, 1, 1, 0, 0, false)

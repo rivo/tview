@@ -42,8 +42,8 @@ func Form(nextSlide func()) (title string, content tview.Primitive) {
 	img, _ := jpeg.Decode(bytes.NewReader(b))
 	f := tview.NewForm().
 		AddImage("Photo:", img, 0, 12, 0).
-		AddInputField("First name:", "", 20, nil, nil).
-		AddInputField("Last name:", "", 20, nil, nil).
+		AddInputField("First name:", "", 0, nil, nil).
+		AddInputField("Last name:", "", 0, nil, nil).
 		AddDropDown("Role:", []string{"Engineer", "Manager", "Administration"}, 0, nil).
 		AddCheckbox("On vacation:", false, nil).
 		AddPasswordField("Password:", "", 10, '*', nil).

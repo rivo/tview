@@ -58,7 +58,13 @@ func main() {
 				return
 			}
 			entries := make([]string, 0, len(companies))
+		OuterLoop:
 			for _, c := range companies {
+				for _, entry := range entries { // Eliminate duplicates.
+					if strings.EqualFold(entry, c.Name) {
+						continue OuterLoop
+					}
+				}
 				entries = append(entries, c.Name)
 			}
 			mutex.Lock()
