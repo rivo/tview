@@ -121,6 +121,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [Curly - A simple TUI leveraging curl to test endpoints](https://github.com/migcaraballo/curly)
 - [amtui: Alertmanager TUI](https://github.com/pehlicd/amtui)
 - [A TUI CLI manager](https://github.com/costa86/cli-manager)
+- [PrivateBTC](https://github.com/adrianbrad/privatebtc)
 
 ## Documentation
 
