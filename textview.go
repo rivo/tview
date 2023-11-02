@@ -575,7 +575,7 @@ func (t *TextView) Clear() *TextView {
 	return t
 }
 
-// clear is the internal implementaton of clear. It is used by TextViewWriter
+// clear is the internal implementation of clear. It is used by TextViewWriter
 // and anywhere that we need to perform a write without locking the buffer.
 func (t *TextView) clear() {
 	t.text.Reset()

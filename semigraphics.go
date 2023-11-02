@@ -7,7 +7,7 @@ import "github.com/gdamore/tcell/v2"
 // Named like the unicode characters, 'Semigraphics'-prefix used if unicode block
 // isn't prefixed itself.
 const (
-	// Block: General Punctation U+2000-U+206F (http://unicode.org/charts/PDF/U2000.pdf)
+	// Block: General Punctuation U+2000-U+206F (http://unicode.org/charts/PDF/U2000.pdf)
 	SemigraphicsHorizontalEllipsis rune = '\u2026' // …
 
 	// Block: Box Drawing U+2500-U+257F (http://unicode.org/charts/PDF/U2500.pdf)
