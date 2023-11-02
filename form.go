@@ -454,7 +454,7 @@ func (f *Form) GetFormItemIndex(label string) int {
 }
 
 // GetFocusedItemIndex returns the indices of the form element or button which
-// currently has focus. If they don't, -1 is returned resepectively.
+// currently has focus. If they don't, -1 is returned respectively.
 func (f *Form) GetFocusedItemIndex() (formItem, button int) {
 	index := f.focusIndex()
 	if index < 0 {

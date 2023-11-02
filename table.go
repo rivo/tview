@@ -1027,7 +1027,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 		// Backward-evaluate columns.
 		startLen := len(columns)
 		defer func() {
-			// Becaue we went backwards, we must reverse the partial slices.
+			// Because we went backwards, we must reverse the partial slices.
 			for i, j := startLen, len(columns)-1; i < j; i, j = i+1, j-1 {
 				columns[i], columns[j] = columns[j], columns[i]
 				widths[i], widths[j] = widths[j], widths[i]
