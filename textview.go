@@ -1102,6 +1102,9 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		})
 		t.lineOffset = len(t.lineIndex) - height
 	}
+	if t.lineOffset > len(t.lineIndex)-height {
+		t.lineOffset = len(t.lineIndex) - height
+	}
 	if t.lineOffset < 0 {
 		t.lineOffset = 0
 	}
