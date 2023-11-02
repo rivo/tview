@@ -620,10 +620,11 @@ func (t *TextArea) GetTextLength() int {
 // half-open interval). They may be the same, in which case text is inserted at
 // the given position. If the text is an empty string, text between start and
 // end is deleted. Index positions will be shifted to line up with character
-// boundaries.
+// boundaries. A "changed" event will be triggered.
 //
 // Previous selections are cleared. The cursor will be located at the end of the
-// replaced text. Scroll offsets will not be changed.
+// replaced text. Scroll offsets will not be changed. A "moved" event will be
+// triggered.
 //
 // The effects of this function can be undone (and redone) by the user.
 func (t *TextArea) Replace(start, end int, text string) *TextArea {
@@ -634,12 +635,10 @@ func (t *TextArea) Replace(start, end int, text string) *TextArea {
 	t.truncateLines(row - 1)
 	t.findCursor(false, row)
 	t.selectionStart = t.cursor
-	if t.changed != nil {
-		t.changed()
-	}
 	if t.moved != nil {
 		t.moved()
 	}
+	// The "changed" event will have been triggered by the "replace" function.
 	return t
 }
 
@@ -991,6 +990,8 @@ func (t *TextArea) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 //
 // This function only modifies [TextArea.lineStarts] to update span references
 // but does not change it to reflect the new layout.
+//
+// A "changed" event will be triggered.
 func (t *TextArea) replace(deleteStart, deleteEnd [3]int, insert string, continuation bool) [3]int {
 	// Maybe nothing needs to be done?
 	if deleteStart == deleteEnd && insert == "" || t.maxLength > 0 && len(insert) > 0 && t.length+len(insert) >= t.maxLength {

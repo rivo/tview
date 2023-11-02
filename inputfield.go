@@ -140,12 +140,9 @@ func NewInputField() *InputField {
 }
 
 // SetText sets the current text of the input field. This can be undone by the
-// user.
+// user. Calling this function will also trigger a "changed" event.
 func (i *InputField) SetText(text string) *InputField {
 	i.textArea.Replace(0, i.textArea.GetTextLength(), text)
-	if i.changed != nil {
-		i.changed(text)
-	}
 	return i
 }
 
