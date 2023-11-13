@@ -1443,7 +1443,7 @@ func (t *TextArea) findCursor(clamp bool, startRow int) {
 		t.cursor.column = t.cursor.actualColumn
 	}()
 
-	if !clamp && t.cursor.row >= 0 {
+	if !clamp && t.cursor.row >= 0 || t.lastWidth <= 0 {
 		return // Nothing to do.
 	}
 
