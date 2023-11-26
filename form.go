@@ -206,13 +206,40 @@ func (f *Form) SetButtonDisabledStyle(style tcell.Style) *Form {
 // non-button items first and buttons last. Note that this index is only used
 // when the form itself receives focus.
 func (f *Form) SetFocus(index int) *Form {
-	if index < 0 {
-		f.focusedElement = 0
-	} else if index >= len(f.items)+len(f.buttons) {
-		f.focusedElement = len(f.items) + len(f.buttons)
-	} else {
-		f.focusedElement = index
+	var current, future int
+	for itemIndex, item := range f.items {
+		if itemIndex == index {
+			future = itemIndex
+		}
+		if item.HasFocus() {
+			current = itemIndex
+		}
 	}
+	for buttonIndex, button := range f.buttons {
+		if buttonIndex+len(f.items) == index {
+			future = buttonIndex + len(f.items)
+		}
+		if button.HasFocus() {
+			current = buttonIndex + len(f.items)
+		}
+	}
+	var focus func(p Primitive)
+	focus = func(p Primitive) {
+		p.Focus(focus)
+	}
+	if current != future {
+		if current >= 0 && current < len(f.items) {
+			f.items[current].Blur()
+		} else if current >= len(f.items) && current < len(f.items)+len(f.buttons) {
+			f.buttons[current-len(f.items)].Blur()
+		}
+		if future >= 0 && future < len(f.items) {
+			focus(f.items[future])
+		} else if future >= len(f.items) && future < len(f.items)+len(f.buttons) {
+			focus(f.buttons[future-len(f.items)])
+		}
+	}
+	f.focusedElement = future
 	return f
 }
 
