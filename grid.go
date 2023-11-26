@@ -184,8 +184,9 @@ func (g *Grid) SetBordersColor(color tcell.Color) *Grid {
 // The minGridWidth and minGridHeight values will then determine which of those
 // positions will be used. This is similar to CSS media queries. These minimum
 // values refer to the overall size of the grid. If multiple items for the same
-// primitive apply, the one that has at least one highest minimum value will be
-// used, or the primitive added last if those values are the same. Example:
+// primitive apply, the one with the highest minimum value (width or height,
+// whatever is higher) will be used, or the primitive added last if those values
+// are the same. Example:
 //
 //	grid.AddItem(p, 0, 0, 0, 0, 0, 0, true). // Hide in small grids.
 //	  AddItem(p, 0, 0, 1, 2, 100, 0, true).  // One-column layout for medium grids.
@@ -321,17 +322,42 @@ func (g *Grid) Draw(screen tcell.Screen) {
 	screenWidth, screenHeight := screen.Size()
 
 	// Make a list of items which apply.
-	items := make(map[Primitive]*gridItem)
+	items := make([]*gridItem, 0, len(g.items))
+ItemLoop:
 	for _, item := range g.items {
 		item.visible = false
-		if item.Width <= 0 || item.Height <= 0 || width < item.MinGridWidth || height < item.MinGridHeight {
-			continue
+		if item.Item == nil || item.Width <= 0 || item.Height <= 0 || width < item.MinGridWidth || height < item.MinGridHeight {
+			continue // Disqualified.
 		}
-		previousItem, ok := items[item.Item]
-		if ok && item.MinGridWidth < previousItem.MinGridWidth && item.MinGridHeight < previousItem.MinGridHeight {
-			continue
+
+		// Check for overlaps.
+		for index, existing := range items {
+			// Do they overlap?
+			if item.Row >= existing.Row+existing.Height || item.Row+item.Height <= existing.Row ||
+				item.Column >= existing.Column+existing.Width || item.Column+item.Width <= existing.Column {
+				break // They don't.
+			}
+
+			// What's their minimum size?
+			itemMin := item.MinGridWidth
+			if item.MinGridHeight > itemMin {
+				itemMin = item.MinGridHeight
+			}
+			existingMin := existing.MinGridWidth
+			if existing.MinGridHeight > existingMin {
+				existingMin = existing.MinGridHeight
+			}
+
+			// Which one is more important?
+			if itemMin < existingMin {
+				continue ItemLoop // This one isn't. Drop it.
+			}
+			items[index] = item
+			continue ItemLoop
 		}
-		items[item.Item] = item
+
+		// This item will be visible.
+		items = append(items, item)
 	}
 
 	// How many rows and columns do we have?
@@ -469,7 +495,7 @@ func (g *Grid) Draw(screen tcell.Screen) {
 
 	// Calculate primitive positions.
 	var focus *gridItem // The item which has focus.
-	for primitive, item := range items {
+	for _, item := range items {
 		px := columnPos[item.Column]
 		py := rowPos[item.Row]
 		var pw, ph int
@@ -488,7 +514,7 @@ func (g *Grid) Draw(screen tcell.Screen) {
 		}
 		item.x, item.y, item.w, item.h = px, py, pw, ph
 		item.visible = true
-		if primitive.HasFocus() {
+		if item.Item.HasFocus() {
 			focus = item
 		}
 	}
@@ -579,7 +605,7 @@ func (g *Grid) Draw(screen tcell.Screen) {
 
 	// Draw primitives and borders.
 	borderStyle := tcell.StyleDefault.Background(g.backgroundColor).Foreground(g.bordersColor)
-	for primitive, item := range items {
+	for _, item := range items {
 		// Final primitive position.
 		if !item.visible {
 			continue
@@ -610,13 +636,13 @@ func (g *Grid) Draw(screen tcell.Screen) {
 		}
 		item.x += x
 		item.y += y
-		primitive.SetRect(item.x, item.y, item.w, item.h)
+		item.Item.SetRect(item.x, item.y, item.w, item.h)
 
 		// Draw primitive.
 		if item == focus {
-			defer primitive.Draw(screen)
+			defer item.Item.Draw(screen)
 		} else {
-			primitive.Draw(screen)
+			item.Item.Draw(screen)
 		}
 
 		// Draw border around primitive.
