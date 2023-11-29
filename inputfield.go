@@ -457,8 +457,9 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		labelWidth = TaggedStringWidth(i.textArea.GetLabel())
 	}
 	fieldWidth := i.fieldWidth
-	if fieldWidth == 0 {
-		fieldWidth = width - labelWidth
+	maxWidth := width - labelWidth
+	if fieldWidth == 0 || fieldWidth > maxWidth {
+		fieldWidth = maxWidth
 	}
 	i.textArea.SetRect(x, y, labelWidth+fieldWidth, 1)
 	i.textArea.setMinCursorPadding(fieldWidth-1, 1)
