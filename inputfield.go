@@ -248,6 +248,7 @@ func (i *InputField) SetAutocompleteStyles(background tcell.Color, main, selecte
 
 // SetFormAttributes sets attributes shared by all form items.
 func (i *InputField) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	i.backgroundColor = bgColor
 	i.textArea.SetFormAttributes(labelWidth, labelColor, bgColor, fieldTextColor, fieldBgColor)
 	return i
 }
