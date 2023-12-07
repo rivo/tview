@@ -516,8 +516,16 @@ func (d *DropDown) openList(setFocus func(Primitive)) {
 		if d.selected != nil {
 			d.selected(d.options[d.currentOption].Text, d.currentOption)
 		}
-		if d.options[d.currentOption].Selected != nil {
-			d.options[d.currentOption].Selected()
+		if len(d.options) != 0 {
+			if d.currentOption >= len(d.options) {
+				if d.options[d.currentOption-1].Selected != nil {
+					d.options[d.currentOption-1].Selected()
+				}
+			} else {
+				if d.options[d.currentOption].Selected != nil {
+					d.options[d.currentOption].Selected()
+				}
+			}
 		}
 	}).SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyRune {
