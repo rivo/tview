@@ -1,10 +1,7 @@
 package tview
 
 import (
-	"strings"
-
 	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/uniseg"
 )
 
 // Checkbox implements a simple box for boolean values which can be checked and
@@ -27,16 +24,22 @@ type Checkbox struct {
 	// the label text.
 	labelWidth int
 
-	// The label color.
-	labelColor tcell.Color
+	// The label style.
+	labelStyle tcell.Style
 
-	// The background color of the input area.
-	fieldBackgroundColor tcell.Color
+	// The style of the unchecked checkbox.
+	uncheckedStyle tcell.Style
 
-	// The text color of the input area.
-	fieldTextColor tcell.Color
+	// The style of the checked checkbox.
+	checkedStyle tcell.Style
 
-	// The string use to display a checked box.
+	// Teh style of the checkbox when it is currently focused.
+	focusStyle tcell.Style
+
+	// The string used to display an unchecked box.
+	uncheckedString string
+
+	// The string used to display a checked box.
 	checkedString string
 
 	// An optional function which is called when the user changes the checked
@@ -56,11 +59,13 @@ type Checkbox struct {
 // NewCheckbox returns a new input field.
 func NewCheckbox() *Checkbox {
 	return &Checkbox{
-		Box:                  NewBox(),
-		labelColor:           Styles.SecondaryTextColor,
-		fieldBackgroundColor: Styles.ContrastBackgroundColor,
-		fieldTextColor:       Styles.PrimaryTextColor,
-		checkedString:        "X",
+		Box:             NewBox(),
+		labelStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
+		uncheckedStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		checkedStyle:    tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
+		focusStyle:      tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
+		uncheckedString: " ",
+		checkedString:   "X",
 	}
 }
 
@@ -101,36 +106,76 @@ func (c *Checkbox) SetLabelWidth(width int) *Checkbox {
 
 // SetLabelColor sets the color of the label.
 func (c *Checkbox) SetLabelColor(color tcell.Color) *Checkbox {
-	c.labelColor = color
+	c.labelStyle = c.labelStyle.Foreground(color)
+	return c
+}
+
+// SetLabelStyle sets the style of the label.
+func (c *Checkbox) SetLabelStyle(style tcell.Style) *Checkbox {
+	c.labelStyle = style
 	return c
 }
 
 // SetFieldBackgroundColor sets the background color of the input area.
 func (c *Checkbox) SetFieldBackgroundColor(color tcell.Color) *Checkbox {
-	c.fieldBackgroundColor = color
+	c.uncheckedStyle = c.uncheckedStyle.Background(color)
+	c.checkedStyle = c.checkedStyle.Background(color)
+	c.focusStyle = c.focusStyle.Foreground(color)
 	return c
 }
 
 // SetFieldTextColor sets the text color of the input area.
 func (c *Checkbox) SetFieldTextColor(color tcell.Color) *Checkbox {
-	c.fieldTextColor = color
+	c.uncheckedStyle = c.uncheckedStyle.Foreground(color)
+	c.checkedStyle = c.checkedStyle.Foreground(color)
+	c.focusStyle = c.focusStyle.Background(color)
+	return c
+}
+
+// SetUncheckedStyle sets the style of the unchecked checkbox.
+func (c *Checkbox) SetUncheckedStyle(style tcell.Style) *Checkbox {
+	c.uncheckedStyle = style
+	return c
+}
+
+// SetCheckedStyle sets the style of the checked checkbox.
+func (c *Checkbox) SetCheckedStyle(style tcell.Style) *Checkbox {
+	c.checkedStyle = style
+	return c
+}
+
+// SetActivatedStyle sets the style of the checkbox when it is currently
+// focused.
+func (c *Checkbox) SetActivatedStyle(style tcell.Style) *Checkbox {
+	c.focusStyle = style
 	return c
 }
 
 // SetCheckedString sets the string to be displayed when the checkbox is
-// checked (defaults to "X").
+// checked (defaults to "X"). The string may contain color tags (consider
+// adapting the checkbox's various styles accordingly). See [Escape] in
+// case you want to display square brackets.
 func (c *Checkbox) SetCheckedString(checked string) *Checkbox {
 	c.checkedString = checked
+	return c
+}
+
+// SetUncheckedString sets the string to be displayed when the checkbox is
+// not checked (defaults to the empty space " "). The string may contain color
+// tags (consider adapting the checkbox's various styles accordingly). See
+// [Escape] in case you want to display square brackets.
+func (c *Checkbox) SetUncheckedString(unchecked string) *Checkbox {
+	c.uncheckedString = unchecked
 	return c
 }
 
 // SetFormAttributes sets attributes shared by all form items.
 func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
 	c.labelWidth = labelWidth
-	c.labelColor = labelColor
+	c.SetLabelColor(labelColor)
 	c.backgroundColor = bgColor
-	c.fieldTextColor = fieldTextColor
-	c.fieldBackgroundColor = fieldBgColor
+	c.SetFieldTextColor(fieldTextColor)
+	c.SetFieldBackgroundColor(fieldBgColor)
 	return c
 }
 
@@ -202,33 +247,35 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	}
 
 	// Draw label.
+	_, labelBg, _ := c.labelStyle.Decompose()
 	if c.labelWidth > 0 {
 		labelWidth := c.labelWidth
 		if labelWidth > width {
 			labelWidth = width
 		}
-		Print(screen, c.label, x, y, labelWidth, AlignLeft, c.labelColor)
+		printWithStyle(screen, c.label, x, y, 0, labelWidth, AlignLeft, c.labelStyle, labelBg == tcell.ColorDefault)
 		x += labelWidth
+		width -= labelWidth
 	} else {
-		_, drawnWidth := Print(screen, c.label, x, y, width, AlignLeft, c.labelColor)
+		_, _, drawnWidth := printWithStyle(screen, c.label, x, y, 0, width, AlignLeft, c.labelStyle, labelBg == tcell.ColorDefault)
 		x += drawnWidth
+		width -= drawnWidth
 	}
 
 	// Draw checkbox.
-	fieldBackgroundColor := c.fieldBackgroundColor
+	str := c.uncheckedString
+	style := c.uncheckedStyle
+	if c.checked {
+		str = c.checkedString
+		style = c.checkedStyle
+	}
 	if c.disabled {
-		fieldBackgroundColor = c.backgroundColor
+		style = style.Background(c.backgroundColor)
 	}
-	fieldStyle := tcell.StyleDefault.Background(fieldBackgroundColor).Foreground(c.fieldTextColor)
 	if c.HasFocus() {
-		fieldStyle = fieldStyle.Background(c.fieldTextColor).Foreground(fieldBackgroundColor)
+		style = c.focusStyle
 	}
-	checkboxWidth := uniseg.StringWidth(c.checkedString)
-	checkedString := c.checkedString
-	if !c.checked {
-		checkedString = strings.Repeat(" ", checkboxWidth)
-	}
-	printWithStyle(screen, checkedString, x, y, 0, checkboxWidth, AlignLeft, fieldStyle, false)
+	printWithStyle(screen, str, x, y, 0, width, AlignLeft, style, c.disabled)
 }
 
 // InputHandler returns the handler for this primitive.
