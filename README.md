@@ -61,6 +61,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [CLI bookmark manager](https://github.com/Endi1/drawer)
 - [A caving database interface written in Go](https://github.com/IdlePhysicist/cave-logger)
 - [Interactive file browse and exec any command.](https://github.com/bannzai/itree)
+- [A complete TUI for LDAP](https://github.com/Macmod/godap)
 - [A simple CRM](https://github.com/broadcastle/crm)
 - [Terminal UI for todist](https://github.com/cyberdummy/todoista)
 - [Graphical kubectl wrapper](https://github.com/dcaiafa/kpick)
