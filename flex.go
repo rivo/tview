@@ -241,7 +241,6 @@ func (f *Flex) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 				return
 			}
 		}
-
 		return
 	})
 }

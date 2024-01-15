@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -47,8 +48,8 @@ const (
 // Application.QueueUpdate(). If "done" is not nil, it receives exactly one
 // element after f has executed.
 type queuedUpdate struct {
-	f    func()
-	done chan struct{}
+	f func()
+	//done chan struct{}
 }
 
 // Application represents the top node of an application.
@@ -65,6 +66,9 @@ type queuedUpdate struct {
 //	}
 type Application struct {
 	sync.RWMutex
+
+	runContext    context.Context
+	runCancelFunc context.CancelFunc
 
 	// The application's screen. Apart from Run(), this variable should never be
 	// set directly. Always use the screenReplacement channel after calling
@@ -120,9 +124,39 @@ type Application struct {
 	lastMouseButtons        tcell.ButtonMask // The last mouse button state.
 }
 
+func (a *Application) Close() error {
+	a.runCancelFunc()
+	close(a.events)
+	close(a.screenReplacement)
+	close(a.updates)
+
+	// flush events channel
+	go func() {
+		for range a.events {
+		}
+	}()
+	// flush screenReplacement channel
+	go func() {
+		for range a.screenReplacement {
+		}
+	}()
+	// flush updates channel
+	go func() {
+		for range a.updates {
+			// important  to set done for calling channel to be able to return
+			//up.done <- struct{}{}
+		}
+	}()
+
+	return nil
+}
+
 // NewApplication creates and returns a new application.
 func NewApplication() *Application {
+	cancelContext, cancelFunc := context.WithCancel(context.Background())
 	return &Application{
+		runContext:        cancelContext,
+		runCancelFunc:     cancelFunc,
 		events:            make(chan tcell.Event, queueSize),
 		updates:           make(chan queuedUpdate, queueSize),
 		screenReplacement: make(chan tcell.Screen, 1),
@@ -196,7 +230,10 @@ func (a *Application) SetScreen(screen tcell.Screen) *Application {
 	oldScreen := a.screen
 	a.Unlock()
 	oldScreen.Fini()
-	a.screenReplacement <- screen
+	// check to see if the Application.Run is still valid
+	if a.runContext.Err() == nil {
+		a.screenReplacement <- screen
+	}
 
 	return a
 }
@@ -260,7 +297,14 @@ func (a *Application) Run() error {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		defer func() {
+			// call the runCancelFunc when exiting this function.
+			//This will stop the channels accepting any more events
+			a.runCancelFunc()
+		}()
 		defer wg.Done()
+
+		// check to see if the Application.Run is still valid
 		for {
 			a.RLock()
 			screen := a.screen
@@ -279,37 +323,47 @@ func (a *Application) Run() error {
 				continue
 			}
 
-			// A screen was finalized (event is nil). Wait for a new scren.
-			screen = <-a.screenReplacement
-			if screen == nil {
-				// No new screen. We're done.
-				a.QueueEvent(nil)
+			// A screen was finalized (event is nil). Wait for a new screen.
+			var ok bool
+			select {
+			// exit when runContext complete
+			case <-a.runContext.Done():
 				return
-			}
+			case screen, ok = <-a.screenReplacement:
+				if !ok || screen == nil {
+					// No new screen. We're done.
+					a.QueueEvent(nil)
+					return
+				}
 
-			// We have a new screen. Keep going.
-			a.Lock()
-			a.screen = screen
-			enableMouse := a.enableMouse
-			a.Unlock()
+				// We have a new screen. Keep going.
+				a.Lock()
+				a.screen = screen
+				enableMouse := a.enableMouse
+				a.Unlock()
 
-			// Initialize and draw this screen.
-			if err := screen.Init(); err != nil {
-				panic(err)
+				// Initialize and draw this screen.
+				if err := screen.Init(); err != nil {
+					panic(err)
+				}
+				if enableMouse {
+					screen.EnableMouse()
+				}
+				a.draw()
 			}
-			if enableMouse {
-				screen.EnableMouse()
-			}
-			a.draw()
 		}
 	}()
 
 	// Start event loop.
 EventLoop:
+	// check to see if the Application.Run is still valid
 	for {
 		select {
-		case event := <-a.events:
-			if event == nil {
+		// break loop when runContext complete
+		case <-a.runContext.Done():
+			break EventLoop
+		case event, ok := <-a.events:
+			if !ok || event == nil {
 				break EventLoop
 			}
 
@@ -357,9 +411,14 @@ EventLoop:
 					if redrawTimer != nil {
 						redrawTimer.Stop()
 					}
-					redrawTimer = time.AfterFunc(redrawPause, func() {
-						a.events <- event
-					})
+					redrawTimer = time.AfterFunc(redrawPause,
+						func() {
+							// check to see if the Application.Run is still valid
+							if a.runContext.Err() == nil {
+								a.events <- event
+							}
+						},
+					)
 				}
 				a.RLock()
 				screen := a.screen
@@ -385,13 +444,19 @@ EventLoop:
 			}
 
 		// If we have updates, now is the time to execute them.
-		case update := <-a.updates:
-			update.f()
-			if update.done != nil {
-				update.done <- struct{}{}
+		case update, ok := <-a.updates:
+			if !ok {
+				break EventLoop
 			}
+			update.f()
+			//if update.done != nil {
+			//	update.done <- struct{}{}
+			//}
 		}
 	}
+	// call the runCancelFunc when exiting eventLoop.
+	//This will stop the channels accepting any more events
+	a.runCancelFunc()
 
 	// Wait for the event loop to finish.
 	wg.Wait()
@@ -509,7 +574,11 @@ func (a *Application) Stop() {
 	}
 	a.screen = nil
 	screen.Fini()
-	a.screenReplacement <- nil
+
+	// check to see if the Application.Run is still valid
+	if a.runContext.Err() == nil {
+		a.screenReplacement <- nil
+	}
 }
 
 // Suspend temporarily suspends the application by exiting terminal UI mode and
@@ -630,15 +699,21 @@ func (a *Application) draw() *Application {
 // corrupted so you may want to offer your users a keyboard shortcut to refresh
 // the screen.
 func (a *Application) Sync() *Application {
-	a.updates <- queuedUpdate{f: func() {
-		a.RLock()
-		screen := a.screen
-		a.RUnlock()
-		if screen == nil {
-			return
-		}
-		screen.Sync()
-	}}
+	// check to see if the Application.Run is still valid
+	msg := queuedUpdate{
+		f: func() {
+			a.RLock()
+			screen := a.screen
+			a.RUnlock()
+			if screen == nil {
+				return
+			}
+			screen.Sync()
+		},
+	}
+	if a.runContext.Err() == nil {
+		a.updates <- msg
+	}
 	return a
 }
 
@@ -752,27 +827,51 @@ func (a *Application) GetFocus() Primitive {
 // up with an immediate refresh of the screen.
 //
 // This function returns after f has executed.
-func (a *Application) QueueUpdate(f func()) *Application {
-	ch := make(chan struct{})
-	a.updates <- queuedUpdate{f: f, done: ch}
-	<-ch
-	return a
+func (a *Application) QueueUpdate(
+	f func(),
+) bool {
+	defer func() {
+		if err := recover(); err != nil {
+			// dealing with panic, as we can still get a closed channel
+		}
+	}()
+	// check to see if the Application.Run is still valid
+	//ch := make(chan struct{})
+	msg := queuedUpdate{
+		f: f,
+		//done: ch,
+	}
+	if a.runContext.Err() == nil {
+		select {
+		case a.updates <- msg:
+			return true
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // QueueUpdateDraw works like QueueUpdate() except it refreshes the screen
 // immediately after executing f.
-func (a *Application) QueueUpdateDraw(f func()) *Application {
-	a.QueueUpdate(func() {
-		f()
-		a.draw()
-	})
-	return a
+func (a *Application) QueueUpdateDraw(
+	f func(),
+) bool {
+	return a.QueueUpdate(
+		func() {
+			f()
+			a.draw()
+		},
+	)
 }
 
 // QueueEvent sends an event to the Application event loop.
 //
 // It is not recommended for event to be nil.
 func (a *Application) QueueEvent(event tcell.Event) *Application {
-	a.events <- event
+	// check to see if the Application.Run is still valid
+	if a.runContext.Err() == nil {
+		a.events <- event
+	}
 	return a
 }
