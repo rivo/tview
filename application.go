@@ -279,7 +279,7 @@ func (a *Application) Run() error {
 				continue
 			}
 
-			// A screen was finalized (event is nil). Wait for a new scren.
+			// A screen was finalized (event is nil). Wait for a new screen.
 			screen = <-a.screenReplacement
 			if screen == nil {
 				// No new screen. We're done.

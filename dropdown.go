@@ -291,8 +291,12 @@ func (d *DropDown) GetOptionCount() int {
 }
 
 // RemoveOption removes the specified option from the drop-down. Panics if the
-// index is out of range.
+// index is out of range. If the currently selected option is removed, no option
+// will be selected.
 func (d *DropDown) RemoveOption(index int) *DropDown {
+	if index == d.currentOption {
+		d.currentOption = -1
+	}
 	d.options = append(d.options[:index], d.options[index+1:]...)
 	d.list.RemoveItem(index)
 	return d
@@ -513,11 +517,12 @@ func (d *DropDown) openList(setFocus func(Primitive)) {
 		d.closeList(setFocus)
 
 		// Trigger "selected" event.
+		currentOption := d.options[d.currentOption]
 		if d.selected != nil {
-			d.selected(d.options[d.currentOption].Text, d.currentOption)
+			d.selected(currentOption.Text, d.currentOption)
 		}
-		if d.options[d.currentOption].Selected != nil {
-			d.options[d.currentOption].Selected()
+		if currentOption.Selected != nil {
+			currentOption.Selected()
 		}
 	}).SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyRune {
