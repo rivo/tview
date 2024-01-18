@@ -1048,14 +1048,17 @@ func (t *TextView) Draw(screen tcell.Screen) {
 	// Scroll to highlighted regions.
 	if t.regionTags && t.scrollToHighlights {
 		// Make sure we know all highlighted regions.
+		knownHighlights := make(map[string]struct{})
 		t.parseAhead(width, func(lineNumber int, line *textViewLine) bool {
 			for regionID := range t.highlights {
 				if _, ok := t.regions[regionID]; !ok {
 					return false
 				}
+				knownHighlights[regionID] = struct{}{}
 			}
 			return true
 		})
+		t.highlights = knownHighlights
 
 		// What is the line range for all highlighted regions?
 		var (
