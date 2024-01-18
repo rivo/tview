@@ -590,7 +590,7 @@ func (t *TextView) clear() {
 // may also provide nil to turn off all highlights).
 //
 // For more information on regions, see class description. Empty region strings
-// are ignored.
+// or regions not contained in the text are ignored.
 //
 // Text in highlighted regions will be drawn inverted, i.e. with their
 // background and foreground colors swapped.
@@ -610,6 +610,15 @@ func (t *TextView) Highlight(regionIDs ...string) *TextView {
 		}
 		return true
 	})
+
+	// Remove unknown regions.
+	newRegions := make([]string, 0, len(regionIDs))
+	for _, regionID := range regionIDs {
+		if _, ok := t.regions[regionID]; ok {
+			newRegions = append(newRegions, regionID)
+		}
+	}
+	regionIDs = newRegions
 
 	// Toggle highlights.
 	if t.toggleHighlights {
@@ -1038,6 +1047,16 @@ func (t *TextView) Draw(screen tcell.Screen) {
 
 	// Scroll to highlighted regions.
 	if t.regionTags && t.scrollToHighlights {
+		// Make sure we know all highlighted regions.
+		t.parseAhead(width, func(lineNumber int, line *textViewLine) bool {
+			for regionID := range t.highlights {
+				if _, ok := t.regions[regionID]; !ok {
+					return false
+				}
+			}
+			return true
+		})
+
 		// What is the line range for all highlighted regions?
 		var (
 			firstRegion                string
