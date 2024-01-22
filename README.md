@@ -124,6 +124,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [A TUI CLI manager](https://github.com/costa86/cli-manager)
 - [PrivateBTC](https://github.com/adrianbrad/privatebtc)
 - [play: A TUI playground to experiment with your favorite programs, such as grep, sed, awk, jq and yq](https://github.com/paololazzari/play)
+- [gorest: Enjoy making HTTP requests in your terminal, just like you do in Insomnia.](https://github.com/NathanFirmo/gorest)
 
 ## Documentation
 
