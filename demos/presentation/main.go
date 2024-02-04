@@ -1,7 +1,7 @@
 /*
 A presentation of the tview package, implemented with tview.
 
-Navigation
+# Navigation
 
 The presentation will advance to the next slide when the primitive demonstrated
 in the current slide is left (usually by hitting Enter or Escape). Additionally,
@@ -97,7 +97,7 @@ func main() {
 	})
 
 	// Start the application.
-	if err := app.SetRoot(layout, true).EnableMouse(true).Run(); err != nil {
+	if err := app.SetRoot(layout, true).EnableMouse(true).EnablePaste(true).Run(); err != nil {
 		panic(err)
 	}
 }

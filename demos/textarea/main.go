@@ -35,7 +35,7 @@ func main() {
 	updateInfos()
 
 	mainView := tview.NewGrid().
-		SetRows(3, 0).
+		SetRows(0, 1).
 		AddItem(textArea, 0, 0, 1, 2, 0, 0, true).
 		AddItem(helpInfo, 1, 0, 1, 1, 0, 0, false).
 		AddItem(position, 1, 1, 1, 1, 0, 0, false)
@@ -128,8 +128,7 @@ Double-click to select a word.
 		return event
 	})
 
-	if err := app.SetRoot(pages,
-		true).EnableMouse(true).Run(); err != nil {
+	if err := app.SetRoot(pages, true).EnableMouse(true).EnablePaste(true).Run(); err != nil {
 		panic(err)
 	}
 }

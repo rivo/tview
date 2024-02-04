@@ -259,3 +259,17 @@ func (f *Flex) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		}
 	})
 }
+
+// PasteHandler returns the handler for this primitive.
+func (f *Flex) PasteHandler() func(pastedText string, setFocus func(p Primitive)) {
+	return f.WrapPasteHandler(func(pastedText string, setFocus func(p Primitive)) {
+		for _, item := range f.items {
+			if item.Item != nil && item.Item.HasFocus() {
+				if handler := item.Item.PasteHandler(); handler != nil {
+					handler(pastedText, setFocus)
+					return
+				}
+			}
+		}
+	})
+}

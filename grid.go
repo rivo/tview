@@ -266,55 +266,6 @@ func (g *Grid) HasFocus() bool {
 	return g.Box.HasFocus()
 }
 
-// InputHandler returns the handler for this primitive.
-func (g *Grid) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return g.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		if !g.hasFocus {
-			// Pass event on to child primitive.
-			for _, item := range g.items {
-				if item != nil && item.Item.HasFocus() {
-					if handler := item.Item.InputHandler(); handler != nil {
-						handler(event, setFocus)
-						return
-					}
-				}
-			}
-			return
-		}
-
-		// Process our own key events if we have direct focus.
-		switch event.Key() {
-		case tcell.KeyRune:
-			switch event.Rune() {
-			case 'g':
-				g.rowOffset, g.columnOffset = 0, 0
-			case 'G':
-				g.rowOffset = math.MaxInt32
-			case 'j':
-				g.rowOffset++
-			case 'k':
-				g.rowOffset--
-			case 'h':
-				g.columnOffset--
-			case 'l':
-				g.columnOffset++
-			}
-		case tcell.KeyHome:
-			g.rowOffset, g.columnOffset = 0, 0
-		case tcell.KeyEnd:
-			g.rowOffset = math.MaxInt32
-		case tcell.KeyUp:
-			g.rowOffset--
-		case tcell.KeyDown:
-			g.rowOffset++
-		case tcell.KeyLeft:
-			g.columnOffset--
-		case tcell.KeyRight:
-			g.columnOffset++
-		}
-	})
-}
-
 // Draw draws this primitive onto the screen.
 func (g *Grid) Draw(screen tcell.Screen) {
 	g.Box.DrawForSubclass(screen, g)
@@ -712,5 +663,68 @@ func (g *Grid) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		}
 
 		return
+	})
+}
+
+// InputHandler returns the handler for this primitive.
+func (g *Grid) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+	return g.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+		if !g.hasFocus {
+			// Pass event on to child primitive.
+			for _, item := range g.items {
+				if item != nil && item.Item.HasFocus() {
+					if handler := item.Item.InputHandler(); handler != nil {
+						handler(event, setFocus)
+						return
+					}
+				}
+			}
+			return
+		}
+
+		// Process our own key events if we have direct focus.
+		switch event.Key() {
+		case tcell.KeyRune:
+			switch event.Rune() {
+			case 'g':
+				g.rowOffset, g.columnOffset = 0, 0
+			case 'G':
+				g.rowOffset = math.MaxInt32
+			case 'j':
+				g.rowOffset++
+			case 'k':
+				g.rowOffset--
+			case 'h':
+				g.columnOffset--
+			case 'l':
+				g.columnOffset++
+			}
+		case tcell.KeyHome:
+			g.rowOffset, g.columnOffset = 0, 0
+		case tcell.KeyEnd:
+			g.rowOffset = math.MaxInt32
+		case tcell.KeyUp:
+			g.rowOffset--
+		case tcell.KeyDown:
+			g.rowOffset++
+		case tcell.KeyLeft:
+			g.columnOffset--
+		case tcell.KeyRight:
+			g.columnOffset++
+		}
+	})
+}
+
+// PasteHandler returns the handler for this primitive.
+func (g *Grid) PasteHandler() func(pastedText string, setFocus func(p Primitive)) {
+	return g.WrapPasteHandler(func(pastedText string, setFocus func(p Primitive)) {
+		for _, item := range g.items {
+			if item != nil && item.Item.HasFocus() {
+				if handler := item.Item.PasteHandler(); handler != nil {
+					handler(pastedText, setFocus)
+					return
+				}
+			}
+		}
 	})
 }

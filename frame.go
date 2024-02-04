@@ -220,3 +220,16 @@ func (f *Frame) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 		}
 	})
 }
+
+// PasteHandler returns the handler for this primitive.
+func (f *Frame) PasteHandler() func(pastedText string, setFocus func(p Primitive)) {
+	return f.WrapPasteHandler(func(pastedText string, setFocus func(p Primitive)) {
+		if f.primitive == nil {
+			return
+		}
+		if handler := f.primitive.PasteHandler(); handler != nil {
+			handler(pastedText, setFocus)
+			return
+		}
+	})
+}

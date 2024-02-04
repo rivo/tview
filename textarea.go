@@ -165,13 +165,15 @@ type textAreaUndoItem struct {
 // operating system's key bindings for copy+paste functionality may not have the
 // expected effect as tview will not be able to handle these keys. Pasting text
 // using your operating system's or terminal's own methods may be very slow as
-// each character will be pasted individually.
+// each character will be pasted individually. However, some terminals support
+// pasting text blocks which is supported by the text area, see
+// [Application.EnablePaste] for details.
 //
-// The default clipboard is an internal text buffer, i.e. the operating system's
-// clipboard is not used. If you want to implement your own clipboard (or make
-// use of your operating system's clipboard), you can use
-// [TextArea.SetClipboard] which  provides all the functionality needed to
-// implement your own clipboard.
+// The default clipboard is an internal text buffer local to this text area
+// instance, i.e. the operating system's clipboard is not used. If you want to
+// implement your own clipboard (or make use of your operating system's
+// clipboard), you can use [TextArea.SetClipboard] which  provides all the
+// functionality needed to implement your own clipboard.
 //
 // The text area also supports Undo:
 //
@@ -917,7 +919,8 @@ func (t *TextArea) SetOffset(row, column int) *TextArea {
 // retrieve text from the clipboard (pasteFromClipboard).
 //
 // Providing nil values will cause the default clipboard implementation to be
-// used.
+// used. Note that the default clipboard is local to this text area instance.
+// Copying text to other widgets will not work.
 func (t *TextArea) SetClipboard(copyToClipboard func(string), pasteFromClipboard func() string) *TextArea {
 	t.copyToClipboard = copyToClipboard
 	if t.copyToClipboard == nil {
@@ -934,6 +937,12 @@ func (t *TextArea) SetClipboard(copyToClipboard func(string), pasteFromClipboard
 	}
 
 	return t
+}
+
+// GetClipboardText returns the current text of the clipboard by calling the
+// pasteFromClipboard function set with [TextArea.SetClipboard].
+func (t *TextArea) GetClipboardText() string {
+	return t.pasteFromClipboard()
 }
 
 // SetChangedFunc sets a handler which is called whenever the text of the text
@@ -1218,7 +1227,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 		}
 	}()
 
-	// No text / placeholder.
+	// No text, show placeholder.
 	if t.length == 0 {
 		t.lastHeight, t.lastWidth = height, width
 		t.cursor.row, t.cursor.column, t.cursor.actualColumn, t.cursor.pos = 0, 0, 0, [3]int{1, 0, -1}
@@ -1277,6 +1286,13 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 			style = t.textStyle
 			if t.disabled {
 				style = style.Background(t.backgroundColor)
+			}
+		}
+
+		// Selected tabs are a bit special.
+		if cluster == "\t" && style == t.selectedStyle {
+			for colX := 0; colX < clusterWidth && posX+colX-columnOffset < width; colX++ {
+				screen.SetContent(x+posX+colX-columnOffset, y+posY, ' ', nil, style)
 			}
 		}
 
@@ -2412,5 +2428,17 @@ func (t *TextArea) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		}
 
 		return
+	})
+}
+
+// PasteHandler returns the handler for this primitive.
+func (t *TextArea) PasteHandler() func(pastedText string, setFocus func(p Primitive)) {
+	return t.WrapPasteHandler(func(pastedText string, setFocus func(p Primitive)) {
+		from, to, row := t.getSelection()
+		t.cursor.pos = t.replace(from, to, pastedText, false)
+		t.cursor.row = -1
+		t.truncateLines(row - 1)
+		t.findCursor(true, row)
+		t.selectionStart = t.cursor
 	})
 }

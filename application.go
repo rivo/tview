@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -83,6 +84,9 @@ type Application struct {
 	// Set to true if mouse events are enabled.
 	enableMouse bool
 
+	// Set to true if paste events are enabled.
+	enablePaste bool
+
 	// An optional capture function which receives a key event and returns the
 	// event to be forwarded to the default input handler (nil if nothing should
 	// be forwarded).
@@ -145,6 +149,9 @@ func NewApplication() *Application {
 //     forward the Ctrl-C event to primitives down the hierarchy, return a new
 //     key event with the same key and modifiers, e.g.
 //     tcell.NewEventKey(tcell.KeyCtrlC, 0, tcell.ModNone).
+//
+// Pasted key events are not forwarded to the input capture function if pasting
+// is enabled (see [Application.EnablePaste]).
 func (a *Application) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKey) *Application {
 	a.inputCapture = capture
 	return a
@@ -216,6 +223,26 @@ func (a *Application) EnableMouse(enable bool) *Application {
 	return a
 }
 
+// EnablePaste enables the capturing of paste events or disables them (if
+// "false" is provided). This must be supported by the terminal.
+//
+// Widgets won't interpret paste events for navigation or selection purposes.
+// Paste events are typically only used to insert a block of text into an
+// [InputField] or a [TextArea].
+func (a *Application) EnablePaste(enable bool) *Application {
+	a.Lock()
+	defer a.Unlock()
+	if enable != a.enablePaste && a.screen != nil {
+		if enable {
+			a.screen.EnablePaste()
+		} else {
+			a.screen.DisablePaste()
+		}
+	}
+	a.enablePaste = enable
+	return a
+}
+
 // Run starts the application and thus the event loop. This function returns
 // when Stop() was called.
 func (a *Application) Run() error {
@@ -239,6 +266,13 @@ func (a *Application) Run() error {
 		}
 		if a.enableMouse {
 			a.screen.EnableMouse()
+		} else {
+			a.screen.DisableMouse()
+		}
+		if a.enablePaste {
+			a.screen.EnablePaste()
+		} else {
+			a.screen.DisablePaste()
 		}
 	}
 
@@ -283,7 +317,7 @@ func (a *Application) Run() error {
 			screen = <-a.screenReplacement
 			if screen == nil {
 				// No new screen. We're done.
-				a.QueueEvent(nil)
+				a.QueueEvent(nil) // Stop the event loop.
 				return
 			}
 
@@ -291,6 +325,7 @@ func (a *Application) Run() error {
 			a.Lock()
 			a.screen = screen
 			enableMouse := a.enableMouse
+			enablePaste := a.enablePaste
 			a.Unlock()
 
 			// Initialize and draw this screen.
@@ -299,15 +334,27 @@ func (a *Application) Run() error {
 			}
 			if enableMouse {
 				screen.EnableMouse()
+			} else {
+				screen.DisableMouse()
+			}
+			if enablePaste {
+				screen.EnablePaste()
+			} else {
+				screen.DisablePaste()
 			}
 			a.draw()
 		}
 	}()
 
 	// Start event loop.
+	var (
+		pasteBuffer strings.Builder
+		pasting     bool // Set to true while we receive paste key events.
+	)
 EventLoop:
 	for {
 		select {
+		// If we received an event, handle it.
 		case event := <-a.events:
 			if event == nil {
 				break EventLoop
@@ -315,6 +362,19 @@ EventLoop:
 
 			switch event := event.(type) {
 			case *tcell.EventKey:
+				// If we are pasting, collect runes, nothing else.
+				if pasting {
+					switch event.Key() {
+					case tcell.KeyRune:
+						pasteBuffer.WriteRune(event.Rune())
+					case tcell.KeyEnter:
+						pasteBuffer.WriteRune('\n')
+					case tcell.KeyTab:
+						pasteBuffer.WriteRune('\t')
+					}
+					break
+				}
+
 				a.RLock()
 				root := a.root
 				inputCapture := a.inputCapture
@@ -327,7 +387,7 @@ EventLoop:
 					event = inputCapture(event)
 					if event == nil {
 						a.draw()
-						continue // Don't forward event.
+						break // Don't forward event.
 					}
 					draw = true
 				}
@@ -352,6 +412,30 @@ EventLoop:
 				if draw {
 					a.draw()
 				}
+			case *tcell.EventPaste:
+				if !a.enablePaste {
+					break
+				}
+				if event.Start() {
+					pasting = true
+					pasteBuffer.Reset()
+				} else if event.End() {
+					pasting = false
+					a.RLock()
+					root := a.root
+					a.RUnlock()
+					if root != nil && root.HasFocus() && pasteBuffer.Len() > 0 {
+						// Pass paste event to the root primitive.
+						if handler := root.PasteHandler(); handler != nil {
+							handler(pasteBuffer.String(), func(p Primitive) {
+								a.SetFocus(p)
+							})
+						}
+
+						// Redraw.
+						a.draw()
+					}
+				}
 			case *tcell.EventResize:
 				if time.Since(lastRedraw) < redrawPause {
 					if redrawTimer != nil {
@@ -365,7 +449,7 @@ EventLoop:
 				screen := a.screen
 				a.RUnlock()
 				if screen == nil {
-					continue
+					break
 				}
 				lastRedraw = time.Now()
 				screen.Clear()

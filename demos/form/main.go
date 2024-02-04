@@ -20,7 +20,7 @@ func main() {
 			app.Stop()
 		})
 	form.SetBorder(true).SetTitle("Enter some data").SetTitleAlign(tview.AlignLeft)
-	if err := app.SetRoot(form, true).EnableMouse(true).Run(); err != nil {
+	if err := app.SetRoot(form, true).EnableMouse(true).EnablePaste(true).Run(); err != nil {
 		panic(err)
 	}
 }

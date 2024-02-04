@@ -315,3 +315,17 @@ func (p *Pages) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 		}
 	})
 }
+
+// PasteHandler returns the handler for this primitive.
+func (p *Pages) PasteHandler() func(pastedText string, setFocus func(p Primitive)) {
+	return p.WrapPasteHandler(func(pastedText string, setFocus func(p Primitive)) {
+		for _, page := range p.pages {
+			if page.Item.HasFocus() {
+				if handler := page.Item.PasteHandler(); handler != nil {
+					handler(pastedText, setFocus)
+					return
+				}
+			}
+		}
+	})
+}
