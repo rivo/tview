@@ -1371,6 +1371,7 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			return false, nil
 		}
 
+		rectX, rectY, width, height := t.GetInnerRect()
 		switch action {
 		case MouseLeftDown:
 			setFocus(t)
@@ -1378,7 +1379,6 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		case MouseLeftClick:
 			if t.regionTags {
 				// Find a region to highlight.
-				rectX, rectY, _, _ := t.GetInnerRect()
 				x -= rectX
 				y -= rectY
 				var highlightedID string
@@ -1404,6 +1404,15 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			consumed = true
 		case MouseScrollDown:
 			t.lineOffset++
+			if len(t.lineIndex)-t.lineOffset < height {
+				// If we scroll to the end, turn on tracking.
+				t.parseAhead(width, func(lineNumber int, line *textViewLine) bool {
+					return len(t.lineIndex)-t.lineOffset < height
+				})
+				if len(t.lineIndex)-t.lineOffset < height {
+					t.trackEnd = true
+				}
+			}
 			consumed = true
 		}
 
