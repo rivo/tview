@@ -32,7 +32,7 @@ type Modal struct {
 // NewModal returns a new modal message window.
 func NewModal() *Modal {
 	m := &Modal{
-		Box:       NewBox(),
+		Box:       NewBox().SetBorder(true).SetBackgroundColor(Styles.ContrastBackgroundColor),
 		textColor: Styles.PrimaryTextColor,
 	}
 	m.form = NewForm().
@@ -46,8 +46,7 @@ func NewModal() *Modal {
 		}
 	})
 	m.frame = NewFrame(m.form).SetBorders(0, 0, 1, 0, 0, 0)
-	m.frame.SetBorder(true).
-		SetBackgroundColor(Styles.ContrastBackgroundColor).
+	m.frame.SetBackgroundColor(Styles.ContrastBackgroundColor).
 		SetBorderPadding(1, 1, 1, 1)
 	return m
 }
@@ -183,6 +182,8 @@ func (m *Modal) Draw(screen tcell.Screen) {
 	m.SetRect(x, y, width, height)
 
 	// Draw the frame.
+	m.Box.DrawForSubclass(screen, m)
+	x, y, width, height = m.GetInnerRect()
 	m.frame.SetRect(x, y, width, height)
 	m.frame.Draw(screen)
 }
