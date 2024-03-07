@@ -1,6 +1,8 @@
 package tview
 
 import (
+	"slices"
+
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -50,6 +52,19 @@ func (p *Pages) SetChangedFunc(handler func()) *Pages {
 // GetPageCount returns the number of pages currently stored in this object.
 func (p *Pages) GetPageCount() int {
 	return len(p.pages)
+}
+
+// GetPageNames returns all page names from front to back, optionally limited to visible pages
+func (p *Pages) GetPageNames(visible_only bool) []string {
+	var names []string
+	for _, page := range p.pages {
+		if !visible_only || page.Visible {
+			names = append(names, page.Name)
+		}
+	}
+
+	slices.Reverse(names)
+	return names
 }
 
 // AddPage adds a new page with the given name and primitive. If there was
