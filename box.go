@@ -68,6 +68,10 @@ type Box struct {
 	mouseCapture func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse)
 }
 
+func (b *Box) SetDontClear(dontClear bool) {
+	b.dontClear = dontClear
+}
+
 // NewBox returns a Box without a border.
 func NewBox() *Box {
 	b := &Box{
