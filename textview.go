@@ -1399,10 +1399,16 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			}
 			consumed = true
 		case MouseScrollUp:
+			if !t.scrollable {
+				break
+			}
 			t.trackEnd = false
 			t.lineOffset--
 			consumed = true
 		case MouseScrollDown:
+			if !t.scrollable {
+				break
+			}
 			t.lineOffset++
 			if len(t.lineIndex)-t.lineOffset < height {
 				// If we scroll to the end, turn on tracking.
