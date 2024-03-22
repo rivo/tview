@@ -525,9 +525,10 @@ func (l *List) Draw(screen tcell.Screen) {
 		// Background color of selected text.
 		if index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus()) {
 			textWidth := width
+			taggedStringWidth := TaggedStringWidth(item.MainText)
 			if !l.highlightFullLine {
-				if w := TaggedStringWidth(item.MainText); w < textWidth {
-					textWidth = w
+				if taggedStringWidth < textWidth {
+					textWidth = taggedStringWidth
 				}
 			}
 
@@ -536,7 +537,7 @@ func (l *List) Draw(screen tcell.Screen) {
 				m, c, style, _ := screen.GetContent(x+bx, y)
 				fg, _, _ := style.Decompose()
 				style = l.selectedStyle
-				if fg != mainTextColor {
+				if bx < taggedStringWidth && fg != mainTextColor {
 					style = style.Foreground(fg)
 				}
 				screen.SetContent(x+bx, y, m, c, style)
