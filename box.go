@@ -260,8 +260,8 @@ func (b *Box) InRect(x, y int) bool {
 	return x >= rectX && x < rectX+width && y >= rectY && y < rectY+height
 }
 
-// InRect returns true if the given coordinate is within the bounds of the box's
-// rectangle.
+// InInnerRect returns true if the given coordinate is within the bounds of the box's
+// inner rectangle (within the border, and padding).
 func (b *Box) InInnerRect(x, y int) bool {
 	rectX, rectY, width, height := b.GetInnerRect()
 	return x >= rectX && x < rectX+width && y >= rectY && y < rectY+height
