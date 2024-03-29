@@ -1377,7 +1377,7 @@ func (t *TextView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 			setFocus(t)
 			consumed = true
 		case MouseLeftClick:
-			if t.regionTags {
+			if t.regionTags && t.InInnerRect(x, y) {
 				// Find a region to highlight.
 				x -= rectX
 				y -= rectY

@@ -260,6 +260,13 @@ func (b *Box) InRect(x, y int) bool {
 	return x >= rectX && x < rectX+width && y >= rectY && y < rectY+height
 }
 
+// InRect returns true if the given coordinate is within the bounds of the box's
+// rectangle.
+func (b *Box) InInnerRect(x, y int) bool {
+	rectX, rectY, width, height := b.GetInnerRect()
+	return x >= rectX && x < rectX+width && y >= rectY && y < rectY+height
+}
+
 // GetMouseCapture returns the function installed with SetMouseCapture() or nil
 // if no such function has been installed.
 func (b *Box) GetMouseCapture() func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse) {
