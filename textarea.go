@@ -714,7 +714,8 @@ RowLoop:
 					length = -length
 				}
 				if start >= index+lineIndex && start < index+lineIndex+length-pos[1] ||
-					end >= index+lineIndex && end < index+lineIndex+length-pos[1] {
+					end >= index+lineIndex && end < index+lineIndex+length-pos[1] ||
+					next[0] == 1 && (start == t.length || end == t.length) { // Special case for the end of the text.
 					break
 				}
 				lineIndex += length - pos[1]
@@ -743,6 +744,7 @@ RowLoop:
 			index += len(cluster)
 			column += width
 		}
+		row++
 	}
 
 	if t.cursor.row < 0 {
