@@ -138,7 +138,7 @@ func NewInputField() *InputField {
 	})
 	i.textArea.textStyle = tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor)
 	i.textArea.placeholderStyle = tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor)
-	i.autocompleteStyles.main = tcell.StyleDefault.Foreground(Styles.PrimitiveBackgroundColor)
+	i.autocompleteStyles.main = tcell.StyleDefault.Background(Styles.MoreContrastBackgroundColor).Foreground(Styles.PrimitiveBackgroundColor)
 	i.autocompleteStyles.selected = tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.PrimitiveBackgroundColor)
 	i.autocompleteStyles.background = Styles.MoreContrastBackgroundColor
 	return i
@@ -242,8 +242,8 @@ func (i *InputField) GetPlaceholderStyle() tcell.Style {
 }
 
 // SetAutocompleteStyles sets the colors and style of the autocomplete entries.
-// For details, see List.SetMainTextStyle(), List.SetSelectedStyle(), and
-// Box.SetBackgroundColor().
+// For details, see [List.SetMainTextStyle], [List.SetSelectedStyle], and
+// [Box.SetBackgroundColor].
 func (i *InputField) SetAutocompleteStyles(background tcell.Color, main, selected tcell.Style) *InputField {
 	i.autocompleteStyles.background = background
 	i.autocompleteStyles.main = main

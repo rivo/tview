@@ -76,11 +76,6 @@ type List struct {
 	// are not affected.
 	horizontalOffset int
 
-	// Set to true if a currently visible item flows over the right border of
-	// the box. This is set by the Draw() function. It determines the behaviour
-	// of the right arrow key.
-	overflowing bool
-
 	// An optional function which is called when the user has navigated to a
 	// list item.
 	changed func(index int, mainText, secondaryText string, shortcut rune)
@@ -99,9 +94,9 @@ func NewList() *List {
 		Box:                NewBox(),
 		showSecondaryText:  true,
 		wrapAround:         true,
-		mainTextStyle:      tcell.StyleDefault.Foreground(Styles.PrimaryTextColor),
-		secondaryTextStyle: tcell.StyleDefault.Foreground(Styles.TertiaryTextColor),
-		shortcutStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
+		mainTextStyle:      tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor),
+		secondaryTextStyle: tcell.StyleDefault.Foreground(Styles.TertiaryTextColor).Background(Styles.PrimitiveBackgroundColor),
+		shortcutStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor).Background(Styles.PrimitiveBackgroundColor),
 		selectedStyle:      tcell.StyleDefault.Foreground(Styles.PrimitiveBackgroundColor).Background(Styles.PrimaryTextColor),
 	}
 }
@@ -495,10 +490,7 @@ func (l *List) Draw(screen tcell.Screen) {
 	}
 
 	// Draw the list items.
-	var (
-		maxWidth    int  // The maximum printed item width.
-		overflowing bool // Whether a text's end exceeds the right border.
-	)
+	var maxWidth int // The maximum printed item width.
 	for index, item := range l.items {
 		if index < l.itemOffset {
 			continue
@@ -510,53 +502,37 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Shortcuts.
 		if showShortcuts && item.Shortcut != 0 {
-			printWithStyle(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 0, 4, AlignRight, l.shortcutStyle, true)
+			printWithStyle(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 0, 4, AlignRight, l.shortcutStyle, false)
 		}
 
 		// Main text.
-		_, end, printedWidth := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, l.mainTextStyle, true)
+		selected := index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus())
+		style := l.mainTextStyle
+		if selected {
+			style = l.selectedStyle
+		}
+		_, _, printedWidth := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, style, false)
 		if printedWidth > maxWidth {
 			maxWidth = printedWidth
 		}
-		if end < len(item.MainText) {
-			overflowing = true
-		}
 
-		// Background color of selected text.
-		if index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus()) {
-			textWidth := width
-			if !l.highlightFullLine {
-				if w := TaggedStringWidth(item.MainText); w < textWidth {
-					textWidth = w
-				}
-			}
-
-			mainTextColor, _, _ := l.mainTextStyle.Decompose()
-			for bx := 0; bx < textWidth; bx++ {
-				m, c, style, _ := screen.GetContent(x+bx, y)
-				fg, _, _ := style.Decompose()
-				style = l.selectedStyle
-				if fg != mainTextColor {
-					style = style.Foreground(fg)
-				}
-				screen.SetContent(x+bx, y, m, c, style)
+		// Draw until the end of the line if requested.
+		if selected && l.highlightFullLine {
+			for bx := printedWidth; bx < width; bx++ {
+				screen.SetContent(x+bx, y, ' ', nil, style)
 			}
 		}
 
 		y++
-
 		if y >= bottomLimit {
 			break
 		}
 
 		// Secondary text.
 		if l.showSecondaryText {
-			_, end, printedWidth := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, l.secondaryTextStyle, true)
+			_, _, printedWidth := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, l.secondaryTextStyle, false)
 			if printedWidth > maxWidth {
 				maxWidth = printedWidth
-			}
-			if end < len(item.SecondaryText) {
-				overflowing = true
 			}
 			y++
 		}
@@ -569,7 +545,6 @@ func (l *List) Draw(screen tcell.Screen) {
 		l.horizontalOffset -= width - maxWidth
 		l.Draw(screen)
 	}
-	l.overflowing = overflowing
 }
 
 // adjustOffset adjusts the vertical offset to keep the current selection in
@@ -612,17 +587,9 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		case tcell.KeyBacktab, tcell.KeyUp:
 			l.currentItem--
 		case tcell.KeyRight:
-			if l.overflowing {
-				l.horizontalOffset += 2 // We shift by 2 to account for two-cell characters.
-			} else {
-				l.currentItem++
-			}
+			l.horizontalOffset += 2 // We shift by 2 to account for two-cell characters.
 		case tcell.KeyLeft:
-			if l.horizontalOffset > 0 {
-				l.horizontalOffset -= 2
-			} else {
-				l.currentItem--
-			}
+			l.horizontalOffset -= 2
 		case tcell.KeyHome:
 			l.currentItem = 0
 		case tcell.KeyEnd:
@@ -761,6 +728,12 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			if _, _, _, height := l.GetInnerRect(); lines > height {
 				l.itemOffset++
 			}
+			consumed = true
+		case MouseScrollLeft:
+			l.horizontalOffset--
+			consumed = true
+		case MouseScrollRight:
+			l.horizontalOffset++
 			consumed = true
 		}
 

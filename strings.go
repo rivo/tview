@@ -92,7 +92,7 @@ func (s *stepState) Style() tcell.Style {
 // are the first grapheme cluster, the remaining string, and the new state. Pass
 // the remaining string and the returned state to the next call. If the rest
 // string is empty, parsing is complete. Call the returned state's methods for
-// boundary and width information.
+// boundary and cluster width information.
 //
 // The returned cluster may be empty if the given string consists of only
 // (parsed) tags. The boundary and width information will be meaningless in

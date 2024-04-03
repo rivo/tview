@@ -66,19 +66,18 @@ func printWithStyle(screen tcell.Screen, text string, x, y, skipWidth, maxWidth,
 	}
 
 	// Skip beginning and measure width.
-	var (
-		state     *stepState
-		textWidth int
-	)
+	var textWidth int
+	state := &stepState{
+		unisegState: -1,
+		style:       style,
+	}
 	str := text
 	for len(str) > 0 {
 		_, str, state = step(str, state, stepOptionsStyle)
 		if skipWidth > 0 {
 			skipWidth -= state.Width()
-			if skipWidth <= 0 {
-				text = str
-				style = state.Style()
-			}
+			text = str
+			style = state.Style()
 			start += state.GrossLength()
 		} else {
 			textWidth += state.Width()
