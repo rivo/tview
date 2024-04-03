@@ -158,6 +158,13 @@ switch to a light (or other) theme.
 
 This package supports all unicode characters supported by your terminal.
 
+# Mouse Support
+
+If your terminal supports mouse events, you can enable mouse support for your
+application by calling [Application.EnableMouse]. Note that this may interfere
+with your terminal's default mouse behavior. Mouse support is disabled by
+default.
+
 # Concurrency
 
 Many functions in this package are not thread-safe. For many applications, this

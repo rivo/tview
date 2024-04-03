@@ -248,6 +248,10 @@ func (b *Box) MouseHandler() func(action MouseAction, event *tcell.EventMouse, s
 // called.
 //
 // Providing a nil handler will remove a previously existing handler.
+//
+// Note that mouse events are ignored completely if the application has not been
+// enabled for mouse events (see [Application.EnableMouse]), which is the
+// default.
 func (b *Box) SetMouseCapture(capture func(action MouseAction, event *tcell.EventMouse) (MouseAction, *tcell.EventMouse)) *Box {
 	b.mouseCapture = capture
 	return b
@@ -260,8 +264,8 @@ func (b *Box) InRect(x, y int) bool {
 	return x >= rectX && x < rectX+width && y >= rectY && y < rectY+height
 }
 
-// InInnerRect returns true if the given coordinate is within the bounds of the box's
-// inner rectangle (within the border, and padding).
+// InInnerRect returns true if the given coordinate is within the bounds of the
+// box's inner rectangle (within the border and padding).
 func (b *Box) InInnerRect(x, y int) bool {
 	rectX, rectY, width, height := b.GetInnerRect()
 	return x >= rectX && x < rectX+width && y >= rectY && y < rectY+height
