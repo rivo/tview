@@ -492,20 +492,6 @@ ItemLoop:
 		offsetX += width + add
 	}
 
-	// Line up the last row/column with the end of the available area.
-	var border int
-	if g.borders {
-		border = 1
-	}
-	last := len(rowPos) - 1
-	if rowPos[last]+rowHeight[last]+border-offsetY < height {
-		offsetY = rowPos[last] - height + rowHeight[last] + border
-	}
-	last = len(columnPos) - 1
-	if columnPos[last]+columnWidth[last]+border-offsetX < width {
-		offsetX = columnPos[last] - width + columnWidth[last] + border
-	}
-
 	// The focused item must be within the visible area.
 	if focus != nil {
 		if focus.y+focus.h-offsetY >= height {
