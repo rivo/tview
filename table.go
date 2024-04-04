@@ -752,11 +752,14 @@ func (t *Table) GetColumnCount() int {
 	return t.content.GetColumnCount()
 }
 
-// cellAt returns the row and column located at the given screen coordinates.
+// CellAt returns the row and column located at the given screen coordinates.
 // Each returned value may be negative if there is no row and/or cell. This
 // function will also process coordinates outside the table's inner rectangle so
 // callers will need to check for bounds themselves.
-func (t *Table) cellAt(x, y int) (row, column int) {
+//
+// The layout of the table when it was last drawn is used so if anything has
+// changed in the meantime, the results may not be reliable.
+func (t *Table) CellAt(x, y int) (row, column int) {
 	rectX, rectY, _, _ := t.GetInnerRect()
 
 	// Determine row as seen on screen.
@@ -1648,7 +1651,7 @@ func (t *Table) MouseHandler() func(action MouseAction, event *tcell.EventMouse,
 			consumed = true
 		case MouseLeftClick:
 			selectEvent := true
-			row, column := t.cellAt(x, y)
+			row, column := t.CellAt(x, y)
 			cell := t.content.GetCell(row, column)
 			if cell != nil && cell.Clicked != nil {
 				if noSelect := cell.Clicked(); noSelect {
