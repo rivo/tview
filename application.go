@@ -679,7 +679,7 @@ func (a *Application) draw() *Application {
 	}
 
 	// Resize if requested.
-	if fullscreen && root != nil {
+	if fullscreen { // root is not nil here.
 		width, height := screen.Size()
 		root.SetRect(0, 0, width, height)
 	}

@@ -437,8 +437,8 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 }
 
 // SetFocusFunc sets a callback function which is invoked when this primitive
-// receives focus. Container primitives such as Flex or Grid may not be notified
-// if one of their descendents receive focus directly.
+// receives focus. Container primitives such as [Flex] or [Grid] may not be
+// notified if one of their descendents receive focus directly.
 //
 // Set to nil to remove the callback function.
 func (b *Box) SetFocusFunc(callback func()) *Box {
@@ -447,8 +447,8 @@ func (b *Box) SetFocusFunc(callback func()) *Box {
 }
 
 // SetBlurFunc sets a callback function which is invoked when this primitive
-// loses focus. This does not apply to container primitives such as Flex or
-// Grid.
+// loses focus. This does not apply to container primitives such as [Flex] or
+// [Grid].
 //
 // Set to nil to remove the callback function.
 func (b *Box) SetBlurFunc(callback func()) *Box {
