@@ -30,7 +30,7 @@ type FormItem interface {
 
 	// GetFieldWidth returns the width of the form item's field (the area which
 	// is manipulated by the user) in number of screen cells. A value of 0
-	// indicates the the field width is flexible and may use as much space as
+	// indicates the field width is flexible and may use as much space as
 	// required.
 	GetFieldWidth() int
 
