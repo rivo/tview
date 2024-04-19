@@ -221,6 +221,9 @@ func (b *Box) WrapMouseHandler(mouseHandler func(MouseAction, *tcell.EventMouse,
 	return func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		if b.mouseCapture != nil {
 			action, event = b.mouseCapture(action, event)
+			if event == nil {
+				consumed = true
+			}
 		}
 		if event != nil && mouseHandler != nil {
 			consumed, capture = mouseHandler(action, event, setFocus)
