@@ -401,7 +401,7 @@ EventLoop:
 				// Pass other key events to the root primitive.
 				if root != nil && root.HasFocus() {
 					if handler := root.InputHandler(); handler != nil {
-						handler(event, func(p Primitive) {
+						_ = handler(event, func(p Primitive) {
 							a.SetFocus(p)
 						})
 						draw = true

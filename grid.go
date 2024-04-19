@@ -653,14 +653,14 @@ func (g *Grid) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 }
 
 // InputHandler returns the handler for this primitive.
-func (g *Grid) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return g.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (g *Grid) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
+	return g.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
 		if !g.hasFocus {
 			// Pass event on to child primitive.
 			for _, item := range g.items {
 				if item != nil && item.Item.HasFocus() {
 					if handler := item.Item.InputHandler(); handler != nil {
-						handler(event, setFocus)
+						consumed = handler(event, setFocus)
 						return
 					}
 				}
@@ -698,6 +698,8 @@ func (g *Grid) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 		case tcell.KeyRight:
 			g.columnOffset++
 		}
+
+		return
 	})
 }
 
