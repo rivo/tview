@@ -447,7 +447,7 @@ func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ig
 		mainContained := strings.Contains(mainText, mainSearch)
 		secondaryContained := strings.Contains(secondaryText, secondarySearch)
 		if mustContainBoth && mainContained && secondaryContained ||
-			!mustContainBoth && (mainText != "" && mainContained || secondaryText != "" && secondaryContained) {
+			!mustContainBoth && (mainSearch != "" && mainContained || secondarySearch != "" && secondaryContained) {
 			indices = append(indices, index)
 		}
 	}
