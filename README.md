@@ -127,6 +127,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [gorest: Enjoy making HTTP requests in your terminal, just like you do in Insomnia.](https://github.com/NathanFirmo/gorest)
 - [Terminal-based application to listen Radio Stations around the world!](https://github.com/vergonha/garden-tui)
 - [ntui: A TUI to manage Hashicorp Nomad clusters](https://github.com/SHAPPY0/ntui)
+- [fen: File manager](https://github.com/kivattt/fen)
 
 ## Documentation
 
