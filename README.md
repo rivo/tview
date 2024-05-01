@@ -129,6 +129,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [ntui: A TUI to manage Hashicorp Nomad clusters](https://github.com/SHAPPY0/ntui)
 - [lazysql: A cross-platform TUI database management tool written in Go](https://github.com/jorgerojas26/lazysql)
 - [redis-tui: A Redis Text-based UI client in CLI](https://github.com/mylxsw/redis-tui)
+- [fen: File manager](https://github.com/kivattt/fen)
 
 ## Documentation
 
