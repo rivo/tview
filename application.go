@@ -3,6 +3,7 @@ package tview
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -122,6 +123,10 @@ type Application struct {
 	mouseDownX, mouseDownY  int              // The position of the mouse when its button was last pressed.
 	lastMouseClick          time.Time        // The time when a mouse button was last clicked.
 	lastMouseButtons        tcell.ButtonMask // The last mouse button state.
+
+	// updating is true if the event loop is handling update callbacks.
+	// It helps prevent deadlocks when calling QueueUpdate() from an update callback.
+	updating atomic.Bool
 }
 
 // NewApplication creates and returns a new application.
@@ -470,7 +475,9 @@ EventLoop:
 
 		// If we have updates, now is the time to execute them.
 		case update := <-a.updates:
+			a.updating.Store(true)
 			update.f()
+			a.updating.Store(false)
 			if update.done != nil {
 				update.done <- struct{}{}
 			}
@@ -837,6 +844,9 @@ func (a *Application) GetFocus() Primitive {
 //
 // This function returns after f has executed.
 func (a *Application) QueueUpdate(f func()) *Application {
+	if a.updating.Load() {
+		panic("tview: QueueUpdate() must not be called from an update callback.")
+	}
 	ch := make(chan struct{})
 	a.updates <- queuedUpdate{f: f, done: ch}
 	<-ch
@@ -857,6 +867,9 @@ func (a *Application) QueueUpdateDraw(f func()) *Application {
 //
 // It is not recommended for event to be nil.
 func (a *Application) QueueEvent(event tcell.Event) *Application {
+	if a.updating.Load() {
+		panic("tview: QueueEvent() must not be called from an update callback.")
+	}
 	a.events <- event
 	return a
 }
