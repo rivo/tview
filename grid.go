@@ -281,11 +281,12 @@ ItemLoop:
 			continue // Disqualified.
 		}
 
-		// Check for overlaps.
+		// Check for overlaps and multiple layouts of the same item.
 		for index, existing := range items {
-			// Do they overlap?
-			if item.Row >= existing.Row+existing.Height || item.Row+item.Height <= existing.Row ||
-				item.Column >= existing.Column+existing.Width || item.Column+item.Width <= existing.Column {
+			// Do they overlap or are identical?
+			if item.Item != existing.Item &&
+				(item.Row >= existing.Row+existing.Height || item.Row+item.Height <= existing.Row ||
+					item.Column >= existing.Column+existing.Width || item.Column+item.Width <= existing.Column) {
 				break // They don't.
 			}
 
@@ -303,7 +304,7 @@ ItemLoop:
 			if itemMin < existingMin {
 				continue ItemLoop // This one isn't. Drop it.
 			}
-			items[index] = item
+			items[index] = item // This one is. Replace the other.
 			continue ItemLoop
 		}
 
