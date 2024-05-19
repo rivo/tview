@@ -702,7 +702,8 @@ RowLoop:
 		for {
 			if pos[0] == next[0] {
 				if start >= index+lineIndex && start < index+lineIndex+next[1]-pos[1] ||
-					end >= index+lineIndex && end < index+lineIndex+next[1]-pos[1] {
+					end >= index+lineIndex && end < index+lineIndex+next[1]-pos[1] ||
+					next[0] == 1 && (start == t.length || end == t.length) { // Special case for the end of the text.
 					break
 				}
 				index += lineIndex + next[1] - pos[1]
