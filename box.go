@@ -222,7 +222,11 @@ func (b *Box) WrapMouseHandler(mouseHandler func(MouseAction, *tcell.EventMouse,
 		if b.mouseCapture != nil {
 			action, event = b.mouseCapture(action, event)
 		}
-		if event != nil && mouseHandler != nil {
+		if event == nil {
+			if action == MouseConsumed {
+				consumed = true
+			}
+		} else if mouseHandler != nil {
 			consumed, capture = mouseHandler(action, event, setFocus)
 		}
 		return
@@ -246,6 +250,10 @@ func (b *Box) MouseHandler() func(action MouseAction, event *tcell.EventMouse, s
 // then choose to forward that event (or a different one) by returning it or
 // returning a nil mouse event, in which case the default handler will not be
 // called.
+//
+// When a nil event is returned, the returned mouse action value may be set to
+// [MouseConsumed] to indicate that the event was consumed and the screen should
+// be redrawn. Any other value will not cause a redraw.
 //
 // Providing a nil handler will remove a previously existing handler.
 //

@@ -42,6 +42,11 @@ const (
 	MouseScrollDown
 	MouseScrollLeft
 	MouseScrollRight
+
+	// The following special value will not be provided as a mouse action but
+	// indicate that an overridden mouse event was consumed. See
+	// [Box.SetMouseCapture] for details.
+	MouseConsumed
 )
 
 // queuedUpdate represented the execution of f queued by
@@ -167,7 +172,8 @@ func (a *Application) GetInputCapture() func(event *tcell.EventKey) *tcell.Event
 // the original tcell mouse event and the semantic mouse action) before they are
 // forwarded to the appropriate mouse event handler. This function can then
 // choose to forward that event (or a different one) by returning it or stop
-// the event processing by returning a nil mouse event.
+// the event processing by returning a nil mouse event. In such a case, the
+// event is considered consumed and the screen will be redrawn.
 func (a *Application) SetMouseCapture(capture func(event *tcell.EventMouse, action MouseAction) (*tcell.EventMouse, MouseAction)) *Application {
 	a.mouseCapture = capture
 	return a
