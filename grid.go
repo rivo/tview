@@ -272,8 +272,8 @@ func (g *Grid) Draw(screen tcell.Screen) {
 	x, y, width, height := g.GetInnerRect()
 	screenWidth, screenHeight := screen.Size()
 
-	// Make a list of items which apply.
-	items := make([]*gridItem, 0, len(g.items))
+	// Make a map of items that apply.
+	items := map[Primitive]*gridItem{}
 ItemLoop:
 	for _, item := range g.items {
 		item.visible = false
@@ -282,7 +282,7 @@ ItemLoop:
 		}
 
 		// Check for overlaps and multiple layouts of the same item.
-		for index, existing := range items {
+		for _, existing := range items {
 			// Do they overlap or are identical?
 			if item.Item != existing.Item &&
 				(item.Row >= existing.Row+existing.Height || item.Row+item.Height <= existing.Row ||
@@ -304,12 +304,12 @@ ItemLoop:
 			if itemMin < existingMin {
 				continue ItemLoop // This one isn't. Drop it.
 			}
-			items[index] = item // This one is. Replace the other.
+			items[item.Item] = item // This one is. Replace the other.
 			continue ItemLoop
 		}
 
 		// This item will be visible.
-		items = append(items, item)
+		items[item.Item] = item
 	}
 
 	// How many rows and columns do we have?
