@@ -287,7 +287,7 @@ ItemLoop:
 			if item.Item != existing.Item &&
 				(item.Row >= existing.Row+existing.Height || item.Row+item.Height <= existing.Row ||
 					item.Column >= existing.Column+existing.Width || item.Column+item.Width <= existing.Column) {
-				break // They don't.
+				continue // They don't and aren't.
 			}
 
 			// What's their minimum size?
