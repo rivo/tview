@@ -55,6 +55,10 @@ func main() {
 		SetRegions(true).
 		SetWrap(false).
 		SetHighlightedFunc(func(added, removed, remaining []string) {
+			if len(added) == 0 {
+				return
+			}
+
 			pages.SwitchToPage(added[0])
 		})
 
