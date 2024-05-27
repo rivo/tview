@@ -506,12 +506,16 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 
 		// Main text.
+		var printedWidth int
+		var style tcell.Style
 		selected := index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus())
-		style := l.mainTextStyle
 		if selected {
 			style = l.selectedStyle
+			_, _, printedWidth = printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, style, false)
+		} else {
+			style = l.mainTextStyle
+			_, _, printedWidth = printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, style, true)
 		}
-		_, _, printedWidth := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, style, false)
 		if printedWidth > maxWidth {
 			maxWidth = printedWidth
 		}
