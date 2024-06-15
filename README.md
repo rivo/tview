@@ -131,6 +131,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [redis-tui: A Redis Text-based UI client in CLI](https://github.com/mylxsw/redis-tui)
 - [fen: File manager](https://github.com/kivattt/fen)
 - [sqltui: A terminal UI to operate sql and nosql databases](https://github.com/LinPr/sqltui)
+- [DBee: Simple database browser](https://github.com/murat-cileli/dbee)
 
 ## Documentation
 
