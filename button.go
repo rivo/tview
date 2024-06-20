@@ -32,6 +32,9 @@ type Button struct {
 	// key is provided indicating which key was pressed to leave (tab or
 	// backtab).
 	exit func(tcell.Key)
+
+	// Label's alignment, by default AlignCenter
+	align int
 }
 
 // NewButton returns a new input field.
@@ -41,9 +44,11 @@ func NewButton(label string) *Button {
 	return &Button{
 		Box:            box,
 		text:           label,
+		align:          AlignCenter,
+		disabled:       false,
 		style:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		activatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.InverseTextColor),
-		disabledStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
+		disabledStyle:  tcell.StyleDefault.Background(Styles.DisabledBackgroundColor).Foreground(Styles.DisabledTextColor),
 	}
 }
 
@@ -64,6 +69,13 @@ func (b *Button) SetLabelColor(color tcell.Color) *Button {
 	return b
 }
 
+// SetLabelAlign sets the label alignment within the button. This must be
+// either AlignLeft, AlignCenter, or AlignRight.
+func (b *Button) SetLabelAlign(align int) *Button {
+	b.align = align
+	return b
+}
+
 // SetStyle sets the style of the button used when it is not focused.
 func (b *Button) SetStyle(style tcell.Style) *Button {
 	b.style = style
@@ -74,6 +86,13 @@ func (b *Button) SetStyle(style tcell.Style) *Button {
 // in focus.
 func (b *Button) SetLabelColorActivated(color tcell.Color) *Button {
 	b.activatedStyle = b.activatedStyle.Foreground(color)
+	return b
+}
+
+// SetBackgroundColor sets the background color of the button text when
+// the button is not in focus. Overrides embeddedBox method.
+func (b *Button) SetBackgroundColor(color tcell.Color) *Button {
+	b.style = b.style.Background(color)
 	return b
 }
 
@@ -111,6 +130,47 @@ func (b *Button) IsDisabled() bool {
 	return b.disabled
 }
 
+// SetLabelColorDisabled sets the color of the button text when the button is
+// disabled.
+func (b *Button) SetLabelColorDisabled(color tcell.Color) *Button {
+	b.disabledStyle = b.disabledStyle.Foreground(color)
+	return b
+}
+
+// SetBackgroundColorDisabled sets the background color of the button text when
+// the button is disabled.
+func (b *Button) SetBackgroundColorDisabled(color tcell.Color) *Button {
+	b.disabledStyle = b.disabledStyle.Background(color)
+	return b
+}
+
+// SetStyleAttrs sets the label's style attributes. You can combine
+// different attributes using bitmask operations:
+//
+//	button.SetStyleAttrs(tcell.AttrUnderline | tcell.AttrBold)
+func (b *Button) SetStyleAttrs(attrs tcell.AttrMask) *Button {
+	b.style = b.style.Attributes(attrs)
+	return b
+}
+
+// SetActivatedStyleAttrs sets the label's activatedStyle attributes. You can combine
+// different attributes using bitmask operations:
+//
+//	button.SetActivatedStyleAttrs(tcell.AttrUnderline | tcell.AttrBold)
+func (b *Button) SetActivatedStyleAttrs(attrs tcell.AttrMask) *Button {
+	b.activatedStyle = b.activatedStyle.Attributes(attrs)
+	return b
+}
+
+// SetDisabledStyleAttrs sets the label's disabledStyle attributes. You can combine
+// different attributes using bitmask operations:
+//
+//	button.SetDisabledStyleAttrs(tcell.AttrUnderline | tcell.AttrBold)
+func (b *Button) SetDisabledStyleAttrs(attrs tcell.AttrMask) *Button {
+	b.disabledStyle = b.disabledStyle.Attributes(attrs)
+	return b
+}
+
 // SetSelectedFunc sets a handler which is called when the button was selected.
 func (b *Button) SetSelectedFunc(handler func()) *Button {
 	b.selected = handler
@@ -126,6 +186,13 @@ func (b *Button) SetSelectedFunc(handler func()) *Button {
 //   - KeyBacktab: Move to the previous field.
 func (b *Button) SetExitFunc(handler func(key tcell.Key)) *Button {
 	b.exit = handler
+	return b
+}
+
+
+// SetEnabled sets the flag that, if false, button is available for interactions
+func (b *Button) SetEnabled() *Button {
+	b.disabled = false
 	return b
 }
 
@@ -148,14 +215,14 @@ func (b *Button) Draw(screen tcell.Screen) {
 			b.SetBorderColor(borderColor)
 		}()
 	}
-	b.SetBackgroundColor(backgroundColor)
+	b.Box.SetBackgroundColor(backgroundColor)
 	b.Box.DrawForSubclass(screen, b)
 
 	// Draw label.
 	x, y, width, height := b.GetInnerRect()
 	if width > 0 && height > 0 {
 		y = y + height/2
-		printWithStyle(screen, b.text, x, y, 0, width, AlignCenter, style, true)
+		printWithStyle(screen, b.text, x, y, 0, width, b.align, style, true)
 	}
 }
 

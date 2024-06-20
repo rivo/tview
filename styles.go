@@ -15,6 +15,8 @@ type Theme struct {
 	TertiaryTextColor           tcell.Color // Tertiary text (e.g. subtitles, notes).
 	InverseTextColor            tcell.Color // Text on primary-colored backgrounds.
 	ContrastSecondaryTextColor  tcell.Color // Secondary text on ContrastBackgroundColor-colored backgrounds.
+	DisabledBackgroundColor     tcell.Color // Background color for disabled elements
+	DisabledTextColor           tcell.Color // Primary text for disabled elements
 }
 
 // Styles defines the theme for applications. The default is for a black
@@ -31,5 +33,7 @@ var Styles = Theme{
 	SecondaryTextColor:          tcell.ColorYellow,
 	TertiaryTextColor:           tcell.ColorGreen,
 	InverseTextColor:            tcell.ColorBlue,
+	DisabledBackgroundColor:     tcell.ColorDarkSlateGray,
+	DisabledTextColor:           tcell.ColorLightGray,
 	ContrastSecondaryTextColor:  tcell.ColorNavy,
 }
