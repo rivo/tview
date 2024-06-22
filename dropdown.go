@@ -275,10 +275,8 @@ func (d *DropDown) AddOption(text string, selected func()) *DropDown {
 func (d *DropDown) SetOptions(texts []string, selected func(text string, index int)) *DropDown {
 	d.list.Clear()
 	d.options = nil
-	for index, text := range texts {
-		func(t string, i int) {
-			d.AddOption(text, nil)
-		}(text, index)
+	for _, text := range texts {
+		d.AddOption(text, nil)
 	}
 	d.selected = selected
 	return d
