@@ -450,6 +450,12 @@ func (t *TreeView) SetSelectedFunc(handler func(node *TreeNode)) *TreeView {
 	return t
 }
 
+// GetSelectedFunc returns the function set with SetSelectedFunc() or nil
+// if no such function has been set.
+func (t *TreeView) GetSelectedFunc() func(node *TreeNode) {
+	return t.selected
+}
+
 // SetDoneFunc sets a handler which is called whenever the user presses the
 // Escape, Tab, or Backtab key.
 func (t *TreeView) SetDoneFunc(handler func(key tcell.Key)) *TreeView {
