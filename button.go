@@ -136,18 +136,10 @@ func (b *Button) Draw(screen tcell.Screen) {
 	if b.disabled {
 		style = b.disabledStyle
 	}
-	_, backgroundColor, _ := style.Decompose()
 	if b.HasFocus() && !b.disabled {
 		style = b.activatedStyle
-		_, backgroundColor, _ = style.Decompose()
-
-		// Highlight button for one drawing cycle.
-		borderColor := b.GetBorderColor()
-		b.SetBorderColor(backgroundColor)
-		defer func() {
-			b.SetBorderColor(borderColor)
-		}()
 	}
+	_, backgroundColor, _ := style.Decompose()
 	b.SetBackgroundColor(backgroundColor)
 	b.Box.DrawForSubclass(screen, b)
 
