@@ -450,8 +450,8 @@ func (t *TreeView) SetSelectedFunc(handler func(node *TreeNode)) *TreeView {
 	return t
 }
 
-// GetSelectedFunc returns the function set with SetSelectedFunc() or nil
-// if no such function has been set.
+// GetSelectedFunc returns the function set with [TreeView.SetSelectedFunc]
+// or nil if no such function has been set.
 func (t *TreeView) GetSelectedFunc() func(node *TreeNode) {
 	return t.selected
 }
