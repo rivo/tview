@@ -133,6 +133,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [sqltui: A terminal UI to operate sql and nosql databases](https://github.com/LinPr/sqltui)
 - [DBee: Simple database browser](https://github.com/murat-cileli/dbee)
 - [oddshub: A TUI for sports betting odds](https://github.com/dos-2/oddshub)
+- [envolve: Terminal based interactive app for manage enviroment variables](https://github.com/erdemkosk/envolve)
 
 ## Documentation
 
