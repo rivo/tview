@@ -207,10 +207,9 @@ func (d *DropDown) SetPrefixTextColor(color tcell.Color) *DropDown {
 // as well as selected items). Style attributes are currently ignored but may be
 // used in the future.
 func (d *DropDown) SetListStyles(unselected, selected tcell.Style) *DropDown {
-	fg, bg, _ := unselected.Decompose()
-	d.list.SetMainTextColor(fg).SetBackgroundColor(bg)
-	fg, bg, _ = selected.Decompose()
-	d.list.SetSelectedTextColor(fg).SetSelectedBackgroundColor(bg)
+	d.list.SetMainTextStyle(unselected).SetSelectedStyle(selected)
+	_, bg, _ := unselected.Decompose()
+	d.list.SetBackgroundColor(bg)
 	return d
 }
 
