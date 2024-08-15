@@ -134,7 +134,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [DBee: Simple database browser](https://github.com/murat-cileli/dbee)
 - [oddshub: A TUI for sports betting odds](https://github.com/dos-2/oddshub)
 - [envolve: Terminal based interactive app for manage enviroment variables](https://github.com/erdemkosk/envolve)
-
+- [lspvi source navigation and uml generator ](https://github.com/wellcomez/lspvi/)
 ## Documentation
 
 Refer to https://pkg.go.dev/github.com/rivo/tview for the package's documentation. Also check out the [Wiki](https://github.com/rivo/tview/wiki).
