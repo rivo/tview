@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"math"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -363,6 +364,8 @@ func NewTextArea() *TextArea {
 		lastAction:       taActionOther,
 		minCursorPrefix:  minCursorPrefixDefault,
 		minCursorSuffix:  minCursorSuffixDefault,
+		lastWidth:        math.MaxInt / 2, // We need this so some functions work before the first draw.
+		lastHeight:       1,
 	}
 	t.editText.Grow(editBufferMinCap)
 	t.spans[0] = textAreaSpan{previous: -1, next: 1}
