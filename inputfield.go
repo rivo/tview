@@ -135,6 +135,11 @@ func NewInputField() *InputField {
 		if i.changed != nil {
 			i.changed(i.textArea.GetText())
 		}
+	}).SetFocusFunc(func() {
+		// Forward focus event to the input field.
+		if i.Box.focus != nil {
+			i.Box.focus()
+		}
 	})
 	i.textArea.textStyle = tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor)
 	i.textArea.placeholderStyle = tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor)
