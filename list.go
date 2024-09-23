@@ -101,6 +101,19 @@ func NewList() *List {
 	}
 }
 
+// SelectItem calls the given item's select function (if defined).
+func (l *List) SelectItem(index int) {
+	if index >= 0 && index < len(l.items) {
+		item := l.items[index]
+		if item.Selected != nil {
+			item.Selected()
+		}
+		if l.selected != nil {
+			l.selected(index, item.MainText, item.SecondaryText, item.Shortcut)
+		}
+	}
+}
+
 // SetCurrentItem sets the currently selected item by its index, starting at 0
 // for the first item. If a negative index is provided, items are referred to
 // from the back (-1 = last item, -2 = second-to-last item, and so on). Out of
@@ -607,15 +620,7 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 				l.currentItem = 0
 			}
 		case tcell.KeyEnter:
-			if l.currentItem >= 0 && l.currentItem < len(l.items) {
-				item := l.items[l.currentItem]
-				if item.Selected != nil {
-					item.Selected()
-				}
-				if l.selected != nil {
-					l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
-				}
-			}
+			l.SelectItem(l.currentItem)
 		case tcell.KeyRune:
 			ch := event.Rune()
 			if ch != ' ' {
