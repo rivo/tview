@@ -279,8 +279,8 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return c.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
+	return c.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
 		if c.disabled {
 			return
 		}
@@ -303,6 +303,8 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				c.finished(key)
 			}
 		}
+
+		return
 	})
 }
 

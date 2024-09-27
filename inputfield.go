@@ -513,8 +513,8 @@ func (i *InputField) Draw(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return i.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
+	return i.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
 		if i.textArea.GetDisabled() {
 			return
 		}
@@ -615,8 +615,10 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 			fallthrough
 		default:
 			// Forward other key events to the text area.
-			i.textArea.InputHandler()(event, setFocus)
+			consumed = i.textArea.InputHandler()(event, setFocus)
 		}
+
+		return
 	})
 }
 
