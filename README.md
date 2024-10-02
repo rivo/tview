@@ -54,7 +54,7 @@ Check out the [GitHub Wiki](https://github.com/rivo/tview/wiki) for more example
 For a presentation highlighting this package, compile and run the program found in the "demos/presentation" subdirectory.
 
 ## Projects using `tview`
-
+- [lspvi source navigation and uml generator ](https://github.com/wellcomez/lspvi/) 
 - [K9s - Kubernetes CLI](https://github.com/derailed/k9s)
 - [IRCCloud Terminal Client](https://github.com/termoose/irccloud)
 - [Window manager for `tview`](https://github.com/epiclabs-io/winman)
