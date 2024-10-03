@@ -379,6 +379,7 @@ func (t *tableDefaultContent) InsertRow(row int) {
 
 // InsertColumn inserts a new column at the given position.
 func (t *tableDefaultContent) InsertColumn(column int) {
+	var didInsert bool
 	for row := range t.cells {
 		if column >= len(t.cells[row]) {
 			continue
@@ -386,6 +387,10 @@ func (t *tableDefaultContent) InsertColumn(column int) {
 		t.cells[row] = append(t.cells[row], nil)             // Extend by one.
 		copy(t.cells[row][column+1:], t.cells[row][column:]) // Shift to the right.
 		t.cells[row][column] = &TableCell{}                  // New element is an uninitialized table cell.
+                didInsert = true
+	}
+	if didInsert {
+		t.lastColumn++
 	}
 }
 
