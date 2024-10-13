@@ -134,6 +134,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [DBee: Simple database browser](https://github.com/murat-cileli/dbee)
 - [oddshub: A TUI for sports betting odds](https://github.com/dos-2/oddshub)
 - [envolve: Terminal based interactive app for manage enviroment variables](https://github.com/erdemkosk/envolve)
+- [zfs-file-history: Terminal UI for inspecting and restoring file history on ZFS snapshots](https://github.com/markusressel/zfs-file-history)
 
 ## Documentation
 
