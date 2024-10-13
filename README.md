@@ -134,6 +134,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [DBee: Simple database browser](https://github.com/murat-cileli/dbee)
 - [oddshub: A TUI for sports betting odds](https://github.com/dos-2/oddshub)
 - [envolve: Terminal based interactive app for manage enviroment variables](https://github.com/erdemkosk/envolve)
+- [fan2go-tui: Terminal UI for fan2go](https://github.com/markusressel/fan2go-tui)
 
 ## Documentation
 
