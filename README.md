@@ -77,7 +77,6 @@ For a presentation highlighting this package, compile and run the program found 
 - [Test your typing speed in the terminal!](https://github.com/shilangyu/typer-go)
 - [TUI Client for Docker](https://github.com/skanehira/docui)
 - [SSH client using certificates signed by HashiCorp Vault](https://github.com/stephane-martin/vssh)
-- [A go terminal based pos software.](https://github.com/thebmw/y2kpos)
 - [VMware vCenter Text UI](https://github.com/thebsdbox/vctui)
 - [Bookmarks on terminal](https://github.com/tryffel/bookmarker)
 - [A UDP testing utility](https://github.com/vaelen/udp-tester)
@@ -134,6 +133,8 @@ For a presentation highlighting this package, compile and run the program found 
 - [DBee: Simple database browser](https://github.com/murat-cileli/dbee)
 - [oddshub: A TUI for sports betting odds](https://github.com/dos-2/oddshub)
 - [envolve: Terminal based interactive app for manage enviroment variables](https://github.com/erdemkosk/envolve)
+- [zfs-file-history: Terminal UI for inspecting and restoring file history on ZFS snapshots](https://github.com/markusressel/zfs-file-history)
+- [fan2go-tui: Terminal UI for fan2go](https://github.com/markusressel/fan2go-tui)
 
 ## Documentation
 
