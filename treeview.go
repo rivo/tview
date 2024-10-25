@@ -843,6 +843,37 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		switch action {
 		case MouseLeftDown:
 			setFocus(t)
+			// You should make logic more complex  here.
+
+			
+			// 1. after scroll end, offsetY will change to "Y"
+			// 2. at this time selection index not set to mouse click point, it still out of view
+			// 3. after click event, tree will draw again.  
+
+			
+			// 4. draw will call 'process', process will change offsetY back to previous 
+			// 5. after that, offsetY is wrong, at click event 
+			// 			y += t.offsetY - rectY
+			// still use old value . click will jump to node which doesn't user except
+
+			
+			// from 624- 637
+				//if t.movement != treeScroll {
+				//	if selectedIndex-t.offsetY >= height {
+				//		t.offsetY = selectedIndex - height + 1
+				//	}
+				//	if selectedIndex < t.offsetY {
+				//		t.offsetY = selectedIndex
+				//	}
+				//	if t.movement != treeHome && t.movement != treeEnd {
+				//		// treeScroll, treeHome, and treeEnd are handled by Draw().
+				//		t.movement = treeNone
+				//		t.step = 0
+				//	}
+				//}
+			
+
+			
 			consumed = true
 		case MouseLeftClick:
 			_, rectY, _, _ := t.GetInnerRect()
