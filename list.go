@@ -710,7 +710,7 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 					if l.changed != nil {
 						l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
 					}
-					l.adjustOffset()
+					//l.adjustOffset()
 				}
 				l.currentItem = index
 			}
