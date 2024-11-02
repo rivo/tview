@@ -411,32 +411,33 @@ func (t *tableDefaultContent) GetColumnCount() int {
 }
 
 // Table visualizes two-dimensional data consisting of rows and columns. Each
-// Table cell is defined via SetCell() by the TableCell type. They can be added
-// dynamically to the table and changed any time.
+// Table cell is defined via [Table.SetCell] by the [TableCell] type. They can
+// be added dynamically to the table and changed any time.
 //
 // The most compact display of a table is without borders. Each row will then
 // occupy one row on screen and columns are separated by the rune defined via
-// SetSeparator() (a space character by default).
+// [Table.SetSeparator] (a space character by default).
 //
-// When borders are turned on (via SetBorders()), each table cell is surrounded
-// by lines. Therefore one table row will require two rows on screen.
+// When borders are turned on (via [Table.SetBorders]), each table cell is
+// surrounded by lines. Therefore one table row will require two rows on screen.
 //
 // Columns will use as much horizontal space as they need. You can constrain
-// their size with the MaxWidth parameter of the TableCell type.
+// their size with the [TableCell.MaxWidth] parameter of the [TableCell] type.
 //
 // # Fixed Columns
 //
-// You can define fixed rows and rolumns via SetFixed(). They will always stay
-// in their place, even when the table is scrolled. Fixed rows are always the
-// top rows. Fixed columns are always the leftmost columns.
+// You can define fixed rows and rolumns via [Table.SetFixed]. They will always
+// stay in their place, even when the table is scrolled. Fixed rows are always
+// the top rows. Fixed columns are always the leftmost columns.
 //
 // # Selections
 //
-// You can call SetSelectable() to set columns and/or rows to "selectable". If
-// the flag is set only for columns, entire columns can be selected by the user.
-// If it is set only for rows, entire rows can be selected. If both flags are
-// set, individual cells can be selected. The "selected" handler set via
-// SetSelectedFunc() is invoked when the user presses Enter on a selection.
+// You can call [Table.SetSelectable] to set columns and/or rows to
+// "selectable". If the flag is set only for columns, entire columns can be
+// selected by the user. If it is set only for rows, entire rows can be
+// selected. If both flags are set, individual cells can be selected. The
+// "selected" handler set via [Table.SetSelectedFunc] is invoked when the user
+// presses Enter on a selection.
 //
 // # Navigation
 //
@@ -456,7 +457,7 @@ func (t *tableDefaultContent) GetColumnCount() int {
 // rows and columns). When there is a selection, the user moves the selection.
 // The class will attempt to keep the selection from moving out of the screen.
 //
-// Use SetInputCapture() to override or modify keyboard input.
+// Use [Box.SetInputCapture] to override or modify keyboard input.
 //
 // See https://github.com/rivo/tview/wiki/Table for an example.
 type Table struct {
