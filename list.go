@@ -340,6 +340,12 @@ func (l *List) SetSelectedFunc(handler func(int, string, string, rune)) *List {
 	return l
 }
 
+// GetSelectedFunc returns the function set with [List.SetSelectedFunc] or nil
+// if no such function was set.
+func (l *List) GetSelectedFunc() func(int, string, string, rune) {
+	return l.selected
+}
+
 // SetDoneFunc sets a function which is called when the user presses the Escape
 // key.
 func (l *List) SetDoneFunc(handler func()) *List {
@@ -417,6 +423,13 @@ func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut ru
 // GetItemCount returns the number of items in the list.
 func (l *List) GetItemCount() int {
 	return len(l.items)
+}
+
+// GetItemSelectedFunc returns the function which is called when the user
+// selects the item with the given index, if such a function was set. If no
+// function was set, nil is returned. Panics if the index is out of range.
+func (l *List) GetItemSelectedFunc(index int) func() {
+	return l.items[index].Selected
 }
 
 // GetItemText returns an item's texts (main and secondary). Panics if the index
