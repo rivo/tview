@@ -493,7 +493,7 @@ func (i *InputField) Draw(screen tcell.Screen) {
 	// Draw autocomplete list.
 	i.autocompleteListMutex.Lock()
 	defer i.autocompleteListMutex.Unlock()
-	if i.autocompleteList != nil {
+	if i.autocompleteList != nil && i.HasFocus() {
 		// How much space do we need?
 		lheight := i.autocompleteList.GetItemCount()
 		lwidth := 0
