@@ -19,7 +19,10 @@ const (
 
 var (
 	// Regular expression used to escape style/region tags.
-	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
+	escapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
+
+	// Regular expression used to unescape escaped style/region tags.
+	unescapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\[\]`)
 
 	// The number of colors available in the terminal.
 	availableColors = 256
@@ -48,7 +51,7 @@ func Print(screen tcell.Screen, text string, x, y, maxWidth, align int, color tc
 	return end - start, width
 }
 
-// printWithStyle works like Print() but it takes a style instead of just a
+// printWithStyle works like [Print] but it takes a style instead of just a
 // foreground color. The skipWidth parameter specifies the number of cells
 // skipped at the beginning of the text. It returns the start index, end index
 // (exclusively), and screen width of the text actually printed. If

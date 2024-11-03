@@ -30,6 +30,9 @@ type listItem struct {
 //   - Right / left: Scroll horizontally. Only if the list is wider than the
 //     available space.
 //
+// By default, list item texts can contain style tags. Use
+// [List.SetUseStyleTags] to disable this feature.
+//
 // See [List.SetChangedFunc] for a way to be notified when the user navigates
 // to a list item. See [List.SetSelectedFunc] for a way to be notified when a
 // list item was selected.
@@ -65,6 +68,12 @@ type List struct {
 	// If true, the entire row is highlighted when selected.
 	highlightFullLine bool
 
+	// Whether or not style tags can be used in the main text.
+	mainStyleTags bool
+
+	// Whether or not style tags can be used in the secondary text.
+	secondaryStyleTags bool
+
 	// Whether or not navigating the list will wrap around.
 	wrapAround bool
 
@@ -98,6 +107,8 @@ func NewList() *List {
 		secondaryTextStyle: tcell.StyleDefault.Foreground(Styles.TertiaryTextColor).Background(Styles.PrimitiveBackgroundColor),
 		shortcutStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor).Background(Styles.PrimitiveBackgroundColor),
 		selectedStyle:      tcell.StyleDefault.Foreground(Styles.PrimitiveBackgroundColor).Background(Styles.PrimaryTextColor),
+		mainStyleTags:      true,
+		secondaryStyleTags: true,
 	}
 }
 
@@ -268,6 +279,14 @@ func (l *List) SetSelectedStyle(style tcell.Style) *List {
 	return l
 }
 
+// SetUseStyleTags sets a flag which determines whether style tags are used in
+// the main and secondary texts. The default is true.
+func (l *List) SetUseStyleTags(mainStyleTags, secondaryStyleTags bool) *List {
+	l.mainStyleTags = mainStyleTags
+	l.secondaryStyleTags = secondaryStyleTags
+	return l
+}
+
 // SetSelectedFocusOnly sets a flag which determines when the currently selected
 // list item is highlighted. If set to true, selected items are only highlighted
 // when the list has focus. If set to false, they are always highlighted.
@@ -328,7 +347,7 @@ func (l *List) SetDoneFunc(handler func()) *List {
 	return l
 }
 
-// AddItem calls InsertItem() with an index of -1.
+// AddItem calls [List.InsertItem] with an index of -1.
 func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected func()) *List {
 	l.InsertItem(-1, mainText, secondaryText, shortcut, selected)
 	return l
@@ -336,8 +355,8 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 
 // InsertItem adds a new item to the list at the specified index. An index of 0
 // will insert the item at the beginning, an index of 1 before the second item,
-// and so on. An index of GetItemCount() or higher will insert the item at the
-// end of the list. Negative indices are also allowed: An index of -1 will
+// and so on. An index of [List.GetItemCount] or higher will insert the item at
+// the end of the list. Negative indices are also allowed: An index of -1 will
 // insert the item at the end of the list, an index of -2 before the last item,
 // and so on. An index of -GetItemCount()-1 or lower will insert the item at the
 // beginning.
@@ -351,7 +370,7 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 //
 // The "selected" callback will be invoked when the user selects the item. You
 // may provide nil if no such callback is needed or if all events are handled
-// through the selected callback set with SetSelectedFunc().
+// through the selected callback set with [List.SetSelectedFunc].
 //
 // The currently selected item will shift its position accordingly. If the list
 // was previously empty, a "changed" event is fired because the new item becomes
@@ -511,7 +530,11 @@ func (l *List) Draw(screen tcell.Screen) {
 		if selected {
 			style = l.selectedStyle
 		}
-		_, _, printedWidth := printWithStyle(screen, item.MainText, x, y, l.horizontalOffset, width, AlignLeft, style, false)
+		mainText := item.MainText
+		if !l.mainStyleTags {
+			mainText = Escape(mainText)
+		}
+		_, _, printedWidth := printWithStyle(screen, mainText, x, y, l.horizontalOffset, width, AlignLeft, style, false)
 		if printedWidth > maxWidth {
 			maxWidth = printedWidth
 		}
@@ -530,7 +553,11 @@ func (l *List) Draw(screen tcell.Screen) {
 
 		// Secondary text.
 		if l.showSecondaryText {
-			_, _, printedWidth := printWithStyle(screen, item.SecondaryText, x, y, l.horizontalOffset, width, AlignLeft, l.secondaryTextStyle, false)
+			secondaryText := item.SecondaryText
+			if !l.secondaryStyleTags {
+				secondaryText = Escape(secondaryText)
+			}
+			_, _, printedWidth := printWithStyle(screen, secondaryText, x, y, l.horizontalOffset, width, AlignLeft, l.secondaryTextStyle, false)
 			if printedWidth > maxWidth {
 				maxWidth = printedWidth
 			}

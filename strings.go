@@ -593,7 +593,12 @@ func WordWrap(text string, width int) (lines []string) {
 //	box.SetTitle(tview.Escape("[squarebrackets]"))
 //	fmt.Fprint(textView, tview.Escape(`["quoted"]`))
 func Escape(text string) string {
-	return nonEscapePattern.ReplaceAllString(text, "$1[]")
+	return escapePattern.ReplaceAllString(text, "$1[]")
+}
+
+// Unescape unescapes text previously escaped with [Escape].
+func Unescape(text string) string {
+	return unescapePattern.ReplaceAllString(text, "$1]")
 }
 
 // stripTags strips style tags from the given string. (Region tags are not
