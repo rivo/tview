@@ -26,8 +26,11 @@ type TreeNode struct {
 	// The item's text.
 	text string
 
-	// The text color.
-	color tcell.Color
+	// The text style.
+	textStyle tcell.Style
+
+	// The style of selected text.
+	selectedTextStyle tcell.Style
 
 	// Whether or not this node can be selected.
 	selectable bool
@@ -55,11 +58,12 @@ type TreeNode struct {
 // NewTreeNode returns a new tree node.
 func NewTreeNode(text string) *TreeNode {
 	return &TreeNode{
-		text:       text,
-		color:      Styles.PrimaryTextColor,
-		indent:     2,
-		expanded:   true,
-		selectable: true,
+		text:              text,
+		textStyle:         tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor),
+		selectedTextStyle: tcell.StyleDefault.Foreground(Styles.PrimitiveBackgroundColor).Background(Styles.PrimaryTextColor),
+		indent:            2,
+		expanded:          true,
+		selectable:        true,
 	}
 }
 
@@ -204,15 +208,42 @@ func (n *TreeNode) SetText(text string) *TreeNode {
 	return n
 }
 
-// GetColor returns the node's color.
+// GetColor returns the node's text color.
 func (n *TreeNode) GetColor() tcell.Color {
-	return n.color
+	color, _, _ := n.textStyle.Decompose()
+	return color
 }
 
-// SetColor sets the node's text color.
+// SetColor sets the node's text color. For compatibility reasons, this also
+// sets the background color of the selected text style. For more control over
+// styles, use [TreeNode.SetTextStyle] and [TreeNode.SetSelectedTextStyle].
 func (n *TreeNode) SetColor(color tcell.Color) *TreeNode {
-	n.color = color
+	n.textStyle = n.textStyle.Foreground(color)
+	n.selectedTextStyle = n.selectedTextStyle.Background(color)
 	return n
+}
+
+// SetTextStyle sets the text style for this node.
+func (n *TreeNode) SetTextStyle(style tcell.Style) *TreeNode {
+	n.textStyle = style
+	return n
+}
+
+// GetTextStyle returns the text style for this node.
+func (n *TreeNode) GetTextStyle() tcell.Style {
+	return n.textStyle
+}
+
+// SetSelectedTextStyle sets the text style for this node when it is selected.
+func (n *TreeNode) SetSelectedTextStyle(style tcell.Style) *TreeNode {
+	n.selectedTextStyle = style
+	return n
+}
+
+// GetSelectedTextStyle returns the text style for this node when it is
+// selected.
+func (n *TreeNode) GetSelectedTextStyle() tcell.Style {
+	return n.selectedTextStyle
 }
 
 // SetIndent sets an additional indentation for this node's text. A value of 0
@@ -747,14 +778,14 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 			// Prefix.
 			var prefixWidth int
 			if len(t.prefixes) > 0 {
-				_, prefixWidth = Print(screen, t.prefixes[(node.level-t.topLevel)%len(t.prefixes)], x+node.textX, posY, width-node.textX, AlignLeft, node.color)
+				_, _, prefixWidth = printWithStyle(screen, t.prefixes[(node.level-t.topLevel)%len(t.prefixes)], x+node.textX, posY, 0, width-node.textX, AlignLeft, node.textStyle, true)
 			}
 
 			// Text.
 			if node.textX+prefixWidth < width {
-				style := tcell.StyleDefault.Background(t.backgroundColor).Foreground(node.color)
+				style := node.textStyle
 				if node == t.currentNode {
-					style = tcell.StyleDefault.Background(node.color).Foreground(t.backgroundColor)
+					style = node.selectedTextStyle
 				}
 				printWithStyle(screen, node.text, x+node.textX+prefixWidth, posY, 0, width-node.textX-prefixWidth, AlignLeft, style, false)
 			}
