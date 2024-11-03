@@ -397,7 +397,9 @@ func (t *TextView) SetText(text string) *TextView {
 }
 
 // GetText returns the current text of this text view. If "stripAllTags" is set
-// to true, any region/style tags are stripped from the text.
+// to true, any region/style tags are stripped from the text. Note that any text
+// that has been discarded due to [TextView.SetMaxLines] or
+// [TextView.SetScrollable] will not be part of the returned text.
 func (t *TextView) GetText(stripAllTags bool) string {
 	if !stripAllTags || (!t.styleTags && !t.regionTags) {
 		return t.text.String()
@@ -425,7 +427,9 @@ func (t *TextView) GetText(stripAllTags bool) string {
 
 // GetOriginalLineCount returns the number of lines in the original text buffer,
 // without applying any wrapping. This is an expensive call as it needs to
-// iterate over the entire text.
+// iterate over the entire text. Note that any text that has been discarded due
+// to [TextView.SetMaxLines] or [TextView.SetScrollable] will not be part of the
+// count.
 func (t *TextView) GetOriginalLineCount() int {
 	if t.text.Len() == 0 {
 		return 0
@@ -444,6 +448,21 @@ func (t *TextView) GetOriginalLineCount() int {
 	}
 
 	return lines
+}
+
+// GetWrappedLineCount returns the number of lines in the text view, taking
+// wrapping into account (if activated). This is an even more expensive call
+// than [TextView.GetOriginalLineCount] as it needs to parse the text until the
+// end and calculate the line breaks. It will also allocate memory for each
+// line. Note that any text that has been discarded due to
+// [TextView.SetMaxLines] or [TextView.SetScrollable] will not be part of the
+// count. Calling this method before the text view was drawn for the first time
+// will assume no wrapping.
+func (t *TextView) GetWrappedLineCount() int {
+	t.parseAhead(t.width, func(int, *textViewLine) bool {
+		return false
+	})
+	return len(t.lineIndex)
 }
 
 // SetDynamicColors sets the flag that allows the text color to be changed
