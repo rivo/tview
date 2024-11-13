@@ -135,6 +135,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [envolve: Terminal based interactive app for manage enviroment variables](https://github.com/erdemkosk/envolve)
 - [zfs-file-history: Terminal UI for inspecting and restoring file history on ZFS snapshots](https://github.com/markusressel/zfs-file-history)
 - [fan2go-tui: Terminal UI for fan2go](https://github.com/markusressel/fan2go-tui)
+- [NatsDash: Terminal UI for NATS Jetstream](https://nats-dash-gui.returnzero.win/)
 
 ## Documentation
 
