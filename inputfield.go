@@ -272,6 +272,17 @@ func (i *InputField) SetFormAttributes(labelWidth int, labelColor, bgColor, fiel
 	return i
 }
 
+// GetCursorPos gets the current offset for cursor from start of field.
+func (i *InputField) GetCursorPos() (pos int) {
+  return i.cursorPos
+}
+
+// SetCursorPos sets the current offset for cursor from start of field.
+func (i *InputField) SetCursorPos(pos int) *InputField {
+	i.cursorPos = pos
+	return i
+}
+
 // SetFieldWidth sets the screen width of the input area. A value of 0 means
 // extend as much as possible.
 func (i *InputField) SetFieldWidth(width int) *InputField {
