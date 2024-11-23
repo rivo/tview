@@ -439,8 +439,8 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return d.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
+	return d.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
 		if d.disabled {
 			return
 		}
@@ -473,6 +473,8 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				d.finished(key)
 			}
 		}
+
+		return
 	})
 }
 

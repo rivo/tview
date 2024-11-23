@@ -59,6 +59,14 @@ type Box struct {
 	// nothing should be forwarded).
 	inputCapture func(event *tcell.EventKey) *tcell.EventKey
 
+	// An optional capture function which receives a key event and returns a bool
+	// which indicates if the event should be potentially further processed by
+	// parents' own inputCaptureAfter function. This can be used to construct
+	// an inside-out event handling chain.
+	// It has a default value of capturing all events, to preserve semantics
+	// of tview (originally, tview never passed events back to parents).
+	inputCaptureAfter func(event *tcell.EventKey) *tcell.EventKey
+
 	// An optional function which is called before the box is drawn.
 	draw func(screen tcell.Screen, x, y, width, height int) (int, int, int, int)
 
@@ -71,13 +79,14 @@ type Box struct {
 // NewBox returns a Box without a border.
 func NewBox() *Box {
 	b := &Box{
-		width:           15,
-		height:          10,
-		innerX:          -1, // Mark as uninitialized.
-		backgroundColor: Styles.PrimitiveBackgroundColor,
-		borderStyle:     tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
-		titleColor:      Styles.TitleColor,
-		titleAlign:      AlignCenter,
+		width:             15,
+		height:            10,
+		innerX:            -1, // Mark as uninitialized.
+		backgroundColor:   Styles.PrimitiveBackgroundColor,
+		borderStyle:       tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
+		titleColor:        Styles.TitleColor,
+		titleAlign:        AlignCenter,
+		inputCaptureAfter: func(event *tcell.EventKey) *tcell.EventKey { return nil },
 	}
 	return b
 }
@@ -158,19 +167,29 @@ func (b *Box) GetDrawFunc() func(screen tcell.Screen, x, y, width, height int) (
 // on to the provided (default) input handler.
 //
 // This is only meant to be used by subclassing primitives.
-func (b *Box) WrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primitive))) func(*tcell.EventKey, func(p Primitive)) {
-	return func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (b *Box) WrapInputHandler(inputHandler func(*tcell.EventKey, func(p Primitive)) (consumed bool)) func(*tcell.EventKey, func(p Primitive)) (consumed bool) {
+	return func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
 		if b.inputCapture != nil {
 			event = b.inputCapture(event)
+			if event == nil {
+				consumed = true
+			}
 		}
-		if event != nil && inputHandler != nil {
-			inputHandler(event, setFocus)
+		if event != nil && !consumed && inputHandler != nil {
+			consumed = inputHandler(event, setFocus)
 		}
+		if event != nil && !consumed && b.inputCaptureAfter != nil {
+			event = b.inputCaptureAfter(event)
+			if event == nil {
+				consumed = true
+			}
+		}
+		return
 	}
 }
 
 // InputHandler returns nil. Box has no default input handling.
-func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (b *Box) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
 	return b.WrapInputHandler(nil)
 }
 
@@ -206,10 +225,37 @@ func (b *Box) SetInputCapture(capture func(event *tcell.EventKey) *tcell.EventKe
 	return b
 }
 
+// SetInputCaptureAfter installs a function which captures key events after they are
+// forwarded to the primitive's default key event handler. This function can
+// then choose to consume the event and prevent any further processing by
+// returning nil. If a non-nil event is returned, it will be passed back to
+// parent, and potentially further up the tree.
+//
+// Providing a nil handler will remove a previously existing handler. NOTE:
+// the default value of this function is a function which captures all
+// events, so setting it to nil, will instead configure to capture none.
+//
+// This function can also be used on container primitives (like Flex, Grid, or
+// Form) as keyboard events will likewise just be given back to the parent,
+// and processed if it has its own InputCaptureAfter.
+//
+// Pasted key events are not forwarded to the input capture function if pasting
+// is enabled (see [Application.EnablePaste]).
+func (b *Box) SetInputCaptureAfter(capture func(event *tcell.EventKey) *tcell.EventKey) *Box {
+	b.inputCaptureAfter = capture
+	return b
+}
+
 // GetInputCapture returns the function installed with SetInputCapture() or nil
 // if no such function has been installed.
 func (b *Box) GetInputCapture() func(event *tcell.EventKey) *tcell.EventKey {
 	return b.inputCapture
+}
+
+// GetInputCaptureAfter returns the function installed with SetInputCaptureAfter() or nil
+// if no such function has been installed.
+func (b *Box) GetInputCaptureAfter() func(event *tcell.EventKey) *tcell.EventKey {
+	return b.inputCaptureAfter
 }
 
 // WrapMouseHandler wraps a mouse event handler (see [Box.MouseHandler]) with the
