@@ -353,6 +353,18 @@ func (f *Form) AddCheckbox(label string, checked bool, changed func(checked bool
 	return f
 }
 
+// AddRadio adds a radio button group to the form. It has a label, an initial value,
+// if it's horizontal or vertical, and an (optional) callback function which is invoked
+// when the state of the radio was changed by the user.
+func (f *Form) AddRadio(label string, option int, horizontal bool, changed func(option int), options ...string) *Form {
+	f.items = append(f.items, NewRadio(options...).
+		SetLabel(label).
+		SetValue(option).
+		SetHorizontal(horizontal).
+		SetOnSetValue(changed))
+	return f
+}
+
 // AddImage adds an image to the form. It has a label and the image will fit in
 // the specified width and height (its aspect ratio is preserved). See
 // [Image.SetColors] for a description of the "colors" parameter. Images are not
