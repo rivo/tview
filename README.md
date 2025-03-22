@@ -136,6 +136,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [zfs-file-history: Terminal UI for inspecting and restoring file history on ZFS snapshots](https://github.com/markusressel/zfs-file-history)
 - [fan2go-tui: Terminal UI for fan2go](https://github.com/markusressel/fan2go-tui)
 - [chiko: Ultimate Beauty TUI gRPC Client](https://github.com/felangga/chiko)
+- [kmip-explorer: Browse & manage your KMIP objects from the terminal](https://github.com/phsym/kmip-explorer)
 
 ## Documentation
 
