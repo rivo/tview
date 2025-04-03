@@ -93,7 +93,7 @@ func (a *ansi) Write(text []byte) (int, error) {
 					var background, foreground string
 					params := a.csiParameter.String()
 					fields := strings.Split(params, ";")
-					if len(params) == 0 || fields[0] == "" || fields[0] == "0" {
+					if len(params) == 0 || len(fields) == 1 && (fields[0] == "" || fields[0] == "0") {
 						// Reset.
 						a.attributes = ""
 						if _, err := a.buffer.WriteString("[-:-:-]"); err != nil {
