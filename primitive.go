@@ -32,7 +32,7 @@ type Primitive interface {
 	// The Box class provides functionality to intercept keyboard input. If you
 	// subclass from Box, it is recommended that you wrap your handler using
 	// Box.WrapInputHandler() so you inherit that functionality.
-	InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive))
+	InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool)
 
 	// Focus is called by the application when the primitive receives focus.
 	// Implementers may call delegate() to pass the focus on to another primitive.

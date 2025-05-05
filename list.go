@@ -607,8 +607,8 @@ func (l *List) Draw(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return l.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
+	return l.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
 		if event.Key() == tcell.KeyEscape {
 			if l.done != nil {
 				l.done()
@@ -701,6 +701,8 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 				l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 			}
 		}
+
+		return
 	})
 }
 
