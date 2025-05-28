@@ -2,6 +2,7 @@ package tview
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -65,6 +66,9 @@ type List struct {
 	// If true, the selection is only shown when the list has focus.
 	selectedFocusOnly bool
 
+	// The style for the item under the cursor.
+	cursorStyle tcell.Style
+
 	// If true, the entire row is highlighted when selected.
 	highlightFullLine bool
 
@@ -95,6 +99,12 @@ type List struct {
 
 	// An optional function which is called when the user presses the Escape key.
 	done func()
+
+	// True if multiple items may be selected.
+	multiSelect bool
+
+	// The indices of the currently selected items in multi-select mode.
+	selectedItems []int
 }
 
 // NewList returns a new list.
@@ -107,9 +117,21 @@ func NewList() *List {
 		secondaryTextStyle: tcell.StyleDefault.Foreground(Styles.TertiaryTextColor).Background(Styles.PrimitiveBackgroundColor),
 		shortcutStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor).Background(Styles.PrimitiveBackgroundColor),
 		selectedStyle:      tcell.StyleDefault.Foreground(Styles.PrimitiveBackgroundColor).Background(Styles.PrimaryTextColor),
+		cursorStyle:        tcell.StyleDefault.Foreground(Styles.ContrastBackgroundColor).Background(Styles.PrimaryTextColor),
 		mainStyleTags:      true,
 		secondaryStyleTags: true,
 	}
+}
+
+// GetSelectedItems returns the indices of the currently selected items in multi-select mode.
+func (l *List) GetSelectedItems() []int {
+	return l.selectedItems
+}
+
+// MultiSelect enables or disables the selection of multiple list items.
+func (l *List) MultiSelect(enable bool) *List {
+	l.multiSelect = enable
+	return l
 }
 
 // SetCurrentItem sets the currently selected item by its index, starting at 0
@@ -118,6 +140,9 @@ func NewList() *List {
 // range indices are clamped to the beginning/end.
 //
 // Calling this function triggers a "changed" event if the selection changes.
+// If multi-select mode is enabled the changed event is never triggered as this
+// changes the locatin of the cursor but does not select or deselect the list
+// option.
 func (l *List) SetCurrentItem(index int) *List {
 	if index < 0 {
 		index = len(l.items) + index
@@ -141,6 +166,8 @@ func (l *List) SetCurrentItem(index int) *List {
 
 // GetCurrentItem returns the index of the currently selected list item,
 // starting at 0 for the first item.
+// If multi-select mode is enabled this returns the location of the cursor
+// whether the item is selected or not.
 func (l *List) GetCurrentItem() int {
 	return l.currentItem
 }
@@ -192,22 +219,42 @@ func (l *List) RemoveItem(index int) *List {
 
 	// Remove item.
 	l.items = append(l.items[:index], l.items[index+1:]...)
+	idx := slices.Index(l.selectedItems, index)
+	if idx > -1 {
+		l.selectedItems = append(l.selectedItems[:idx], l.selectedItems[idx+1:]...)
+	}
 
 	// If there is nothing left, we're done.
 	if len(l.items) == 0 {
 		return l
 	}
 
-	// Shift current item.
+	// Shift cursor.
 	previousCurrentItem := l.currentItem
 	if l.currentItem > index || l.currentItem == len(l.items) {
 		l.currentItem--
 	}
 
-	// Fire "changed" event for removed items.
-	if previousCurrentItem == index && l.changed != nil {
-		item := l.items[l.currentItem]
-		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+	if l.multiSelect {
+		// Shift selected items.
+		for i := 0; i < len(l.selectedItems); i++ {
+			previousSelectedItem := l.selectedItems[i]
+			if l.selectedItems[i] > index || l.selectedItems[i] == len(l.items) {
+				l.selectedItems[i]--
+			}
+
+			// Fire "changed" event for removed items.
+			if previousSelectedItem == index && l.changed != nil {
+				item := l.items[l.selectedItems[i]]
+				l.changed(l.selectedItems[i], item.MainText, item.SecondaryText, item.Shortcut)
+			}
+		}
+	} else {
+		// Fire "changed" event for removed items in single-select mode.
+		if previousCurrentItem == index && l.changed != nil {
+			item := l.items[l.currentItem]
+			l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+		}
 	}
 
 	return l
@@ -274,6 +321,14 @@ func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
 // tags) is maintained.
 func (l *List) SetSelectedStyle(style tcell.Style) *List {
 	l.selectedStyle = style
+	return l
+}
+
+// SetCursorStyle sets the style of the item under the cursor in multi-select
+// mode. Note that the color of main text characters that are different from the
+// main text color (e.g. color tags) is maintained.
+func (l *List) SetCursorStyle(style tcell.Style) *List {
+	l.cursorStyle = style
 	return l
 }
 
@@ -403,9 +458,15 @@ func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut ru
 		index = len(l.items)
 	}
 
-	// Shift current item.
+	// Shift cursor.
 	if l.currentItem < len(l.items) && l.currentItem >= index {
 		l.currentItem++
+	}
+	// Shift selected items.
+	for i := 0; i < len(l.selectedItems); i++ {
+		if l.selectedItems[i] < len(l.items) && l.selectedItems[i] >= index {
+			l.selectedItems[i]++
+		}
 	}
 
 	// Insert item (make space for the new item, then shift and insert).
@@ -495,6 +556,7 @@ func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ig
 func (l *List) Clear() *List {
 	l.items = nil
 	l.currentItem = 0
+	l.selectedItems = nil
 	return l
 }
 
@@ -557,10 +619,22 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 
 		// Main text.
-		selected := index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus())
+		var (
+			selected    bool
+			underCursor bool
+		)
+		if l.multiSelect {
+			selected = slices.Contains(l.selectedItems, index) && (!l.selectedFocusOnly || l.HasFocus())
+			underCursor = index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus())
+		} else {
+			selected = index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus())
+		}
 		style := l.mainTextStyle
 		if selected {
 			style = l.selectedStyle
+		}
+		if underCursor {
+			style = l.cursorStyle
 		}
 		mainText := item.MainText
 		if !l.mainStyleTags {
@@ -647,19 +721,34 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 			}
 		case tcell.KeyEnter:
 			if l.currentItem >= 0 && l.currentItem < len(l.items) {
-				item := l.items[l.currentItem]
-				if item.Selected != nil {
-					item.Selected()
+				idx := -1
+				if l.multiSelect {
+					idx = slices.Index(l.selectedItems, l.currentItem)
 				}
-				if l.selected != nil {
-					l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+				if idx == -1 {
+					// Toggle the item to be selected.
+					if l.multiSelect {
+						// Only add the item to the selectedItems list if we're in
+						// multi-select mode.
+						l.selectedItems = append(l.selectedItems, l.currentItem)
+					}
+					item := l.items[l.currentItem]
+					if item.Selected != nil {
+						item.Selected()
+					}
+					if l.selected != nil {
+						l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+					}
+				} else {
+					// Remove the item from the selection if we're in multi-select mode.
+					l.selectedItems = append(l.selectedItems[:idx], l.selectedItems[idx+1:]...)
 				}
 			}
 		case tcell.KeyRune:
 			ch := event.Rune()
+			var found bool
 			if ch != ' ' {
 				// It's not a space bar. Is it a shortcut?
-				var found bool
 				for index, item := range l.items {
 					if item.Shortcut == ch {
 						// We have a shortcut.
@@ -668,16 +757,28 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 						break
 					}
 				}
-				if !found {
-					break
+			}
+			// If it's a space bar or a shortcut, select or toggle the item.
+			var removed bool
+			if found || ch == ' ' {
+				if l.multiSelect {
+					idx := slices.Index(l.selectedItems, l.currentItem)
+					if idx == -1 {
+						l.selectedItems = append(l.selectedItems, l.currentItem)
+					} else {
+						l.selectedItems = append(l.selectedItems[:idx], l.selectedItems[idx+1:]...)
+						removed = true
+					}
 				}
-			}
-			item := l.items[l.currentItem]
-			if item.Selected != nil {
-				item.Selected()
-			}
-			if l.selected != nil {
-				l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+				if !removed {
+					item := l.items[l.currentItem]
+					if item.Selected != nil {
+						item.Selected()
+					}
+					if l.selected != nil {
+						l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+					}
+				}
 			}
 		}
 
@@ -736,13 +837,25 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 		case MouseLeftClick:
 			setFocus(l)
 			index := l.indexAtPoint(event.Position())
+			var removed bool
 			if index != -1 {
-				item := l.items[index]
-				if item.Selected != nil {
-					item.Selected()
+				if l.multiSelect {
+					idx := slices.Index(l.selectedItems, index)
+					if idx == -1 {
+						l.selectedItems = append(l.selectedItems, index)
+					} else {
+						removed = true
+						l.selectedItems = append(l.selectedItems[:idx], l.selectedItems[idx+1:]...)
+					}
 				}
-				if l.selected != nil {
-					l.selected(index, item.MainText, item.SecondaryText, item.Shortcut)
+				item := l.items[index]
+				if !removed {
+					if item.Selected != nil {
+						item.Selected()
+					}
+					if l.selected != nil {
+						l.selected(index, item.MainText, item.SecondaryText, item.Shortcut)
+					}
 				}
 				if index != l.currentItem {
 					if l.changed != nil {
