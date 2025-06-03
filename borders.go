@@ -1,8 +1,8 @@
 package tview
 
-// Borders defines various borders used when primitives are drawn.
+// BordersSet defines various borders used when primitives are drawn.
 // These may be changed to accommodate a different look and feel.
-var Borders = struct {
+var BordersSet = struct {
 	Horizontal  rune
 	Vertical    rune
 	TopLeft     rune
@@ -42,4 +42,20 @@ var Borders = struct {
 	TopRightFocus:    BoxDrawingsDoubleDownAndLeft,
 	BottomLeftFocus:  BoxDrawingsDoubleUpAndRight,
 	BottomRightFocus: BoxDrawingsDoubleUpAndLeft,
+}
+
+type Borders uint
+
+const (
+	BordersTop Borders = 1 << iota
+	BordersBottom
+	BordersLeft
+	BordersRight
+
+	BordersNone Borders = 0
+	BordersAll  Borders = BordersTop | BordersBottom | BordersLeft | BordersRight
+)
+
+func (b Borders) Has(flag Borders) bool {
+	return b&flag != 0
 }

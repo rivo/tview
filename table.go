@@ -1156,24 +1156,24 @@ func (t *Table) Draw(screen tcell.Screen) {
 				// Draw borders.
 				rowY *= 2
 				for pos := 0; pos < columnWidth && columnX+pos < width; pos++ {
-					drawBorder(columnX+pos, rowY, Borders.Horizontal)
+					drawBorder(columnX+pos, rowY, BordersSet.Horizontal)
 				}
-				ch := Borders.Cross
+				ch := BordersSet.Cross
 				if row == 0 {
 					if column == 0 {
-						ch = Borders.TopLeft
+						ch = BordersSet.TopLeft
 					} else {
-						ch = Borders.TopT
+						ch = BordersSet.TopT
 					}
 				} else if column == 0 {
-					ch = Borders.LeftT
+					ch = BordersSet.LeftT
 				}
 				drawBorder(columnX-1, rowY, ch)
 				rowY++
 				if rowY >= height || y+rowY >= totalHeight {
 					break // No space for the text anymore.
 				}
-				drawBorder(columnX-1, rowY, Borders.Vertical)
+				drawBorder(columnX-1, rowY, BordersSet.Vertical)
 			} else if columnIndex < len(columns)-1 {
 				// Draw separator.
 				drawBorder(columnX+columnWidth, rowY, t.separator)
@@ -1206,17 +1206,17 @@ func (t *Table) Draw(screen tcell.Screen) {
 		// Draw bottom border.
 		if rowY := 2 * len(rows); t.borders && rowY > 0 && rowY < height {
 			for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
-				drawBorder(columnX+pos, rowY, Borders.Horizontal)
+				drawBorder(columnX+pos, rowY, BordersSet.Horizontal)
 			}
-			ch := Borders.Cross
+			ch := BordersSet.Cross
 			if rows[len(rows)-1] == rowCount-1 {
 				if column == 0 {
-					ch = Borders.BottomLeft
+					ch = BordersSet.BottomLeft
 				} else {
-					ch = Borders.BottomT
+					ch = BordersSet.BottomT
 				}
 			} else if column == 0 {
-				ch = Borders.BottomLeft
+				ch = BordersSet.BottomLeft
 			}
 			drawBorder(columnX-1, rowY, ch)
 		}
@@ -1231,24 +1231,24 @@ func (t *Table) Draw(screen tcell.Screen) {
 		for rowY := range rows {
 			rowY *= 2
 			if rowY+1 < height {
-				drawBorder(columnX, rowY+1, Borders.Vertical)
+				drawBorder(columnX, rowY+1, BordersSet.Vertical)
 			}
-			ch := Borders.Cross
+			ch := BordersSet.Cross
 			if rowY == 0 {
 				if lastColumn {
-					ch = Borders.TopRight
+					ch = BordersSet.TopRight
 				} else {
-					ch = Borders.TopT
+					ch = BordersSet.TopT
 				}
 			} else if lastColumn {
-				ch = Borders.RightT
+				ch = BordersSet.RightT
 			}
 			drawBorder(columnX, rowY, ch)
 		}
 		if rowY := 2 * len(rows); rowY < height {
-			ch := Borders.BottomT
+			ch := BordersSet.BottomT
 			if lastColumn {
-				ch = Borders.BottomRight
+				ch = BordersSet.BottomRight
 			}
 			drawBorder(columnX, rowY, ch)
 		}

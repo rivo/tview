@@ -32,7 +32,7 @@ type Modal struct {
 // NewModal returns a new modal message window.
 func NewModal() *Modal {
 	m := &Modal{
-		Box:       NewBox().SetBorder(true).SetBackgroundColor(Styles.ContrastBackgroundColor),
+		Box:       NewBox().SetBorders(BordersAll).SetBackgroundColor(Styles.ContrastBackgroundColor),
 		textColor: Styles.PrimaryTextColor,
 	}
 	m.form = NewForm().

@@ -29,9 +29,8 @@ type Box struct {
 	// If set to true, the background of this box is not cleared while drawing.
 	dontClear bool
 
-	// Whether or not a border is drawn, reducing the box's space for content by
-	// two in width and height.
-	border bool
+	// Visible borders
+	borders Borders
 
 	// The border style.
 	borderStyle tcell.Style
@@ -101,23 +100,43 @@ func (b *Box) GetInnerRect() (int, int, int, int) {
 	if b.innerX >= 0 {
 		return b.innerX, b.innerY, b.innerWidth, b.innerHeight
 	}
+
 	x, y, width, height := b.GetRect()
-	if b.border {
-		x++
+
+	if b.title != "" {
 		y++
-		width -= 2
-		height -= 2
+		height--
 	}
-	x, y, width, height = x+b.paddingLeft,
-		y+b.paddingTop,
-		width-b.paddingLeft-b.paddingRight,
-		height-b.paddingTop-b.paddingBottom
+
+	if b.borders.Has(BordersTop) {
+		y++
+		height--
+	}
+
+	if b.borders.Has(BordersBottom) {
+		height--
+	}
+
+	if b.borders.Has(BordersLeft) {
+		x++
+		width--
+	}
+
+	if b.borders.Has(BordersRight) {
+		width--
+	}
+
+	x += b.paddingLeft
+	y += b.paddingTop
+	width -= (b.paddingLeft + b.paddingRight)
+	height -= (b.paddingTop + b.paddingBottom)
 	if width < 0 {
 		width = 0
 	}
 	if height < 0 {
 		height = 0
 	}
+
 	return x, y, width, height
 }
 
@@ -292,10 +311,9 @@ func (b *Box) SetBackgroundColor(color tcell.Color) *Box {
 	return b
 }
 
-// SetBorder sets the flag indicating whether or not the box should have a
-// border.
-func (b *Box) SetBorder(show bool) *Box {
-	b.border = show
+// SetBorder sets which borders to draw.
+func (b *Box) SetBorders(flag Borders) *Box {
+	b.borders = flag
 	return b
 }
 
@@ -389,48 +407,76 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 	}
 
 	// Draw border.
-	if b.border && b.width >= 2 && b.height >= 2 {
+	if b.borders != BordersNone && b.width >= 2 && b.height >= 2 {
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
 		if p.HasFocus() {
-			horizontal = Borders.HorizontalFocus
-			vertical = Borders.VerticalFocus
-			topLeft = Borders.TopLeftFocus
-			topRight = Borders.TopRightFocus
-			bottomLeft = Borders.BottomLeftFocus
-			bottomRight = Borders.BottomRightFocus
+			horizontal = BordersSet.HorizontalFocus
+			vertical = BordersSet.VerticalFocus
+			topLeft = BordersSet.TopLeftFocus
+			topRight = BordersSet.TopRightFocus
+			bottomLeft = BordersSet.BottomLeftFocus
+			bottomRight = BordersSet.BottomRightFocus
 		} else {
-			horizontal = Borders.Horizontal
-			vertical = Borders.Vertical
-			topLeft = Borders.TopLeft
-			topRight = Borders.TopRight
-			bottomLeft = Borders.BottomLeft
-			bottomRight = Borders.BottomRight
+			horizontal = BordersSet.Horizontal
+			vertical = BordersSet.Vertical
+			topLeft = BordersSet.TopLeft
+			topRight = BordersSet.TopRight
+			bottomLeft = BordersSet.BottomLeft
+			bottomRight = BordersSet.BottomRight
 		}
-		for x := b.x + 1; x < b.x+b.width-1; x++ {
-			screen.SetContent(x, b.y, horizontal, nil, b.borderStyle)
-			screen.SetContent(x, b.y+b.height-1, horizontal, nil, b.borderStyle)
-		}
-		for y := b.y + 1; y < b.y+b.height-1; y++ {
-			screen.SetContent(b.x, y, vertical, nil, b.borderStyle)
-			screen.SetContent(b.x+b.width-1, y, vertical, nil, b.borderStyle)
-		}
-		screen.SetContent(b.x, b.y, topLeft, nil, b.borderStyle)
-		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, b.borderStyle)
-		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, b.borderStyle)
-		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, b.borderStyle)
 
-		// Draw title.
-		if b.title != "" && b.width >= 4 {
-			printed, _ := Print(screen, b.title, b.x+1, b.y, b.width-2, b.titleAlign, b.titleColor)
-			if len(b.title)-printed > 0 && printed > 0 {
-				xEllipsis := b.x + b.width - 2
-				if b.titleAlign == AlignRight {
-					xEllipsis = b.x + 1
-				}
-				_, _, style, _ := screen.GetContent(xEllipsis, b.y)
-				fg, _, _ := style.Decompose()
-				Print(screen, string(SemigraphicsHorizontalEllipsis), xEllipsis, b.y, 1, AlignLeft, fg)
+		if b.borders.Has(BordersTop) {
+			for x := b.x + 1; x < b.x+b.width-1; x++ {
+				screen.SetContent(x, b.y, horizontal, nil, b.borderStyle)
 			}
+		}
+
+		if b.borders.Has(BordersBottom) {
+			for x := b.x + 1; x < b.x+b.width-1; x++ {
+				screen.SetContent(x, b.y+b.height-1, horizontal, nil, b.borderStyle)
+			}
+		}
+
+		if b.borders.Has(BordersLeft) {
+			for y := b.y + 1; y < b.y+b.height-1; y++ {
+				screen.SetContent(b.x, y, vertical, nil, b.borderStyle)
+			}
+		}
+
+		if b.borders.Has(BordersRight) {
+			for y := b.y + 1; y < b.y+b.height-1; y++ {
+				screen.SetContent(b.x+b.width-1, y, vertical, nil, b.borderStyle)
+			}
+		}
+
+		if b.borders.Has(BordersTop | BordersLeft) {
+			screen.SetContent(b.x, b.y, topLeft, nil, b.borderStyle)
+		}
+
+		if b.borders.Has(BordersTop | BordersRight) {
+			screen.SetContent(b.x+b.width-1, b.y, topRight, nil, b.borderStyle)
+		}
+
+		if b.borders.Has(BordersBottom | BordersLeft) {
+			screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, b.borderStyle)
+		}
+
+		if b.borders.Has(BordersBottom | BordersRight) {
+			screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, b.borderStyle)
+		}
+	}
+
+	// Draw title.
+	if b.title != "" && b.width >= 4 {
+		printed, _ := Print(screen, b.title, b.x+1, b.y, b.width-2, b.titleAlign, b.titleColor)
+		if len(b.title)-printed > 0 && printed > 0 {
+			xEllipsis := b.x + b.width - 2
+			if b.titleAlign == AlignRight {
+				xEllipsis = b.x + 1
+			}
+			_, _, style, _ := screen.GetContent(xEllipsis, b.y)
+			fg, _, _ := style.Decompose()
+			Print(screen, string(SemigraphicsHorizontalEllipsis), xEllipsis, b.y, 1, AlignLeft, fg)
 		}
 	}
 

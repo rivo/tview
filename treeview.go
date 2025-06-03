@@ -748,10 +748,10 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 				// Draw a branch if this ancestor is not a last child.
 				if ancestor.parent.children[len(ancestor.parent.children)-1] != ancestor {
 					if posY-1 >= y && ancestor.textX > ancestor.graphicsX {
-						PrintJoinedSemigraphics(screen, x+ancestor.graphicsX, posY-1, Borders.Vertical, lineStyle)
+						PrintJoinedSemigraphics(screen, x+ancestor.graphicsX, posY-1, BordersSet.Vertical, lineStyle)
 					}
 					if posY < y+height {
-						screen.SetContent(x+ancestor.graphicsX, posY, Borders.Vertical, nil, lineStyle)
+						screen.SetContent(x+ancestor.graphicsX, posY, BordersSet.Vertical, nil, lineStyle)
 					}
 				}
 				ancestor = ancestor.parent
@@ -760,14 +760,14 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 			if node.textX > node.graphicsX && node.graphicsX < width {
 				// Connect to the node above.
 				if posY-1 >= y && t.nodes[index-1].graphicsX <= node.graphicsX && t.nodes[index-1].textX > node.graphicsX {
-					PrintJoinedSemigraphics(screen, x+node.graphicsX, posY-1, Borders.TopLeft, lineStyle)
+					PrintJoinedSemigraphics(screen, x+node.graphicsX, posY-1, BordersSet.TopLeft, lineStyle)
 				}
 
 				// Join this node.
 				if posY < y+height {
-					screen.SetContent(x+node.graphicsX, posY, Borders.BottomLeft, nil, lineStyle)
+					screen.SetContent(x+node.graphicsX, posY, BordersSet.BottomLeft, nil, lineStyle)
 					for pos := node.graphicsX + 1; pos < node.textX && pos < width; pos++ {
-						screen.SetContent(x+pos, posY, Borders.Horizontal, nil, lineStyle)
+						screen.SetContent(x+pos, posY, BordersSet.Horizontal, nil, lineStyle)
 					}
 				}
 			}
