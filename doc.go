@@ -38,7 +38,7 @@ world!":
 	package main
 
 	import (
-		"github.com/rivo/tview"
+		"github.com/ayn2op/tview"
 	)
 
 	func main() {

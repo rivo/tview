@@ -37,7 +37,7 @@ type listItem struct {
 // to a list item. See [List.SetSelectedFunc] for a way to be notified when a
 // list item was selected.
 //
-// See https://github.com/rivo/tview/wiki/List for an example.
+// See https://github.com/ayn2op/tview/wiki/List for an example.
 type List struct {
 	*Box
 

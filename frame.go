@@ -15,7 +15,7 @@ type frameText struct {
 // Frame is a wrapper which adds space around another primitive. In addition,
 // the top area (header) and the bottom area (footer) may also contain text.
 //
-// See https://github.com/rivo/tview/wiki/Frame for an example.
+// See https://github.com/ayn2op/tview/wiki/Frame for an example.
 type Frame struct {
 	*Box
 

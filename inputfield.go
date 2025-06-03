@@ -74,7 +74,7 @@ var (
 //   - Down arrow: Open the autocomplete drop-down.
 //   - Tab, Enter: Select the current autocomplete entry.
 //
-// See https://github.com/rivo/tview/wiki/InputField for an example.
+// See https://github.com/ayn2op/tview/wiki/InputField for an example.
 type InputField struct {
 	*Box
 

@@ -7,7 +7,7 @@ import (
 // Checkbox implements a simple box for boolean values which can be checked and
 // unchecked.
 //
-// See https://github.com/rivo/tview/wiki/Checkbox for an example.
+// See https://github.com/ayn2op/tview/wiki/Checkbox for an example.
 type Checkbox struct {
 	*Box
 

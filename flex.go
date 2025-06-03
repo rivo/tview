@@ -29,7 +29,7 @@ type flexItem struct {
 // distributed along that dimension depends on their layout settings, which is
 // either a fixed length or a proportional length. See AddItem() for details.
 //
-// See https://github.com/rivo/tview/wiki/Flex for an example.
+// See https://github.com/ayn2op/tview/wiki/Flex for an example.
 type Flex struct {
 	*Box
 

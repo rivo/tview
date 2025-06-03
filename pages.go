@@ -16,7 +16,7 @@ type page struct {
 // overlapping or not. It is often used as the application's root primitive. It
 // allows to easily switch the visibility of the contained primitives.
 //
-// See https://github.com/rivo/tview/wiki/Pages for an example.
+// See https://github.com/ayn2op/tview/wiki/Pages for an example.
 type Pages struct {
 	*Box
 
