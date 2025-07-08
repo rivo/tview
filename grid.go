@@ -199,6 +199,13 @@ func (g *Grid) SetBordersColor(color tcell.Color) *Grid {
 // receives focus. If there are multiple items with a true focus flag, the last
 // visible one that was added will receive focus.
 func (g *Grid) AddItem(p Primitive, row, column, rowSpan, colSpan, minGridHeight, minGridWidth int, focus bool) *Grid {
+	if focus {
+		for i := range g.items {
+			if g.items[i].Focus {
+				g.items[i].Focus = false
+			}
+		}
+	}
 	g.items = append(g.items, &gridItem{
 		Item:          p,
 		Row:           row,
