@@ -206,6 +206,9 @@ func (g *Grid) AddItem(p Primitive, row, column, rowSpan, colSpan, minGridHeight
 			}
 		}
 	}
+	if p == nil {
+		return g
+	}
 	g.items = append(g.items, &gridItem{
 		Item:          p,
 		Row:           row,
