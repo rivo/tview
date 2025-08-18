@@ -1367,8 +1367,8 @@ func (t *Table) Draw(screen tcell.Screen) {
 }
 
 // InputHandler returns the handler for this primitive.
-func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
+	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
 		key := event.Key()
 
 		if (!t.rowsSelectable && !t.columnsSelectable && key == tcell.KeyEnter) ||
@@ -1683,6 +1683,8 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 				t.columnsSelectable && previouslySelectedColumn != t.selectedColumn) {
 			t.selectionChanged(t.selectedRow, t.selectedColumn)
 		}
+
+		return
 	})
 }
 

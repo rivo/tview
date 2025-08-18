@@ -1946,8 +1946,8 @@ func (t *TextArea) getSelectedText() string {
 }
 
 // InputHandler returns the handler for this primitive.
-func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
-	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
+	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) (consumed bool) {
 		if t.disabled {
 			return
 		}
@@ -2333,6 +2333,8 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 				defer t.changed()
 			}
 		}
+
+		return
 	})
 }
 
