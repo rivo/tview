@@ -117,6 +117,12 @@ func (b *Button) SetSelectedFunc(handler func()) *Button {
 	return b
 }
 
+// GetSelectedFunc returns the function set with [Button.SetSelectedFunc] or nil
+// if no such function was set.
+func (b *Button) GetSelectedFunc() func() {
+	return b.selected
+}
+
 // SetExitFunc sets a handler which is called when the user leaves the button.
 // The callback function is provided with the key that was pressed, which is one
 // of the following:
