@@ -346,7 +346,7 @@ type TextArea struct {
 	finished func(tcell.Key)
 }
 
-// NewTextArea returns a new text area. Use [TextArea.SetText] to set the
+// NewTextArea returns a new [TextArea]. Use [TextArea.SetText] to set the
 // initial text.
 func NewTextArea() *TextArea {
 	t := &TextArea{
@@ -370,7 +370,7 @@ func NewTextArea() *TextArea {
 	t.cursor.pos = [3]int{1, 0, -1}
 	t.selectionStart = t.cursor
 	t.SetClipboard(nil, nil)
-
+	t.Box.Primitive = t
 	return t
 }
 

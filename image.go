@@ -109,18 +109,21 @@ type Image struct {
 	finished func(tcell.Key)
 }
 
-// NewImage returns a new image widget with an empty image (use [Image.SetImage]
-// to specify the image to be displayed). The image will use the widget's entire
-// available space. The dithering algorithm is set to Floyd-Steinberg dithering.
-// The terminal's cell aspect ratio defaults to 0.5.
+// NewImage returns a new [Image] widget with an empty image (use
+// [Image.SetImage] to specify the image to be displayed). The image will use
+// the widget's entire available space. The default dithering algorithm is set
+// to Floyd-Steinberg dithering. The terminal's cell aspect ratio defaults to
+// 0.5.
 func NewImage() *Image {
-	return &Image{
+	i := &Image{
 		Box:             NewBox(),
 		dithering:       DitheringFloydSteinberg,
 		aspectRatio:     0.5,
 		alignHorizontal: AlignCenter,
 		alignVertical:   AlignCenter,
 	}
+	i.Box.Primitive = i
+	return i
 }
 
 // SetImage sets the image to be displayed. If nil, the widget will be empty.

@@ -45,13 +45,12 @@ type Flex struct {
 }
 
 // NewFlex returns a new flexbox layout container with no primitives and its
-// direction set to FlexColumn. To add primitives to this layout, see AddItem().
-// To change the direction, see SetDirection().
+// direction set to [FlexColumn]. To add primitives to this layout, see
+// [Flex.AddItem]. To change the direction, see [Flex.SetDirection].
 //
-// Note that Box, the superclass of Flex, will not clear its contents so that
+// Note that [Box], the superclass of Flex, will not clear its contents so that
 // any nil flex items will leave their background unchanged. To clear a Flex's
-// background before any items are drawn, set it to a box with the desired
-// color:
+// background before any items are drawn, set it to a new [Box]:
 //
 //	flex.Box = NewBox()
 func NewFlex() *Flex {
@@ -60,6 +59,7 @@ func NewFlex() *Flex {
 	}
 	f.Box = NewBox()
 	f.Box.dontClear = true
+	f.Box.Primitive = f
 	return f
 }
 
@@ -214,14 +214,20 @@ func (f *Flex) Focus(delegate func(p Primitive)) {
 	f.Box.Focus(delegate)
 }
 
-// HasFocus returns whether or not this primitive has focus.
-func (f *Flex) HasFocus() bool {
+// focusChain implements the [Primitive]'s focusChain method.
+func (f *Flex) focusChain(chain *[]Primitive) bool {
 	for _, item := range f.items {
-		if item.Item != nil && item.Item.HasFocus() {
+		if item.Item == nil {
+			continue
+		}
+		if hasFocus := item.Item.focusChain(chain); hasFocus {
+			if chain != nil {
+				*chain = append(*chain, f)
+			}
 			return true
 		}
 	}
-	return f.Box.HasFocus()
+	return f.Box.focusChain(chain)
 }
 
 // MouseHandler returns the mouse handler for this primitive.
@@ -249,12 +255,14 @@ func (f *Flex) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 // InputHandler returns the handler for this primitive.
 func (f *Flex) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return f.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		for _, item := range f.items {
-			if item.Item != nil && item.Item.HasFocus() {
-				if handler := item.Item.InputHandler(); handler != nil {
-					handler(event, setFocus)
-					return
-				}
+		for _, i := range f.items {
+			item := i.Item
+			if item == nil || !item.HasFocus() {
+				continue
+			}
+			if handler := item.InputHandler(); handler != nil {
+				handler(event, setFocus)
+				return
 			}
 		}
 	})

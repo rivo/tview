@@ -34,17 +34,19 @@ type Button struct {
 	exit func(tcell.Key)
 }
 
-// NewButton returns a new input field.
+// NewButton returns a new [Button].
 func NewButton(label string) *Button {
 	box := NewBox()
 	box.SetRect(0, 0, TaggedStringWidth(label)+4, 1)
-	return &Button{
+	b := &Button{
 		Box:            box,
 		text:           label,
 		style:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		activatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.InverseTextColor),
 		disabledStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
 	}
+	b.Box.Primitive = b
+	return b
 }
 
 // SetLabel sets the button text.

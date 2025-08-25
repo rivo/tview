@@ -59,6 +59,7 @@ func main() {
 				return
 			}
 
+			app.SetFocus(pages)
 			pages.SwitchToPage(added[0])
 		})
 

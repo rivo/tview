@@ -35,14 +35,17 @@ type Primitive interface {
 	InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive))
 
 	// Focus is called by the application when the primitive receives focus.
-	// Implementers may call delegate() to pass the focus on to another primitive.
+	// Implementers may call delegate() to pass the focus on to another
+	// primitive which is usually a child primitive. This is not called on
+	// parents of the primitive that receives focus.
 	Focus(delegate func(p Primitive))
 
-	// HasFocus determines if the primitive has focus. This function must return
-	// true also if one of this primitive's child elements has focus.
+	// HasFocus determines if the primitive (or any of its child primitives) has
+	// focus.
 	HasFocus() bool
 
-	// Blur is called by the application when the primitive loses focus.
+	// Blur is called by the application when the primitive loses focus. This is
+	// not called on parents of the primitive that loses focus.
 	Blur()
 
 	// MouseHandler returns a handler which receives mouse events.
@@ -63,7 +66,28 @@ type Primitive interface {
 	// paste events.
 	//
 	// The Box class may provide functionality to intercept paste events in the
-	// future. If you subclass from Box, it is recommended that you wrap your
+	// future. If you subclass from [Box], it is recommended that you wrap your
 	// handler using Box.WrapPasteHandler() so you inherit that functionality.
 	PasteHandler() func(text string, setFocus func(p Primitive))
+
+	// focusChain adds the chain of primitives that have focus to the given
+	// slice, starting with the bottom-most primitive that has focus and ending
+	// with this box. If this box or none of its descendents has focus, the
+	// slice is not modified. If chain is nil, no chain is added. Returns
+	// whether or not this box or one of its descendents has focus.
+	focusChain(chain *[]Primitive) bool
+
+	// focused is called when the current input focus changes. It is called on
+	// the primitive which newly received focus as well as on all of its
+	// ancestors (in no defined order). The default implementation in [Box]
+	// invokes the callback set with [Box.SetFocusFunc]. This can also happen
+	// when the focus is set to the primitive that already has focus.
+	focused()
+
+	// blurred is called when the current input focus changes. It is called on
+	// the primitive which lost focus as well as on all of its ancestors (in no
+	// defined order). The default implementation in [Box] invokes the callback
+	// set with [Box.SetBlurFunc]. This can also happen when the focus is set to
+	// the primitive that already has focus.
+	blurred()
 }

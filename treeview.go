@@ -354,13 +354,15 @@ type TreeView struct {
 	stableNodes bool
 }
 
-// NewTreeView returns a new tree view.
+// NewTreeView returns a new [TreeView].
 func NewTreeView() *TreeView {
-	return &TreeView{
+	t := &TreeView{
 		Box:           NewBox(),
 		graphics:      true,
 		graphicsColor: Styles.GraphicsColor,
 	}
+	t.Box.Primitive = t
+	return t
 }
 
 // SetRoot sets the root node of the tree.

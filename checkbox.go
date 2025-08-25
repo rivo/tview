@@ -56,9 +56,9 @@ type Checkbox struct {
 	finished func(tcell.Key)
 }
 
-// NewCheckbox returns a new input field.
+// NewCheckbox returns a new [Checkbox].
 func NewCheckbox() *Checkbox {
-	return &Checkbox{
+	c := &Checkbox{
 		Box:             NewBox(),
 		labelStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
 		uncheckedStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
@@ -67,6 +67,8 @@ func NewCheckbox() *Checkbox {
 		uncheckedString: " ",
 		checkedString:   "X",
 	}
+	c.Box.Primitive = c
+	return c
 }
 
 // SetChecked sets the state of the checkbox. This also triggers the "changed"

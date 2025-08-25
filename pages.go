@@ -32,11 +32,12 @@ type Pages struct {
 	changed func()
 }
 
-// NewPages returns a new Pages object.
+// NewPages returns a new [Pages] object.
 func NewPages() *Pages {
 	p := &Pages{
 		Box: NewBox(),
 	}
+	p.Box.Primitive = p
 	return p
 }
 
@@ -259,21 +260,21 @@ func (p *Pages) GetPage(name string) Primitive {
 	return nil
 }
 
-// HasFocus returns whether or not this primitive has focus.
-func (p *Pages) HasFocus() bool {
+// focusChain implements the [Primitive]'s focusChain method.
+func (p *Pages) focusChain(chain *[]Primitive) bool {
 	for _, page := range p.pages {
-		if page.Item.HasFocus() {
+		if hasFocus := page.Item.focusChain(chain); hasFocus {
+			if chain != nil {
+				*chain = append(*chain, p)
+			}
 			return true
 		}
 	}
-	return p.Box.HasFocus()
+	return p.Box.focusChain(chain)
 }
 
 // Focus is called by the application when the primitive receives focus.
 func (p *Pages) Focus(delegate func(p Primitive)) {
-	if delegate == nil {
-		return // We cannot delegate so we cannot focus.
-	}
 	p.setFocus = delegate
 	var topItem Primitive
 	for _, page := range p.pages {

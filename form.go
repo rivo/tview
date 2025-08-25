@@ -104,7 +104,7 @@ type Form struct {
 	cancel func()
 }
 
-// NewForm returns a new form.
+// NewForm returns a new [Form].
 func NewForm() *Form {
 	box := NewBox().SetBorderPadding(1, 1, 1, 1)
 
@@ -119,6 +119,7 @@ func NewForm() *Form {
 		lastFinishedKey:      tcell.KeyTab, // To skip over inactive elements at the beginning of the form.
 	}
 
+	f.Box.Primitive = f
 	return f
 }
 
@@ -708,7 +709,7 @@ func (f *Form) Draw(screen tcell.Screen) {
 
 // Focus is called by the application when the primitive receives focus.
 func (f *Form) Focus(delegate func(p Primitive)) {
-	// Hand on the focus to one of our child elements.
+	// Pass on the focus to one of our child elements.
 	if f.focusedElement < 0 || f.focusedElement >= len(f.items)+len(f.buttons) {
 		f.focusedElement = 0
 	}
@@ -780,12 +781,25 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 	}
 }
 
-// HasFocus returns whether or not this primitive has focus.
-func (f *Form) HasFocus() bool {
-	if f.focusIndex() >= 0 {
-		return true
+// focusChain implements the [Primitive]'s focusChain method.
+func (f *Form) focusChain(chain *[]Primitive) bool {
+	for _, item := range f.items {
+		if hasFocus := item.HasFocus(); hasFocus {
+			if chain != nil {
+				*chain = append(*chain, f)
+			}
+			return true
+		}
 	}
-	return f.Box.HasFocus()
+	for _, button := range f.buttons {
+		if hasFocus := button.HasFocus(); hasFocus {
+			if chain != nil {
+				*chain = append(*chain, f)
+			}
+			return true
+		}
+	}
+	return f.Box.focusChain(chain)
 }
 
 // focusIndex returns the index of the currently focused item, counting form

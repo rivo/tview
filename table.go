@@ -534,7 +534,7 @@ type Table struct {
 	done func(key tcell.Key)
 }
 
-// NewTable returns a new table.
+// NewTable returns a new [Table].
 func NewTable() *Table {
 	t := &Table{
 		Box:          NewBox(),
@@ -542,6 +542,7 @@ func NewTable() *Table {
 		separator:    ' ',
 	}
 	t.SetContent(nil)
+	t.Box.Primitive = t
 	return t
 }
 
