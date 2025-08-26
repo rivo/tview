@@ -760,18 +760,14 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 			}
 
 			itemFocused = true
-			func(b *Button) { // Wrapping might not be necessary anymore in future Go versions.
-				defer delegate(b)
-			}(button)
+			defer delegate(button)
 		}
 	}
 	for index, item := range f.items {
 		item.SetFinishedFunc(handler)
 		if f.focusedElement == index {
 			itemFocused = true
-			func(i FormItem) { // Wrapping might not be necessary anymore in future Go versions.
-				defer delegate(i)
-			}(item)
+			defer delegate(item)
 		}
 	}
 
@@ -784,7 +780,7 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 // focusChain implements the [Primitive]'s focusChain method.
 func (f *Form) focusChain(chain *[]Primitive) bool {
 	for _, item := range f.items {
-		if hasFocus := item.HasFocus(); hasFocus {
+		if hasFocus := item.focusChain(chain); hasFocus {
 			if chain != nil {
 				*chain = append(*chain, f)
 			}
@@ -792,7 +788,7 @@ func (f *Form) focusChain(chain *[]Primitive) bool {
 		}
 	}
 	for _, button := range f.buttons {
-		if hasFocus := button.HasFocus(); hasFocus {
+		if hasFocus := button.focusChain(chain); hasFocus {
 			if chain != nil {
 				*chain = append(*chain, f)
 			}

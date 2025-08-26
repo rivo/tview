@@ -643,6 +643,9 @@ func (d *DropDown) openList(setFocus func(Primitive)) {
 // closeList closes the embedded List element by hiding it and removing focus
 // from it.
 func (d *DropDown) closeList(setFocus func(Primitive)) {
+	if !d.open {
+		return
+	}
 	d.open = false
 	if d.list.HasFocus() {
 		setFocus(d)

@@ -844,11 +844,11 @@ func (a *Application) SetFocus(p Primitive) *Application {
 
 	// Send blur events along the focus chain.
 	if root != nil && root.focusChain(&chain) {
-		for index, p := range chain {
+		for index, pr := range chain {
 			if index == 0 {
-				p.Blur()
+				pr.Blur()
 			}
-			p.blurred()
+			pr.blurred()
 		}
 
 		// Hide the cursor. If it's needed, the new focused primitive will show it
@@ -867,8 +867,8 @@ func (a *Application) SetFocus(p Primitive) *Application {
 		})
 	}
 
-	// If the primitive delegated focus to a child, that call will notify the
-	// focus listeners.
+	// If the primitive delegated focus to a child, that call has already
+	// notified the focus listeners.
 	if delegated {
 		return a
 	}
@@ -876,7 +876,9 @@ func (a *Application) SetFocus(p Primitive) *Application {
 	// Send focus events along the new focus chain.
 	chain = chain[:0]
 	if root != nil && root.focusChain(&chain) {
-		p.focused()
+		for _, pr := range chain {
+			pr.focused()
+		}
 	}
 
 	return a
