@@ -108,9 +108,15 @@ func (b *Button) SetDisabled(disabled bool) *Button {
 	return b
 }
 
-// IsDisabled returns whether or not the button is disabled.
-func (b *Button) IsDisabled() bool {
+// GetDisabled returns whether or not the button is disabled.
+func (b *Button) GetDisabled() bool {
 	return b.disabled
+}
+
+// IsDisabled is an alias for [Button.GetDisabled]. Only here for backwards
+// compatibility.
+func (b *Button) IsDisabled() bool {
+	return b.GetDisabled()
 }
 
 // SetSelectedFunc sets a handler which is called when the button was selected.

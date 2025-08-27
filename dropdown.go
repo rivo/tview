@@ -313,6 +313,11 @@ func (d *DropDown) SetDisabled(disabled bool) FormItem {
 	return d
 }
 
+// GetDisabled returns whether or not the item is disabled / read-only.
+func (d *DropDown) GetDisabled() bool {
+	return d.disabled
+}
+
 // AddOption adds a new selectable option to this drop-down. The "selected"
 // callback is called when this option was selected. It may be nil.
 func (d *DropDown) AddOption(text string, selected func()) *DropDown {

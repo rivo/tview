@@ -259,6 +259,11 @@ func (i *Image) SetDisabled(disabled bool) FormItem {
 	return i // Images are always read-only.
 }
 
+// GetDisabled returns whether or not the item is disabled / read-only.
+func (i *Image) GetDisabled() bool {
+	return true // Images are always read-only.
+}
+
 // SetFormAttributes sets attributes shared by all form items.
 func (i *Image) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
 	i.labelWidth = labelWidth

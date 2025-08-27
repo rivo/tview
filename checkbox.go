@@ -200,6 +200,11 @@ func (c *Checkbox) SetDisabled(disabled bool) FormItem {
 	return c
 }
 
+// GetDisabled returns whether or not the item is disabled / read-only.
+func (c *Checkbox) GetDisabled() bool {
+	return c.disabled
+}
+
 // SetChangedFunc sets a handler which is called when the checked state of this
 // checkbox was changed. The handler function receives the new state.
 func (c *Checkbox) SetChangedFunc(handler func(checked bool)) *Checkbox {

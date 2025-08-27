@@ -294,6 +294,11 @@ func (i *InputField) SetDisabled(disabled bool) FormItem {
 	return i
 }
 
+// GetDisabled returns whether or not the item is disabled / read-only.
+func (i *InputField) GetDisabled() bool {
+	return i.textArea.GetDisabled()
+}
+
 // SetMaskCharacter sets a character that masks user input on a screen. A value
 // of 0 disables masking.
 func (i *InputField) SetMaskCharacter(mask rune) *InputField {

@@ -302,6 +302,11 @@ func (t *TextView) SetDisabled(disabled bool) FormItem {
 	return t // Text views are always read-only.
 }
 
+// GetDisabled returns whether or not the item is disabled / read-only.
+func (t *TextView) GetDisabled() bool {
+	return true // Text views are always read-only.
+}
+
 // SetScrollable sets the flag that decides whether or not the text view is
 // scrollable. If false, text that moves above the text view's top row will be
 // permanently deleted.
