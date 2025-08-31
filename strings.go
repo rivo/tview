@@ -31,8 +31,8 @@ const (
 type stepState struct {
 	unisegState     int         // The state of the uniseg parser.
 	boundaries      int         // Information about boundaries, as returned by uniseg.Step.
-	style           tcell.Style // The current style.
-	region          string      // The current region.
+	style           tcell.Style // The style of the returned grapheme cluster.
+	region          string      // The region of the returned grapheme cluster.
 	escapedTagState int         // States for parsing escaped tags (defined in [step]).
 	grossLength     int         // The length of the cluster, including any tags not returned.
 

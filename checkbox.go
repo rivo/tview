@@ -33,7 +33,7 @@ type Checkbox struct {
 	// The style of the checked checkbox.
 	checkedStyle tcell.Style
 
-	// Teh style of the checkbox when it is currently focused.
+	// The style of the checkbox when it is currently focused.
 	focusStyle tcell.Style
 
 	// The string used to display an unchecked box.
