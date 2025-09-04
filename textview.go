@@ -294,6 +294,12 @@ func (t *TextView) SetLabelWidth(width int) *TextView {
 	return t
 }
 
+// SetLabelStyle sets the style of the label.
+func (t *TextView) SetLabelStyle(style tcell.Style) *TextView {
+	t.labelStyle = style
+	return t
+}
+
 // SetSize sets the screen size of the main text element of the text view. This
 // element is always located next to the label which is always located in the
 // top left corner. If any of the values are 0 or larger than the available
