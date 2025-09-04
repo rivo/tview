@@ -643,7 +643,8 @@ func (t *TextView) clear() {
 // highlights.
 //
 // This function is expensive if a specified region is in a part of the text
-// that has not yet been parsed.
+// that has not yet been parsed, as is typically the case for lines below the
+// visible area.
 func (t *TextView) Highlight(regionIDs ...string) *TextView {
 	// Make sure we know these regions.
 	t.parseAhead(t.lastWidth, func(lineNumber int, line *textViewLine) bool {
@@ -803,6 +804,60 @@ func (t *TextView) GetRegionText(regionID string) string {
 	return regionText.String()
 }
 
+// GetRegions returns the regions in this [TextView]. If tail is set to false,
+// only regions from the startRow row to the end of the currently visible area
+// are returned. If tail is set to true, the regions below the visible area of
+// the view are also included. Note that the latter will require parsing the
+// entire text and can therefore be expensive. Setting startRow to a value
+// larger than the last visible row results in nil being returned. To obtain
+// only visible regions, set startRow to the current row offset (see
+// [TextView.GetScrollOffset]) and tail to false.
+//
+// Regions are returned in the order of their appearance in the text. Do not
+// modify the returned [Region] objects. Region positions change when the text
+// view is resized or when the text changes. Such changes will render the
+// returned slice invalid.
+//
+// If this function is called before the text view was drawn for the first
+// time, the return value is undefined.
+func (t *TextView) GetRegions(startRow int, tail bool) []*Region {
+	_, _, _, height := t.GetInnerRect()
+	if !t.regionTags || !tail && startRow >= t.lineOffset+height {
+		return nil
+	}
+
+	// Parse until we have all (complete) regions we need.
+	var lastRegion *Region
+	t.parseAhead(t.lastWidth, func(lineNumber int, line *textViewLine) bool {
+		if tail || lineNumber < t.lineOffset+height {
+			if len(line.regions) > 0 {
+				lastRegion = line.regions[len(line.regions)-1]
+			}
+			return false // These must be parsed in any case.
+		}
+		return len(line.regions) == 0 || line.regions[0] != lastRegion // Keep parsing to complete the last region.
+	})
+	if startRow >= len(t.lineIndex) {
+		return nil // We don't have that many lines.
+	}
+
+	// Merge regions into a slice.
+	var regions []*Region
+	for row, line := range t.lineIndex {
+		if tail && row >= t.lineOffset+height {
+			break
+		}
+		for _, region := range line.regions {
+			if len(regions) > 0 && regions[len(regions)-1] == region {
+				continue // Already added.
+			}
+			regions = append(regions, region)
+		}
+	}
+
+	return regions
+}
+
 // Focus is called when this primitive receives focus.
 func (t *TextView) Focus(delegate func(p Primitive)) {
 	// Implemented here with locking because this is used by layout primitives.
@@ -914,7 +969,10 @@ func (t *TextView) parseAhead(width int, stop func(lineNumber int, line *textVie
 	}
 
 	// Start parsing at the last line in the index.
-	var lastLine *textViewLine
+	var (
+		lastLine *textViewLine
+		region   *Region
+	)
 	str := t.text.String() // The remaining text to parse.
 	if len(t.lineIndex) == 0 {
 		// Insert the first line.
@@ -932,20 +990,24 @@ func (t *TextView) parseAhead(width int, stop func(lineNumber int, line *textVie
 		lastLine.length = 0
 		str = str[lastLine.offset:]
 	}
+	if len(lastLine.regions) > 0 {
+		region = lastLine.regions[0]
+		lastLine.regions = lastLine.regions[:1]
+	}
 
 	// Parse.
 	var (
-		lastOption      int               // Text index of the last optional split point, relative to the beginning of the line.
-		lastOptionWidth int               // Line width at last optional split point.
-		lastOptionState *stepState        // State at last optional split point.
-		leftPos         int               // The current position in the line (assuming left-alignment).
-		offset          = lastLine.offset // Text index of the current position.
-		st              = *lastLine.state // Current state.
-		state           = &st             // Pointer to current state.
+		lastOption       int               // Text index of the last optional split point, relative to the beginning of the line.
+		lastOptionWidth  int               // Line width at last optional split point.
+		lastOptionState  *stepState        // State at last optional split point.
+		lastOptionRegion *Region           // Region at last optional split point or nil if none.
+		leftPos          int               // The current position in the line (assuming left-alignment).
+		offset           = lastLine.offset // Text index of the current position.
+		st               = *lastLine.state // Current state.
+		state            = &st             // Pointer to current state.
 	)
 	for len(str) > 0 {
 		var c string
-		region := state.region
 		c, str, state = step(str, state, options)
 		w := state.Width()
 		if c == "\t" {
@@ -969,6 +1031,20 @@ func (t *TextView) parseAhead(width int, stop func(lineNumber int, line *textVie
 					offset: offset,
 					state:  &st,
 				}
+				if state.region != "" {
+					if state.region == region.ID {
+						lastLine.regions = []*Region{region}
+					} else {
+						region = &Region{
+							ID:          state.region,
+							Start:       offset,
+							StartRow:    len(t.lineIndex),
+							StartColumn: 0,
+						}
+					}
+				} else {
+					region = nil
+				}
 				lastOption, lastOptionWidth, leftPos = 0, 0, 0
 			} else {
 				// Split at the last split point.
@@ -984,54 +1060,32 @@ func (t *TextView) parseAhead(width int, stop func(lineNumber int, line *textVie
 					return
 				}
 				lastLine = newLine
+				if lastOptionRegion != nil {
+					lastLine.regions = []*Region{lastOptionRegion}
+				}
+				region = lastOptionRegion
 				leftPos -= lastOptionWidth
 				lastOption, lastOptionWidth = 0, 0
 			}
 			t.lineIndex = append(t.lineIndex, lastLine)
 		}
 
-		// Is there a region?
-		if t.regionTags && state.region != "" {
-			var lastRegion *Region
-			if len(lastLine.regions) == 0 {
-				// Can we extend a region from the previous line?
-				if len(t.lineIndex) > 2 {
-					if previousLine := t.lineIndex[len(t.lineIndex)-2]; len(previousLine.regions) > 0 {
-						if previousRegion := previousLine.regions[len(previousLine.regions)-1]; previousRegion.ID == region {
-							// Yes. Copy it to this line.
-							lastLine.regions = []*Region{previousRegion}
-							lastRegion = previousRegion
-						}
-					}
-				}
-			} else {
-				// What's the last region on this line?
-				previousRegion := lastLine.regions[len(lastLine.regions)-1]
-				if previousRegion.ID == state.region {
-					lastRegion = previousRegion
-				}
+		// Is there a region switch?
+		if state.region != "" && (region == nil || state.region != region.ID) {
+			// Start a new region.
+			region = &Region{
+				ID:          state.region,
+				Start:       offset,
+				StartRow:    len(t.lineIndex) - 1,
+				StartColumn: leftPos,
 			}
-			if lastRegion == nil {
-				// Start a new region.
-				lastRegion = &Region{
-					ID:          state.region,
-					Start:       offset,
-					StartRow:    len(t.lineIndex) - 1,
-					StartColumn: leftPos,
-				}
-				lastLine.regions = append(lastLine.regions, lastRegion)
+			lastLine.regions = append(lastLine.regions, region)
+			if _, ok := t.regions[state.region]; !ok {
+				t.regions[state.region] = len(t.lineIndex) - 1
 			}
-			// Extend the last region.
-			lastRegion.End = offset + length
-			lastRegion.EndRow = len(t.lineIndex) - 1
-			lastRegion.EndColumn = leftPos + w
-
-			// Add to the global region list if necessary.
-			if state.region != region {
-				if _, ok := t.regions[state.region]; !ok {
-					t.regions[state.region] = len(t.lineIndex) - 1
-				}
-			}
+		} else if state.region == "" && region != nil {
+			// End the previous region.
+			region = nil
 		}
 
 		// Move ahead.
@@ -1039,6 +1093,11 @@ func (t *TextView) parseAhead(width int, stop func(lineNumber int, line *textVie
 		lastLine.length += length
 		offset += length
 		leftPos += w
+		if region != nil {
+			region.End = offset
+			region.EndRow = len(t.lineIndex) - 1
+			region.EndColumn = leftPos
+		}
 
 		// Do we have a new longest line?
 		if lastLine.width > t.longestLine {
@@ -1054,6 +1113,7 @@ func (t *TextView) parseAhead(width int, stop func(lineNumber int, line *textVie
 					lastOptionWidth = lastLine.width
 					st := *state
 					lastOptionState = &st
+					lastOptionRegion = region
 				}
 			} else {
 				// We must split here.
@@ -1064,6 +1124,9 @@ func (t *TextView) parseAhead(width int, stop func(lineNumber int, line *textVie
 				lastLine = &textViewLine{
 					offset: offset,
 					state:  &st,
+				}
+				if region != nil {
+					lastLine.regions = []*Region{region}
 				}
 				t.lineIndex = append(t.lineIndex, lastLine)
 				lastOption, lastOptionWidth, leftPos = 0, 0, 0
