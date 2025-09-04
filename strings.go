@@ -134,7 +134,7 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 	}
 
 	// Parse tags.
-	if opts != 0 {
+	if opts != stepOptionsNone {
 		const (
 			etNone int = iota
 			etStart
@@ -173,7 +173,7 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 		if state.escapedTagState == etNone {
 			if cluster[0] == '[' {
 				// We've already opened a tag. Parse it.
-				length, style, region := parseTag(str, state)
+				length, style, region := parseTag(str, state, opts)
 				if length > 0 {
 					state.style = style
 					state.region = region
@@ -193,7 +193,7 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 			if len(rest) > 0 && rest[0] == '[' {
 				// A tag might follow the cluster. If so, we need to fix the state
 				// for the boundaries to be correct.
-				if length, _, _ := parseTag(rest, state); length > 0 {
+				if length, _, _ := parseTag(rest, state, opts); length > 0 {
 					if len(rest) > length {
 						_, l := utf8.DecodeRuneInString(rest[length:])
 						cluster += rest[length : length+l]
@@ -218,7 +218,11 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 // str starts with the opening bracket for the first tag. It returns the string
 // length of all valid tags (0 if the first tag is not valid) and the updated
 // style and region for valid tags (based on the provided state).
-func parseTag(str string, state *stepState) (length int, style tcell.Style, region string) {
+func parseTag(str string, state *stepState, opts stepOptions) (length int, style tcell.Style, region string) {
+	if opts == stepOptionsNone {
+		return // No tags to parse.
+	}
+
 	// Automata states for parsing tags.
 	const (
 		tagStateNone = iota
@@ -283,6 +287,11 @@ func parseTag(str string, state *stepState) (length int, style tcell.Style, regi
 				return
 			}
 		case tagStateStart:
+			if ch == '"' && opts&stepOptionsRegion == 0 {
+				return // Region tags are not allowed.
+			} else if ch != '"' && opts&stepOptionsStyle == 0 {
+				return // Style tags are not allowed.
+			}
 			switch {
 			case ch == '"': // Start of a region tag.
 				tempStr.Reset()
