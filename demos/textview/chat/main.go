@@ -71,7 +71,7 @@ func main() {
 			userToColor = make(map[string]string)
 		)
 		for line := range ch {
-			sleep := time.Second
+			sleep := 3 * time.Second
 			if message < 20 {
 				sleep = 0
 			}
