@@ -498,6 +498,10 @@ type Table struct {
 	// versa).
 	wrapHorizontally, wrapVertically bool
 
+	// When set to true, this flag will cause the selector to wrap around the text
+	// instead of spanning across the entire column width.
+	selectorWrap bool
+
 	// The number of rows/columns by which the table is scrolled down/to the
 	// right.
 	rowOffset, columnOffset int
@@ -867,6 +871,16 @@ func (t *Table) ScrollToEnd() *Table {
 func (t *Table) SetWrapSelection(vertical, horizontal bool) *Table {
 	t.wrapHorizontally = horizontal
 	t.wrapVertically = vertical
+	return t
+}
+
+// SetSelectorWrap will ensure that the selector does not extend across the entire
+// column width, instead it will wrap around the length of the text in the currently
+// selected TableCell.
+//
+// The default value is false.
+func (t *Table) SetSelectorWrap(wrap bool) *Table {
+	t.selectorWrap = wrap
 	return t
 }
 
@@ -1304,9 +1318,27 @@ func (t *Table) Draw(screen tcell.Screen) {
 				continue
 			}
 			bx, by, bw, bh := x+columnX, y+rowY, columnWidth+1, 1
+			if t.selectorWrap {
+				textlen := TaggedStringWidth(cell.Text)
+				if columnWidth+1 >= textlen {
+					if cell.Align == AlignRight {
+						bx += (columnWidth - textlen)
+					} else if cell.Align == AlignCenter {
+						bx += ((columnWidth - textlen) / 2) + 1
+					} else if cell.Align == AlignLeft && t.borders {
+						bx += 2
+					}
+
+					bw = textlen
+				} else if columnWidth+1 < textlen {
+					bw = columnWidth + 1
+				}
+			}
 			if t.borders {
 				by = y + rowY*2
-				bw++
+				if !t.selectorWrap {
+					bw++
+				}
 				bh = 3
 			}
 			columnSelected := t.columnsSelectable && !t.rowsSelectable && column == t.selectedColumn
