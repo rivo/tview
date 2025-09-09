@@ -40,6 +40,9 @@ type Box struct {
 	// The border style.
 	borderStyle tcell.Style
 
+	// The border focus style.
+	borderFocusStyle tcell.Style
+
 	// The title. Only visible if there is a border, too.
 	title string
 
@@ -84,13 +87,14 @@ type Box struct {
 // NewBox returns a [Box] without a border.
 func NewBox() *Box {
 	b := &Box{
-		width:           15,
-		height:          10,
-		innerX:          -1, // Mark as uninitialized.
-		backgroundColor: Styles.PrimitiveBackgroundColor,
-		borderStyle:     tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
-		titleColor:      Styles.TitleColor,
-		titleAlign:      AlignCenter,
+		width:            15,
+		height:           10,
+		innerX:           -1, // Mark as uninitialized.
+		backgroundColor:  Styles.PrimitiveBackgroundColor,
+		borderStyle:      tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
+		borderFocusStyle: tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
+		titleColor:       Styles.TitleColor,
+		titleAlign:       AlignCenter,
 	}
 	b.Primitive = b
 	return b
@@ -328,10 +332,11 @@ func (b *Box) GetMouseCapture() func(action MouseAction, event *tcell.EventMouse
 func (b *Box) SetBackgroundColor(color tcell.Color) *Box {
 	b.backgroundColor = color
 	b.borderStyle = b.borderStyle.Background(color)
+	b.borderFocusStyle = b.borderFocusStyle.Background(color)
 	return b
 }
 
-// SetBorder sets the flag indicating whether or not the box should have a
+// SetBorder sets the flag indicating whether the box should have a
 // border.
 func (b *Box) SetBorder(show bool) *Box {
 	b.border, show = show, b.border
@@ -373,6 +378,33 @@ func (b *Box) GetBorderAttributes() tcell.AttrMask {
 // GetBorderColor returns the box's border color.
 func (b *Box) GetBorderColor() tcell.Color {
 	color, _, _ := b.borderStyle.Decompose()
+	return color
+}
+
+// SetBorderFocusColor sets the box's border focus color.
+func (b *Box) SetBorderFocusColor(color tcell.Color) *Box {
+	b.borderFocusStyle = b.borderFocusStyle.Foreground(color)
+	return b
+}
+
+// SetBorderFocusAttributes sets the border's focus style attributes. You can combine
+// different attributes using bitmask operations:
+//
+//   box.SetBorderFocusAttributes(tcell.AttrUnderline | tcell.AttrBold)
+func (b *Box) SetBorderFocusAttributes(attr tcell.AttrMask) *Box {
+	b.borderFocusStyle = b.borderFocusStyle.Attributes(attr)
+	return b
+}
+
+// GetBorderFocusAttributes returns the border's focus style attributes.
+func (b *Box) GetBorderFocusAttributes() tcell.AttrMask {
+	_, _, attr := b.borderFocusStyle.Decompose()
+	return attr
+}
+
+// GetBorderFocusColor returns the box's border focus color.
+func (b *Box) GetBorderFocusColor() tcell.Color {
+	color, _, _ := b.borderFocusStyle.Decompose()
 	return color
 }
 
@@ -435,7 +467,9 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 	// Draw border.
 	if b.border && b.width >= 2 && b.height >= 2 {
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
+		var borderStyle tcell.Style
 		if p.HasFocus() {
+			borderStyle = b.borderFocusStyle
 			horizontal = Borders.HorizontalFocus
 			vertical = Borders.VerticalFocus
 			topLeft = Borders.TopLeftFocus
@@ -443,6 +477,7 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 			bottomLeft = Borders.BottomLeftFocus
 			bottomRight = Borders.BottomRightFocus
 		} else {
+			borderStyle = b.borderStyle
 			horizontal = Borders.Horizontal
 			vertical = Borders.Vertical
 			topLeft = Borders.TopLeft
@@ -451,17 +486,17 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 			bottomRight = Borders.BottomRight
 		}
 		for x := b.x + 1; x < b.x+b.width-1; x++ {
-			screen.SetContent(x, b.y, horizontal, nil, b.borderStyle)
-			screen.SetContent(x, b.y+b.height-1, horizontal, nil, b.borderStyle)
+			screen.SetContent(x, b.y, horizontal, nil, borderStyle)
+			screen.SetContent(x, b.y+b.height-1, horizontal, nil, borderStyle)
 		}
 		for y := b.y + 1; y < b.y+b.height-1; y++ {
-			screen.SetContent(b.x, y, vertical, nil, b.borderStyle)
-			screen.SetContent(b.x+b.width-1, y, vertical, nil, b.borderStyle)
+			screen.SetContent(b.x, y, vertical, nil, borderStyle)
+			screen.SetContent(b.x+b.width-1, y, vertical, nil, borderStyle)
 		}
-		screen.SetContent(b.x, b.y, topLeft, nil, b.borderStyle)
-		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, b.borderStyle)
-		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, b.borderStyle)
-		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, b.borderStyle)
+		screen.SetContent(b.x, b.y, topLeft, nil, borderStyle)
+		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, borderStyle)
+		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, borderStyle)
+		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, borderStyle)
 
 		// Draw title.
 		if b.title != "" && b.width >= 4 {
