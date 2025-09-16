@@ -65,6 +65,12 @@ func (p *Pages) GetPageNames(visibleOnly bool) []string {
 	return names
 }
 
+// Clear removes all pages.
+func (p *Pages) Clear() *Pages {
+	p.pages = nil
+	return p
+}
+
 // AddPage adds a new page with the given name and primitive. If there was
 // previously a page with the same name, it is overwritten. Leaving the name
 // empty may cause conflicts in other functions so you should always specify a
