@@ -257,20 +257,20 @@ func (g *Grid) Focus(delegate func(p Primitive)) {
 	g.Box.Focus(delegate)
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (g *Grid) focusChain(chain *[]Primitive) bool {
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (g *Grid) FocusChain(chain *[]Primitive) bool {
 	for _, item := range g.items {
 		if !item.visible {
 			continue
 		}
-		if hasFocus := item.Item.focusChain(chain); hasFocus {
+		if hasFocus := item.Item.FocusChain(chain); hasFocus {
 			if chain != nil {
 				*chain = append(*chain, g)
 			}
 			return true
 		}
 	}
-	return g.Box.focusChain(chain)
+	return g.Box.FocusChain(chain)
 }
 
 // Draw draws this primitive onto the screen.

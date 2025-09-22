@@ -70,24 +70,24 @@ type Primitive interface {
 	// handler using Box.WrapPasteHandler() so you inherit that functionality.
 	PasteHandler() func(text string, setFocus func(p Primitive))
 
-	// focusChain adds the chain of primitives that have focus to the given
+	// FocusChain adds the chain of primitives that have focus to the given
 	// slice, starting with the bottom-most primitive that has focus and ending
 	// with this box. If this box or none of its descendents has focus, the
 	// slice is not modified. If chain is nil, no chain is added. Returns
 	// whether or not this box or one of its descendents has focus.
-	focusChain(chain *[]Primitive) bool
+	FocusChain(chain *[]Primitive) bool
 
 	// focused is called when the current input focus changes. It is called on
 	// the primitive which newly received focus as well as on all of its
 	// ancestors (in no defined order). The default implementation in [Box]
 	// invokes the callback set with [Box.SetFocusFunc]. This can also happen
 	// when the focus is set to the primitive that already has focus.
-	focused()
+	Focused()
 
 	// blurred is called when the current input focus changes. It is called on
 	// the primitive which lost focus as well as on all of its ancestors (in no
 	// defined order). The default implementation in [Box] invokes the callback
 	// set with [Box.SetBlurFunc]. This can also happen when the focus is set to
 	// the primitive that already has focus.
-	blurred()
+	Blurred()
 }

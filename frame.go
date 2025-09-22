@@ -176,17 +176,17 @@ func (f *Frame) Focus(delegate func(p Primitive)) {
 	}
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (f *Frame) focusChain(chain *[]Primitive) bool {
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (f *Frame) FocusChain(chain *[]Primitive) bool {
 	if f.primitive != nil {
-		if hasFocus := f.primitive.focusChain(chain); hasFocus {
+		if hasFocus := f.primitive.FocusChain(chain); hasFocus {
 			if chain != nil {
 				*chain = append(*chain, f)
 			}
 			return true
 		}
 	}
-	return f.Box.focusChain(chain)
+	return f.Box.FocusChain(chain)
 }
 
 // MouseHandler returns the mouse handler for this primitive.

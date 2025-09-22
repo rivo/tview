@@ -1,21 +1,13 @@
 package tview
 
 import (
-	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
 )
 
-// listItem represents one item in a List.
-type listItem struct {
-	MainText      string // The main text of the list item.
-	SecondaryText string // A secondary text to be shown underneath the main text.
-	Shortcut      rune   // The key to select the list item directly, 0 if there is no shortcut.
-	Selected      func() // The optional function which is called when the item is selected.
-}
-
-// List displays rows of items, each of which can be selected. List items can be
+// MultiList displays rows of items, each of which can be selected. MultiList items can be
 // shown as a single line or as two lines. They can be selected by pressing
 // their assigned shortcut key, navigating to them and pressing Enter, or
 // clicking on them with the mouse. The following key binds are available:
@@ -31,18 +23,21 @@ type listItem struct {
 //     available space.
 //
 // By default, list item texts can contain style tags. Use
-// [List.SetUseStyleTags] to disable this feature.
+// [MultiList.SetUseStyleTags] to disable this feature.
 //
-// See [List.SetChangedFunc] for a way to be notified when the user navigates
-// to a list item. See [List.SetSelectedFunc] for a way to be notified when a
+// See [MultiList.SetChangedFunc] for a way to be notified when the user navigates
+// to a list item. See [MultiList.SetSelectedFunc] for a way to be notified when a
 // list item was selected.
 //
-// See https://github.com/rivo/tview/wiki/List for an example.
-type List struct {
+// See https://github.com/rivo/tview/wiki/MultiList for an example.
+type MultiList struct {
 	*Box
 
 	// The items of the list.
 	items []*listItem
+
+	// The index of the currently selected item.
+	selectedItems map[int]bool
 
 	// The index of the currently selected item.
 	currentItem int
@@ -85,21 +80,15 @@ type List struct {
 	// are not affected.
 	horizontalOffset int
 
-	// An optional function which is called when the user has navigated to a
-	// list item.
-	changed func(index int, mainText, secondaryText string, shortcut rune)
-
-	// An optional function which is called when a list item was selected. This
-	// function will be called even if the list item defines its own callback.
-	selected func(index int, mainText, secondaryText string, shortcut rune)
+	selected func(texts []string, indexes []int)
 
 	// An optional function which is called when the user presses the Escape key.
 	done func()
 }
 
-// NewList returns a new [List].
-func NewList() *List {
-	l := &List{
+// NewList returns a new [MultiList].
+func NewMultiList() *MultiList {
+	l := &MultiList{
 		Box:                NewBox(),
 		showSecondaryText:  true,
 		wrapAround:         true,
@@ -109,42 +98,70 @@ func NewList() *List {
 		selectedStyle:      tcell.StyleDefault.Foreground(Styles.PrimitiveBackgroundColor).Background(Styles.PrimaryTextColor),
 		mainStyleTags:      true,
 		secondaryStyleTags: true,
+		selectedItems:      make(map[int]bool),
 	}
 	l.Box.Primitive = l
 	return l
 }
 
-// SetCurrentItem sets the currently selected item by its index, starting at 0
-// for the first item. If a negative index is provided, items are referred to
-// from the back (-1 = last item, -2 = second-to-last item, and so on). Out of
-// range indices are clamped to the beginning/end.
-//
+func (l *MultiList) notifySelected() {
+	if l.selected != nil {
+		list := l.GetSelected()
+		l.selected(l.GetValues(list), list)
+	}
+}
+
+// SelectItems sets the currently selected items by its index, starting at 0
+// for the first item.
 // Calling this function triggers a "changed" event if the selection changes.
-func (l *List) SetCurrentItem(index int) *List {
-	if index < 0 {
-		index = len(l.items) + index
-	}
-	if index >= len(l.items) {
-		index = len(l.items) - 1
-	}
-	if index < 0 {
-		index = 0
-	}
-
-	if index != l.currentItem && l.changed != nil {
-		item := l.items[index]
-		l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
+func (l *MultiList) SelectItems(indexes []int) *MultiList {
+	l.selectedItems = make(map[int]bool)
+	count := len(l.items)
+	for _, index := range indexes {
+		if index < 0 || index >= count {
+			continue
+		}
+		l.selectedItems[index] = true
 	}
 
-	l.currentItem = index
-
+	//l.notifySelected()
 	return l
 }
 
-// GetCurrentItem returns the index of the currently selected list item,
+func (l *MultiList) SelectValues(vals []string) *MultiList {
+	l.selectedItems = make(map[int]bool)
+	for index, item := range l.items {
+		if slices.Contains(vals, item.MainText) {
+			l.selectedItems[index] = true
+		}
+	}
+	//l.notifySelected()
+	return l
+}
+
+// GetSelected returns the index of the currently selected list items,
 // starting at 0 for the first item.
-func (l *List) GetCurrentItem() int {
-	return l.currentItem
+func (l *MultiList) GetSelected() []int {
+	var indexes []int
+	for index, selected := range l.selectedItems {
+		if selected {
+			indexes = append(indexes, index)
+		}
+	}
+	slices.Sort(indexes)
+	return indexes
+}
+
+func (l *MultiList) GetSelectedValues() []string {
+	return l.GetValues(l.GetSelected())
+}
+
+func (l *MultiList) GetValues(indexes []int) []string {
+	var vals []string
+	for _, index := range indexes {
+		vals = append(vals, l.items[index].MainText)
+	}
+	return vals
 }
 
 // SetOffset sets the number of items to be skipped (vertically) as well as the
@@ -155,7 +172,7 @@ func (l *List) GetCurrentItem() int {
 // These values may change when the list is drawn to ensure the currently
 // selected item is visible and item texts move out of view. Users can also
 // modify these values by interacting with the list.
-func (l *List) SetOffset(items, horizontal int) *List {
+func (l *MultiList) SetOffset(items, horizontal int) *MultiList {
 	l.itemOffset = items
 	l.horizontalOffset = horizontal
 	return l
@@ -164,7 +181,7 @@ func (l *List) SetOffset(items, horizontal int) *List {
 // GetOffset returns the number of items skipped while drawing, as well as the
 // number of cells item text is moved to the left. See also SetOffset() for more
 // information on these values.
-func (l *List) GetOffset() (int, int) {
+func (l *MultiList) GetOffset() (int, int) {
 	return l.itemOffset, l.horizontalOffset
 }
 
@@ -176,7 +193,7 @@ func (l *List) GetOffset() (int, int) {
 //
 // The currently selected item is shifted accordingly. If it is the one that is
 // removed, a "changed" event is fired, unless no items are left.
-func (l *List) RemoveItem(index int) *List {
+func (l *MultiList) RemoveItem(index int) *MultiList {
 	if len(l.items) == 0 {
 		return l
 	}
@@ -191,6 +208,7 @@ func (l *List) RemoveItem(index int) *List {
 	if index < 0 {
 		index = 0
 	}
+	delete(l.selectedItems, index)
 
 	// Remove item.
 	l.items = append(l.items[:index], l.items[index+1:]...)
@@ -201,22 +219,15 @@ func (l *List) RemoveItem(index int) *List {
 	}
 
 	// Shift current item.
-	previousCurrentItem := l.currentItem
 	if l.currentItem > index || l.currentItem == len(l.items) {
 		l.currentItem--
-	}
-
-	// Fire "changed" event for removed items.
-	if previousCurrentItem == index && l.changed != nil {
-		item := l.items[l.currentItem]
-		l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 	}
 
 	return l
 }
 
 // SetMainTextColor sets the color of the items' main text.
-func (l *List) SetMainTextColor(color tcell.Color) *List {
+func (l *MultiList) SetMainTextColor(color tcell.Color) *MultiList {
 	l.mainTextStyle = l.mainTextStyle.Foreground(color)
 	return l
 }
@@ -224,13 +235,13 @@ func (l *List) SetMainTextColor(color tcell.Color) *List {
 // SetMainTextStyle sets the style of the items' main text. Note that the
 // background color is ignored in order not to override the background color of
 // the list itself.
-func (l *List) SetMainTextStyle(style tcell.Style) *List {
+func (l *MultiList) SetMainTextStyle(style tcell.Style) *MultiList {
 	l.mainTextStyle = style
 	return l
 }
 
 // SetSecondaryTextColor sets the color of the items' secondary text.
-func (l *List) SetSecondaryTextColor(color tcell.Color) *List {
+func (l *MultiList) SetSecondaryTextColor(color tcell.Color) *MultiList {
 	l.secondaryTextStyle = l.secondaryTextStyle.Foreground(color)
 	return l
 }
@@ -238,13 +249,13 @@ func (l *List) SetSecondaryTextColor(color tcell.Color) *List {
 // SetSecondaryTextStyle sets the style of the items' secondary text. Note that
 // the background color is ignored in order not to override the background color
 // of the list itself.
-func (l *List) SetSecondaryTextStyle(style tcell.Style) *List {
+func (l *MultiList) SetSecondaryTextStyle(style tcell.Style) *MultiList {
 	l.secondaryTextStyle = style
 	return l
 }
 
 // SetShortcutColor sets the color of the items' shortcut.
-func (l *List) SetShortcutColor(color tcell.Color) *List {
+func (l *MultiList) SetShortcutColor(color tcell.Color) *MultiList {
 	l.shortcutStyle = l.shortcutStyle.Foreground(color)
 	return l
 }
@@ -252,7 +263,7 @@ func (l *List) SetShortcutColor(color tcell.Color) *List {
 // SetShortcutStyle sets the style of the items' shortcut. Note that the
 // background color is ignored in order not to override the background color of
 // the list itself.
-func (l *List) SetShortcutStyle(style tcell.Style) *List {
+func (l *MultiList) SetShortcutStyle(style tcell.Style) *MultiList {
 	l.shortcutStyle = style
 	return l
 }
@@ -260,13 +271,13 @@ func (l *List) SetShortcutStyle(style tcell.Style) *List {
 // SetSelectedTextColor sets the text color of selected items. Note that the
 // color of main text characters that are different from the main text color
 // (e.g. style tags) is maintained.
-func (l *List) SetSelectedTextColor(color tcell.Color) *List {
+func (l *MultiList) SetSelectedTextColor(color tcell.Color) *MultiList {
 	l.selectedStyle = l.selectedStyle.Foreground(color)
 	return l
 }
 
 // SetSelectedBackgroundColor sets the background color of selected items.
-func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
+func (l *MultiList) SetSelectedBackgroundColor(color tcell.Color) *MultiList {
 	l.selectedStyle = l.selectedStyle.Background(color)
 	return l
 }
@@ -274,14 +285,14 @@ func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
 // SetSelectedStyle sets the style of the selected items. Note that the color of
 // main text characters that are different from the main text color (e.g. color
 // tags) is maintained.
-func (l *List) SetSelectedStyle(style tcell.Style) *List {
+func (l *MultiList) SetSelectedStyle(style tcell.Style) *MultiList {
 	l.selectedStyle = style
 	return l
 }
 
 // SetUseStyleTags sets a flag which determines whether style tags are used in
 // the main and secondary texts. The default is true.
-func (l *List) SetUseStyleTags(mainStyleTags, secondaryStyleTags bool) *List {
+func (l *MultiList) SetUseStyleTags(mainStyleTags, secondaryStyleTags bool) *MultiList {
 	l.mainStyleTags = mainStyleTags
 	l.secondaryStyleTags = secondaryStyleTags
 	return l
@@ -289,14 +300,14 @@ func (l *List) SetUseStyleTags(mainStyleTags, secondaryStyleTags bool) *List {
 
 // GetUseStyleTags returns whether style tags are used in the main and secondary
 // texts.
-func (l *List) GetUseStyleTags() (mainStyleTags, secondaryStyleTags bool) {
+func (l *MultiList) GetUseStyleTags() (mainStyleTags, secondaryStyleTags bool) {
 	return l.mainStyleTags, l.secondaryStyleTags
 }
 
 // SetSelectedFocusOnly sets a flag which determines when the currently selected
 // list item is highlighted. If set to true, selected items are only highlighted
 // when the list has focus. If set to false, they are always highlighted.
-func (l *List) SetSelectedFocusOnly(focusOnly bool) *List {
+func (l *MultiList) SetSelectedFocusOnly(focusOnly bool) *MultiList {
 	l.selectedFocusOnly = focusOnly
 	return l
 }
@@ -305,13 +316,13 @@ func (l *List) SetSelectedFocusOnly(focusOnly bool) *List {
 // background of selected items spans the entire width of the view. If set to
 // true, the highlight spans the entire view. If set to false, only the text of
 // the selected item from beginning to end is highlighted.
-func (l *List) SetHighlightFullLine(highlight bool) *List {
+func (l *MultiList) SetHighlightFullLine(highlight bool) *MultiList {
 	l.highlightFullLine = highlight
 	return l
 }
 
 // ShowSecondaryText determines whether or not to show secondary item texts.
-func (l *List) ShowSecondaryText(show bool) *List {
+func (l *MultiList) ShowSecondaryText(show bool) *MultiList {
 	l.showSecondaryText = show
 	return l
 }
@@ -321,19 +332,8 @@ func (l *List) ShowSecondaryText(show bool) *List {
 // selection to the first item (similarly in the other direction). If set to
 // false, the selection won't change when navigating downwards on the last item
 // or navigating upwards on the first item.
-func (l *List) SetWrapAround(wrapAround bool) *List {
+func (l *MultiList) SetWrapAround(wrapAround bool) *MultiList {
 	l.wrapAround = wrapAround
-	return l
-}
-
-// SetChangedFunc sets the function which is called when the user navigates to
-// a list item. The function receives the item's index in the list of items
-// (starting with 0), its main text, secondary text, and its shortcut rune.
-//
-// This function is also called when the first item is added or when
-// SetCurrentItem() is called.
-func (l *List) SetChangedFunc(handler func(index int, mainText string, secondaryText string, shortcut rune)) *List {
-	l.changed = handler
 	return l
 }
 
@@ -341,33 +341,27 @@ func (l *List) SetChangedFunc(handler func(index int, mainText string, secondary
 // list item by pressing Enter on the current selection. The function receives
 // the item's index in the list of items (starting with 0), its main text,
 // secondary text, and its shortcut rune.
-func (l *List) SetSelectedFunc(handler func(int, string, string, rune)) *List {
+func (l *MultiList) SetSelectedFunc(handler func(texts []string, indexes []int)) *MultiList {
 	l.selected = handler
 	return l
 }
 
-// GetSelectedFunc returns the function set with [List.SetSelectedFunc] or nil
-// if no such function was set.
-func (l *List) GetSelectedFunc() func(int, string, string, rune) {
-	return l.selected
-}
-
 // SetDoneFunc sets a function which is called when the user presses the Escape
 // key.
-func (l *List) SetDoneFunc(handler func()) *List {
+func (l *MultiList) SetDoneFunc(handler func()) *MultiList {
 	l.done = handler
 	return l
 }
 
-// AddItem calls [List.InsertItem] with an index of -1.
-func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected func()) *List {
-	l.InsertItem(-1, mainText, secondaryText, shortcut, selected)
+// AddItem calls [MultiList.InsertItem] with an index of -1.
+func (l *MultiList) AddItem(mainText, secondaryText string, selected func()) *MultiList {
+	l.InsertItem(-1, mainText, secondaryText, selected)
 	return l
 }
 
 // InsertItem adds a new item to the list at the specified index. An index of 0
 // will insert the item at the beginning, an index of 1 before the second item,
-// and so on. An index of [List.GetItemCount] or higher will insert the item at
+// and so on. An index of [MultiList.GetItemCount] or higher will insert the item at
 // the end of the list. Negative indices are also allowed: An index of -1 will
 // insert the item at the end of the list, an index of -2 before the last item,
 // and so on. An index of -GetItemCount()-1 or lower will insert the item at the
@@ -382,16 +376,15 @@ func (l *List) AddItem(mainText, secondaryText string, shortcut rune, selected f
 //
 // The "selected" callback will be invoked when the user selects the item. You
 // may provide nil if no such callback is needed or if all events are handled
-// through the selected callback set with [List.SetSelectedFunc].
+// through the selected callback set with [MultiList.SetSelectedFunc].
 //
 // The currently selected item will shift its position accordingly. If the list
 // was previously empty, a "changed" event is fired because the new item becomes
 // selected.
-func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut rune, selected func()) *List {
+func (l *MultiList) InsertItem(index int, mainText, secondaryText string, selected func()) *MultiList {
 	item := &listItem{
 		MainText:      mainText,
 		SecondaryText: secondaryText,
-		Shortcut:      shortcut,
 		Selected:      selected,
 	}
 
@@ -417,36 +410,36 @@ func (l *List) InsertItem(index int, mainText, secondaryText string, shortcut ru
 	}
 	l.items[index] = item
 
-	// Fire a "change" event for the first item in the list.
-	if len(l.items) == 1 && l.changed != nil {
-		item := l.items[0]
-		l.changed(0, item.MainText, item.SecondaryText, item.Shortcut)
-	}
+	// // Fire a "change" event for the first item in the list.
+	// if len(l.items) == 1 && l.changed != nil {
+	// 	item := l.items[0]
+	// 	l.changed(0, item.MainText, item.SecondaryText, item.Shortcut)
+	// }
 
 	return l
 }
 
 // GetItemCount returns the number of items in the list.
-func (l *List) GetItemCount() int {
+func (l *MultiList) GetItemCount() int {
 	return len(l.items)
 }
 
 // GetItemSelectedFunc returns the function which is called when the user
 // selects the item with the given index, if such a function was set. If no
 // function was set, nil is returned. Panics if the index is out of range.
-func (l *List) GetItemSelectedFunc(index int) func() {
+func (l *MultiList) GetItemSelectedFunc(index int) func() {
 	return l.items[index].Selected
 }
 
 // GetItemText returns an item's texts (main and secondary). Panics if the index
 // is out of range.
-func (l *List) GetItemText(index int) (main, secondary string) {
+func (l *MultiList) GetItemText(index int) (main, secondary string) {
 	return l.items[index].MainText, l.items[index].SecondaryText
 }
 
 // SetItemText sets an item's main and secondary text. Panics if the index is
 // out of range.
-func (l *List) SetItemText(index int, main, secondary string) *List {
+func (l *MultiList) SetItemText(index int, main, secondary string) *MultiList {
 	item := l.items[index]
 	item.MainText = main
 	item.SecondaryText = secondary
@@ -463,7 +456,7 @@ func (l *List) SetItemText(index int, main, secondary string) *List {
 // false, only one of the two search strings must be contained.
 //
 // Set ignoreCase to true for case-insensitive search.
-func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ignoreCase bool) (indices []int) {
+func (l *MultiList) FindItems(mainSearch, secondarySearch string, mustContainBoth, ignoreCase bool) (indices []int) {
 	if mainSearch == "" && secondarySearch == "" {
 		return
 	}
@@ -494,14 +487,15 @@ func (l *List) FindItems(mainSearch, secondarySearch string, mustContainBoth, ig
 }
 
 // Clear removes all items from the list.
-func (l *List) Clear() *List {
+func (l *MultiList) Clear() *MultiList {
 	l.items = nil
+	l.selectedItems = make(map[int]bool)
 	l.currentItem = 0
 	return l
 }
 
 // Draw draws this primitive onto the screen.
-func (l *List) Draw(screen tcell.Screen) {
+func (l *MultiList) Draw(screen tcell.Screen) {
 	l.Box.DrawForSubclass(screen, l)
 
 	// Determine the dimensions.
@@ -531,16 +525,9 @@ func (l *List) Draw(screen tcell.Screen) {
 		l.horizontalOffset = 0
 	}
 
-	// Do we show any shortcuts?
-	var showShortcuts bool
-	for _, item := range l.items {
-		if item.Shortcut != 0 {
-			showShortcuts = true
-			x += 4
-			width -= 4
-			break
-		}
-	}
+	// For check boxes
+	x += 4
+	width -= 4
 
 	// Draw the list items.
 	var maxWidth int // The maximum printed item width.
@@ -553,10 +540,12 @@ func (l *List) Draw(screen tcell.Screen) {
 			break
 		}
 
-		// Shortcuts.
-		if showShortcuts && item.Shortcut != 0 {
-			printWithStyle(screen, fmt.Sprintf("(%s)", string(item.Shortcut)), x-5, y, 0, 4, AlignRight, l.shortcutStyle, false)
+		// Check boxes.
+		checked := "( )"
+		if l.selectedItems[index] {
+			checked = "(X)"
 		}
+		printWithStyle(screen, checked, x-5, y, 0, 4, AlignRight, l.shortcutStyle, false)
 
 		// Main text.
 		selected := index == l.currentItem && (!l.selectedFocusOnly || l.HasFocus())
@@ -574,7 +563,7 @@ func (l *List) Draw(screen tcell.Screen) {
 		}
 
 		// Draw until the end of the line if requested.
-		if selected || l.highlightFullLine {
+		if selected && l.highlightFullLine {
 			for bx := printedWidth; bx < width; bx++ {
 				screen.SetContent(x+bx, y, ' ', nil, style)
 			}
@@ -608,8 +597,19 @@ func (l *List) Draw(screen tcell.Screen) {
 	}
 }
 
+func (l *MultiList) ToggleCurrentItem() {
+	if l.currentItem >= 0 && l.currentItem < len(l.items) {
+		l.selectedItems[l.currentItem] = !l.selectedItems[l.currentItem]
+		item := l.items[l.currentItem]
+		if item.Selected != nil && l.selectedItems[l.currentItem] {
+			item.Selected()
+		}
+		l.notifySelected()
+	}
+}
+
 // InputHandler returns the handler for this primitive.
-func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
+func (l *MultiList) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return l.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
 		if event.Key() == tcell.KeyEscape {
 			if l.done != nil {
@@ -620,7 +620,7 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 			return
 		}
 
-		previousItem := l.currentItem
+		//previousItem := l.currentItem
 
 		switch key := event.Key(); key {
 		case tcell.KeyTab, tcell.KeyDown:
@@ -648,38 +648,11 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 				l.currentItem = 0
 			}
 		case tcell.KeyEnter:
-			if l.currentItem >= 0 && l.currentItem < len(l.items) {
-				item := l.items[l.currentItem]
-				if item.Selected != nil {
-					item.Selected()
-				}
-				if l.selected != nil {
-					l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
-				}
-			}
+			l.ToggleCurrentItem()
 		case tcell.KeyRune:
 			ch := event.Rune()
-			if ch != ' ' {
-				// It's not a space bar. Is it a shortcut?
-				var found bool
-				for index, item := range l.items {
-					if item.Shortcut == ch {
-						// We have a shortcut.
-						found = true
-						l.currentItem = index
-						break
-					}
-				}
-				if !found {
-					break
-				}
-			}
-			item := l.items[l.currentItem]
-			if item.Selected != nil {
-				item.Selected()
-			}
-			if l.selected != nil {
-				l.selected(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
+			if ch == ' ' {
+				l.ToggleCurrentItem()
 			}
 		}
 
@@ -697,18 +670,18 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 			}
 		}
 
-		if l.currentItem != previousItem && l.currentItem < len(l.items) {
-			if l.changed != nil {
-				item := l.items[l.currentItem]
-				l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
-			}
-		}
+		// if l.currentItem != previousItem && l.currentItem < len(l.items) {
+		// 	if l.changed != nil {
+		// 		item := l.items[l.currentItem]
+		// 		l.changed(l.currentItem, item.MainText, item.SecondaryText)
+		// 	}
+		// }
 	})
 }
 
 // indexAtPoint returns the index of the list item found at the given position
 // or a negative value if there is no such list item.
-func (l *List) indexAtPoint(x, y int) int {
+func (l *MultiList) indexAtPoint(x, y int) int {
 	rectX, rectY, width, height := l.GetInnerRect()
 	if rectX < 0 || rectX >= rectX+width || y < rectY || y >= rectY+height {
 		return -1
@@ -727,7 +700,7 @@ func (l *List) indexAtPoint(x, y int) int {
 }
 
 // MouseHandler returns the mouse handler for this primitive.
-func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+func (l *MultiList) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return l.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 		if !l.InRect(event.Position()) {
 			return false, nil
@@ -739,19 +712,13 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			setFocus(l)
 			index := l.indexAtPoint(event.Position())
 			if index != -1 {
+				l.currentItem = index
 				item := l.items[index]
+				l.selectedItems[index] = !l.selectedItems[index]
 				if item.Selected != nil {
 					item.Selected()
 				}
-				if l.selected != nil {
-					l.selected(index, item.MainText, item.SecondaryText, item.Shortcut)
-				}
-				if index != l.currentItem {
-					if l.changed != nil {
-						l.changed(index, item.MainText, item.SecondaryText, item.Shortcut)
-					}
-				}
-				l.currentItem = index
+				l.notifySelected()
 			}
 			consumed = true
 		case MouseScrollUp:

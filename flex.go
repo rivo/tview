@@ -79,6 +79,19 @@ func (f *Flex) SetFullScreen(fullScreen bool) *Flex {
 	return f
 }
 
+// AddItemAtIndex add an item to the flex at a given index.
+func (f *Flex) AddItemAtIndex(index int, item Primitive, fixedSize, proportion int, focus bool) *Flex {
+	i := &flexItem{Item: item, FixedSize: fixedSize, Proportion: proportion, Focus: focus}
+
+	if index == 0 {
+		f.items = append([]*flexItem{i}, f.items...)
+	} else {
+		f.items = append(f.items[:index], append([]*flexItem{i}, f.items[index:]...)...)
+	}
+
+	return f
+}
+
 // AddItem adds a new item to the container. The "fixedSize" argument is a width
 // or height that may not be changed by the layout algorithm. A value of 0 means
 // that its size is flexible and may be changed. The "proportion" argument
@@ -98,6 +111,11 @@ func (f *Flex) AddItem(item Primitive, fixedSize, proportion int, focus bool) *F
 	return f
 }
 
+// RemoveItemAtIndex remove an item at the given index.
+func (f *Flex) RemoveItemAtIndex(index int) *Flex {
+	return f.RemoveItem(f.items[index].Item)
+}
+
 // RemoveItem removes all items for the given primitive from the container,
 // keeping the order of the remaining items intact.
 func (f *Flex) RemoveItem(p Primitive) *Flex {
@@ -112,6 +130,14 @@ func (f *Flex) RemoveItem(p Primitive) *Flex {
 // GetItemCount returns the number of items in this container.
 func (f *Flex) GetItemCount() int {
 	return len(f.items)
+}
+
+// ItemAt returns the primitive at the given index.
+func (f *Flex) ItemAt(index int) Primitive {
+	if index >= len(f.items) {
+		return nil
+	}
+	return f.items[index].Item
 }
 
 // GetItem returns the primitive at the given index, starting with 0 for the
@@ -214,20 +240,20 @@ func (f *Flex) Focus(delegate func(p Primitive)) {
 	f.Box.Focus(delegate)
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (f *Flex) focusChain(chain *[]Primitive) bool {
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (f *Flex) FocusChain(chain *[]Primitive) bool {
 	for _, item := range f.items {
 		if item.Item == nil {
 			continue
 		}
-		if hasFocus := item.Item.focusChain(chain); hasFocus {
+		if hasFocus := item.Item.FocusChain(chain); hasFocus {
 			if chain != nil {
 				*chain = append(*chain, f)
 			}
 			return true
 		}
 	}
-	return f.Box.focusChain(chain)
+	return f.Box.FocusChain(chain)
 }
 
 // MouseHandler returns the mouse handler for this primitive.

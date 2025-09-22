@@ -843,12 +843,12 @@ func (a *Application) SetFocus(p Primitive) *Application {
 	chain := make([]Primitive, 0, 10)
 
 	// Send blur events along the focus chain.
-	if root != nil && root.focusChain(&chain) {
+	if root != nil && root.FocusChain(&chain) {
 		for index, pr := range chain {
 			if index == 0 {
 				pr.Blur()
 			}
-			pr.blurred()
+			pr.Blurred()
 		}
 
 		// Hide the cursor. If it's needed, the new focused primitive will show it
@@ -875,9 +875,9 @@ func (a *Application) SetFocus(p Primitive) *Application {
 
 	// Send focus events along the new focus chain.
 	chain = chain[:0]
-	if root != nil && root.focusChain(&chain) {
+	if root != nil && root.FocusChain(&chain) {
 		for _, pr := range chain {
-			pr.focused()
+			pr.Focused()
 		}
 	}
 
@@ -893,7 +893,7 @@ func (a *Application) GetFocus() Primitive {
 		return nil
 	}
 	chain := make([]Primitive, 0, 10)
-	if a.root.focusChain(&chain) && len(chain) > 0 {
+	if a.root.FocusChain(&chain) && len(chain) > 0 {
 		return chain[0]
 	}
 	return nil

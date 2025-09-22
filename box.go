@@ -528,7 +528,7 @@ func (b *Box) Focus(delegate func(p Primitive)) {
 
 // focused is called when this primitive or one of its descendents receives
 // focus.
-func (b *Box) focused() {
+func (b *Box) Focused() {
 	if b.focus != nil {
 		b.focus()
 	}
@@ -540,7 +540,7 @@ func (b *Box) Blur() {
 }
 
 // blurred is called when this primitive or one of its descendents loses focus.
-func (b *Box) blurred() {
+func (b *Box) Blurred() {
 	if b.blur != nil {
 		b.blur()
 	}
@@ -548,11 +548,11 @@ func (b *Box) blurred() {
 
 // HasFocus returns whether or not this primitive has focus.
 func (b *Box) HasFocus() bool {
-	return b.Primitive.focusChain(nil)
+	return b.Primitive.FocusChain(nil)
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (b *Box) focusChain(chain *[]Primitive) bool {
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (b *Box) FocusChain(chain *[]Primitive) bool {
 	if !b.hasFocus {
 		return false
 	}

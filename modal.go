@@ -35,20 +35,53 @@ func NewModal() *Modal {
 		Box:       NewBox().SetBorder(true).SetBackgroundColor(Styles.ContrastBackgroundColor),
 		textColor: Styles.PrimaryTextColor,
 	}
-	m.form = NewForm().
+	form := NewForm().
 		SetButtonsAlign(AlignCenter).
 		SetButtonBackgroundColor(Styles.PrimitiveBackgroundColor).
 		SetButtonTextColor(Styles.PrimaryTextColor)
-	m.form.SetBackgroundColor(Styles.ContrastBackgroundColor).SetBorderPadding(0, 0, 0, 0)
-	m.form.SetCancelFunc(func() {
+	form.
+		SetBackgroundColor(Styles.ContrastBackgroundColor).
+		SetBorderPadding(0, 0, 0, 0)
+	form.SetCancelFunc(func() {
 		if m.done != nil {
 			m.done(-1, "")
 		}
 	})
+	m.SetForm(form)
+	m.Box.Primitive = m
+	m.dontClear = true
+	return m
+}
+
+func NewModalForm(title string, form *Form) *Modal {
+	m := &Modal{
+		Box:       NewBox().SetBorder(true).SetBackgroundColor(Styles.ContrastBackgroundColor),
+		textColor: Styles.PrimaryTextColor,
+	}
+
+	form.SetCancelFunc(func() {
+		if m.done != nil {
+			m.done(-1, "")
+		}
+	})
+	m.SetForm(form)
+	//m.frame.SetTitle(title)
+	m.SetTitle(title)
+	m.Box.Primitive = m
+	m.dontClear = true
+	return m
+}
+
+func (m *Modal) SetForm(form *Form) *Modal {
+	m.form = form
 	m.frame = NewFrame(m.form).SetBorders(0, 0, 1, 0, 0, 0)
 	m.frame.SetBackgroundColor(Styles.ContrastBackgroundColor).
 		SetBorderPadding(1, 1, 1, 1)
-	m.Box.Primitive = m
+	return m
+}
+
+func (m *Modal) SetFrame(frame *Frame) *Modal {
+	m.frame = frame
 	return m
 }
 
@@ -96,6 +129,10 @@ func (m *Modal) SetButtonActivatedStyle(style tcell.Style) *Modal {
 func (m *Modal) SetDoneFunc(handler func(buttonIndex int, buttonLabel string)) *Modal {
 	m.done = handler
 	return m
+}
+
+func (m *Modal) DoneFunc() func(buttonIndex int, buttonLabel string) {
+	return m.done
 }
 
 // SetText sets the message text of the window. The text may contain line
@@ -148,15 +185,15 @@ func (m *Modal) Focus(delegate func(p Primitive)) {
 	delegate(m.form)
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (m *Modal) focusChain(chain *[]Primitive) bool {
-	if hasFocus := m.form.focusChain(chain); hasFocus {
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (m *Modal) FocusChain(chain *[]Primitive) bool {
+	if hasFocus := m.form.FocusChain(chain); hasFocus {
 		if chain != nil {
 			*chain = append(*chain, m)
 		}
 		return true
 	}
-	return m.Box.focusChain(chain)
+	return m.Box.FocusChain(chain)
 }
 
 // Draw draws this primitive onto the screen.

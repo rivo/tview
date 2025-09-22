@@ -63,9 +63,9 @@ func (w *batchWriter) Write(p []byte) (n int, err error) {
 	return w.TextView.write(p)
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (w *batchWriter) focusChain(chain *[]Primitive) bool {
-	return w.TextView.Box.focusChain(chain)
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (w *batchWriter) FocusChain(chain *[]Primitive) bool {
+	return w.TextView.Box.FocusChain(chain)
 }
 
 // TextView is a component to display read-only text. While the text to be
@@ -875,13 +875,13 @@ func (t *TextView) Focus(delegate func(p Primitive)) {
 	t.Unlock()
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (t *TextView) focusChain(chain *[]Primitive) bool {
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (t *TextView) FocusChain(chain *[]Primitive) bool {
 	// Implemented here with locking because this may be used in the "changed"
 	// callback.
 	t.Lock()
 	defer t.Unlock()
-	return t.Box.focusChain(chain)
+	return t.Box.FocusChain(chain)
 }
 
 // Write lets us implement the io.Writer interface.

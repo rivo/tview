@@ -461,15 +461,15 @@ func (i *InputField) Focus(delegate func(p Primitive)) {
 	delegate(i.textArea)
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (i *InputField) focusChain(chain *[]Primitive) bool {
-	if hasFocus := i.textArea.focusChain(chain); hasFocus {
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (i *InputField) FocusChain(chain *[]Primitive) bool {
+	if hasFocus := i.textArea.FocusChain(chain); hasFocus {
 		if chain != nil {
 			*chain = append(*chain, i)
 		}
 		return true
 	}
-	return i.Box.focusChain(chain)
+	return i.Box.FocusChain(chain)
 }
 
 // Blur is called when this primitive loses focus.

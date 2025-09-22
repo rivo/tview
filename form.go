@@ -129,6 +129,8 @@ func NewForm() *Form {
 	}
 
 	f.Box.Primitive = f
+	// TODO:
+	f.dontClear = true
 	return f
 }
 
@@ -324,6 +326,16 @@ func (f *Form) AddDropDown(label string, options []string, initialOption int, se
 		SetLabel(label).
 		SetOptions(options, selected).
 		SetCurrentOption(initialOption)
+	dropDown.SetFinishedFunc(f.finished)
+	f.items = append(f.items, dropDown)
+	return f
+}
+
+func (f *Form) AddMultiSelectDropDown(label string, options []string, initialOptions []int, selected func(options []string, optionIndex []int)) *Form {
+	dropDown := NewMultiSelectDropDown().
+		SetLabel(label).
+		SetOptions(options, selected).
+		SelectItems(initialOptions)
 	dropDown.SetFinishedFunc(f.finished)
 	f.items = append(f.items, dropDown)
 	return f
@@ -794,10 +806,10 @@ func (f *Form) focusIndex() int {
 	return -1
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (f *Form) focusChain(chain *[]Primitive) bool {
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (f *Form) FocusChain(chain *[]Primitive) bool {
 	for _, item := range f.items {
-		if hasFocus := item.focusChain(chain); hasFocus {
+		if hasFocus := item.FocusChain(chain); hasFocus {
 			if chain != nil {
 				*chain = append(*chain, f)
 			}
@@ -805,14 +817,14 @@ func (f *Form) focusChain(chain *[]Primitive) bool {
 		}
 	}
 	for _, button := range f.buttons {
-		if hasFocus := button.focusChain(chain); hasFocus {
+		if hasFocus := button.FocusChain(chain); hasFocus {
 			if chain != nil {
 				*chain = append(*chain, f)
 			}
 			return true
 		}
 	}
-	return f.Box.focusChain(chain)
+	return f.Box.FocusChain(chain)
 }
 
 // MouseHandler returns the mouse handler for this primitive.

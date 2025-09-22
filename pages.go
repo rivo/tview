@@ -260,17 +260,17 @@ func (p *Pages) GetPage(name string) Primitive {
 	return nil
 }
 
-// focusChain implements the [Primitive]'s focusChain method.
-func (p *Pages) focusChain(chain *[]Primitive) bool {
+// FocusChain implements the [Primitive]'s FocusChain method.
+func (p *Pages) FocusChain(chain *[]Primitive) bool {
 	for _, page := range p.pages {
-		if hasFocus := page.Item.focusChain(chain); hasFocus {
+		if hasFocus := page.Item.FocusChain(chain); hasFocus {
 			if chain != nil {
 				*chain = append(*chain, p)
 			}
 			return true
 		}
 	}
-	return p.Box.focusChain(chain)
+	return p.Box.FocusChain(chain)
 }
 
 // Focus is called by the application when the primitive receives focus.
