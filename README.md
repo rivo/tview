@@ -143,6 +143,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [nerdlog: Fast, remote-first, multi-host log viewer with timeline histogram](https://github.com/dimonomid/nerdlog)
 - [lxz: A powerful DevOps graphical command-line interface tool](https://github.com/liangzhaoliang95/lxz)
 - [vaulty: Terminal UI for Azure Keyvault](https://github.com/declan-whiting/vaulty)
+- [pago: Command-line password manager](https://github.com/dbohdan/pago)
 
 ## Documentation
 
