@@ -43,8 +43,8 @@ type Box struct {
 	// The title. Only visible if there is a border, too.
 	title string
 
-	// The color of the title.
-	titleColor tcell.Color
+	// The style of the title.
+	titleStyle tcell.Style
 
 	// The alignment of the title.
 	titleAlign int
@@ -89,7 +89,7 @@ func NewBox() *Box {
 		innerX:          -1, // Mark as uninitialized.
 		backgroundColor: Styles.PrimitiveBackgroundColor,
 		borderStyle:     tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
-		titleColor:      Styles.TitleColor,
+		titleStyle:      tcell.StyleDefault.Foreground(Styles.TitleColor),
 		titleAlign:      AlignCenter,
 	}
 	b.Primitive = b
@@ -392,9 +392,20 @@ func (b *Box) GetTitle() string {
 	return b.title
 }
 
+// SetTitleStyle sets the style of the box's title.
+func (b *Box) SetTitleStyle(style tcell.Style) *Box {
+	b.titleStyle = style
+	return b
+}
+
+// GetTitleStyle returns the style of the box's title.
+func (b *Box) GetTitleStyle() tcell.Style {
+	return b.titleStyle
+}
+
 // SetTitleColor sets the box's title color.
 func (b *Box) SetTitleColor(color tcell.Color) *Box {
-	b.titleColor = color
+	b.titleStyle = b.titleStyle.Foreground(color)
 	return b
 }
 
@@ -465,7 +476,8 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 
 		// Draw title.
 		if b.title != "" && b.width >= 4 {
-			printed, _ := Print(screen, b.title, b.x+1, b.y, b.width-2, b.titleAlign, b.titleColor)
+			start, end, _ := printWithStyle(screen, b.title, b.x+1, b.y, 0, b.width-2, b.titleAlign, b.titleStyle, true)
+			printed := end - start
 			if len(b.title)-printed > 0 && printed > 0 {
 				xEllipsis := b.x + b.width - 2
 				if b.titleAlign == AlignRight {
