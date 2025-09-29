@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -506,7 +507,7 @@ EventLoop:
 		case update := <-a.updates:
 			update.f()
 			if update.done != nil {
-				update.done <- struct{}{}
+				close(update.done)
 			}
 		}
 	}
@@ -911,10 +912,38 @@ func (a *Application) GetFocus() Primitive {
 //
 // This function returns after f has executed.
 func (a *Application) QueueUpdate(f func()) *Application {
-	ch := make(chan struct{})
-	a.updates <- queuedUpdate{f: f, done: ch}
-	<-ch
+	_ = a.QueueUpdateContext(context.Background(), f)
+
 	return a
+}
+
+// QueueUpdateContext is used to synchronize access to primitives from non-main
+// goroutines. The provided function will be executed as part of the event loop
+// and thus will not cause race conditions with other such update functions or
+// the Draw() function.
+//
+// Note that Draw() is not implicitly called after the execution of f as that
+// may not be desirable. You can call Draw() from f if the screen should be
+// refreshed after each update. Alternatively, use QueueUpdateDraw() to follow
+// up with an immediate refresh of the screen.
+//
+// This function returns with nil after f has executed or with an error
+// if context is done before that.
+func (a *Application) QueueUpdateContext(ctx context.Context, f func()) error {
+	ch := make(chan struct{})
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case a.updates <- queuedUpdate{f: f, done: ch}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ch:
+	}
+
+	return nil
 }
 
 // QueueUpdateDraw works like QueueUpdate() except it refreshes the screen
@@ -925,6 +954,15 @@ func (a *Application) QueueUpdateDraw(f func()) *Application {
 		a.draw()
 	})
 	return a
+}
+
+// QueueUpdateDrawContext works like QueueUpdateContext() except it refreshes the screen
+// immediately after executing f.
+func (a *Application) QueueUpdateDrawContext(ctx context.Context, f func()) error {
+	return a.QueueUpdateContext(ctx, func() {
+		f()
+		a.draw()
+	})
 }
 
 // QueueEvent sends an event to the Application event loop.
