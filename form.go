@@ -136,7 +136,8 @@ func NewForm() *Form {
 
 // SetItemPadding sets the number of empty rows between form items for vertical
 // layouts and the number of empty cells between form items for horizontal
-// layouts.
+// layouts. In vertical layouts, there is always at least one empty line between
+// the last item and the buttons, if any.
 func (f *Form) SetItemPadding(padding int) *Form {
 	f.itemPadding = padding
 	return f
@@ -612,14 +613,15 @@ func (f *Form) Draw(screen tcell.Screen) {
 
 	// Where do we place them?
 	if !f.horizontal && x+buttonsWidth < rightLimit {
-		if f.buttonsAlign == AlignRight {
+		switch f.buttonsAlign {
+		case AlignRight:
 			x = rightLimit - buttonsWidth
-		} else if f.buttonsAlign == AlignCenter {
+		case AlignCenter:
 			x = (x + rightLimit - buttonsWidth) / 2
 		}
 
 		// In vertical layouts, buttons always appear after an empty line.
-		if f.itemPadding == 0 {
+		if f.itemPadding == 0 && len(f.items) > 0 {
 			y++
 		}
 	}

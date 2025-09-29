@@ -862,17 +862,16 @@ func (t *TextView) GetRegions(startRow int, tail bool) []*Region {
 func (t *TextView) Focus(delegate func(p Primitive)) {
 	// Implemented here with locking because this is used by layout primitives.
 	t.Lock()
+	defer t.Unlock()
 
 	// But if we're part of a form and not scrollable, there's nothing the user
 	// can do here so we're finished.
-	if finished := t.finished; finished != nil && !t.scrollable {
-		t.Unlock()
-		finished(-1)
+	if t.finished != nil && !t.scrollable {
+		t.finished(-1)
 		return
 	}
 
 	t.Box.Focus(delegate)
-	t.Unlock()
 }
 
 // FocusChain implements the [Primitive]'s FocusChain method.
