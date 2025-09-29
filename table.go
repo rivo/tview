@@ -564,6 +564,11 @@ func (t *Table) SetContent(content TableContent) *Table {
 	return t
 }
 
+// GetContent returns current table's content
+func (t *Table) GetContent() TableContent {
+	return t.content
+}
+
 // Clear removes all table data.
 func (t *Table) Clear() *Table {
 	t.content.Clear()
