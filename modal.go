@@ -65,7 +65,6 @@ func NewModalForm(title string, form *Form) *Modal {
 		}
 	})
 	m.SetForm(form)
-	//m.frame.SetTitle(title)
 	m.SetTitle(title)
 	m.Box.Primitive = m
 	m.dontClear = true
@@ -76,7 +75,7 @@ func (m *Modal) SetForm(form *Form) *Modal {
 	m.form = form
 	m.frame = NewFrame(m.form).SetBorders(0, 0, 1, 0, 0, 0)
 	m.frame.SetBackgroundColor(Styles.ContrastBackgroundColor).
-		SetBorderPadding(1, 1, 1, 1)
+		SetBorderPadding(0, 0, 0, 0)
 	return m
 }
 
@@ -89,6 +88,7 @@ func (m *Modal) SetFrame(frame *Frame) *Modal {
 func (m *Modal) SetBackgroundColor(color tcell.Color) *Modal {
 	m.form.SetBackgroundColor(color)
 	m.frame.SetBackgroundColor(color)
+	m.SetBorderStyle(tcell.StyleDefault.Foreground(color).Background(color))
 	return m
 }
 
@@ -220,6 +220,7 @@ func (m *Modal) Draw(screen tcell.Screen) {
 
 	// Set the modal's position and size.
 	height := len(lines) + 6
+	height += len(m.form.items)
 	width += 4
 	x := (screenWidth - width) / 2
 	y := (screenHeight - height) / 2

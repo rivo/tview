@@ -21,7 +21,6 @@ type ModalList struct {
 func NewModalList(title string, list *List) *ModalList {
 	m := &ModalList{Box: NewBox()}
 
-	list.SetBackgroundColor(Styles.ContrastBackgroundColor).SetBorderPadding(0, 0, 0, 0)
 	list.SetSelectedFunc(func(i int, main string, _ string, _ rune) {
 		if m.done != nil {
 			m.done(i, main)
@@ -42,12 +41,19 @@ func NewModalList(title string, list *List) *ModalList {
 	frame.SetTitleColor(Styles.TitleColor)
 	m.SetFrame(frame)
 	m.Box.Primitive = m
-	//m.dontClear = true
+	m.dontClear = true
 	return m
 }
 
 func (m *ModalList) SetFrame(frame *Frame) *ModalList {
 	m.frame = frame
+	return m
+}
+
+// SetBackgroundColor sets the color of the modal frame background.
+func (m *ModalList) SetBackgroundColor(color tcell.Color) *ModalList {
+	m.list.SetBackgroundColor(color)
+	m.frame.SetBackgroundColor(color)
 	return m
 }
 

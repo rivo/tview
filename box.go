@@ -20,6 +20,9 @@ type Box struct {
 	// The position of the rect.
 	x, y, width, height int
 
+	// The bordercolor when the box has focus
+	// BOZO!!
+	borderFocusColor tcell.Color
 	// The inner rect reserved for the box's content. If innerX is negative,
 	// the rect is undefined and must be calculated.
 	innerX, innerY, innerWidth, innerHeight int
@@ -84,15 +87,23 @@ type Box struct {
 // NewBox returns a [Box] without a border.
 func NewBox() *Box {
 	b := &Box{
-		width:           15,
-		height:          10,
-		innerX:          -1, // Mark as uninitialized.
-		backgroundColor: Styles.PrimitiveBackgroundColor,
-		borderStyle:     tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
-		titleColor:      Styles.TitleColor,
-		titleAlign:      AlignCenter,
+		width:            15,
+		height:           10,
+		innerX:           -1, // Mark as uninitialized.
+		backgroundColor:  Styles.PrimitiveBackgroundColor,
+		borderStyle:      tcell.StyleDefault.Foreground(Styles.BorderColor).Background(Styles.PrimitiveBackgroundColor),
+		borderFocusColor: Styles.FocusColor,
+		titleColor:       Styles.TitleColor,
+		titleAlign:       AlignCenter,
 	}
 	b.Primitive = b
+	return b
+}
+
+// SetBorderFocusColor sets the box's border color.
+// BOZO!!
+func (b *Box) SetBorderFocusColor(color tcell.Color) *Box {
+	b.borderFocusColor = color
 	return b
 }
 
@@ -435,7 +446,10 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 	// Draw border.
 	if b.border && b.width >= 2 && b.height >= 2 {
 		var vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight rune
+		// BOZO!!
+		borderStyle := b.borderStyle
 		if p.HasFocus() {
+			borderStyle = borderStyle.Foreground(b.borderFocusColor)
 			horizontal = Borders.HorizontalFocus
 			vertical = Borders.VerticalFocus
 			topLeft = Borders.TopLeftFocus
@@ -451,17 +465,17 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 			bottomRight = Borders.BottomRight
 		}
 		for x := b.x + 1; x < b.x+b.width-1; x++ {
-			screen.SetContent(x, b.y, horizontal, nil, b.borderStyle)
-			screen.SetContent(x, b.y+b.height-1, horizontal, nil, b.borderStyle)
+			screen.SetContent(x, b.y, horizontal, nil, borderStyle)
+			screen.SetContent(x, b.y+b.height-1, horizontal, nil, borderStyle)
 		}
 		for y := b.y + 1; y < b.y+b.height-1; y++ {
-			screen.SetContent(b.x, y, vertical, nil, b.borderStyle)
-			screen.SetContent(b.x+b.width-1, y, vertical, nil, b.borderStyle)
+			screen.SetContent(b.x, y, vertical, nil, borderStyle)
+			screen.SetContent(b.x+b.width-1, y, vertical, nil, borderStyle)
 		}
-		screen.SetContent(b.x, b.y, topLeft, nil, b.borderStyle)
-		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, b.borderStyle)
-		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, b.borderStyle)
-		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, b.borderStyle)
+		screen.SetContent(b.x, b.y, topLeft, nil, borderStyle)
+		screen.SetContent(b.x+b.width-1, b.y, topRight, nil, borderStyle)
+		screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, borderStyle)
+		screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomRight, nil, borderStyle)
 
 		// Draw title.
 		if b.title != "" && b.width >= 4 {

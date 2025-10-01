@@ -129,7 +129,6 @@ func NewForm() *Form {
 	}
 
 	f.Box.Primitive = f
-	// TODO:
 	f.dontClear = true
 	return f
 }
@@ -292,6 +291,7 @@ func (f *Form) AddInputField(label, value string, fieldWidth int, accept func(te
 		SetFieldWidth(fieldWidth).
 		SetAcceptanceFunc(accept).
 		SetChangedFunc(changed)
+	inputField.SetBackgroundColor(f.backgroundColor)
 	inputField.SetFinishedFunc(f.finished)
 	f.items = append(f.items, inputField)
 	return f
