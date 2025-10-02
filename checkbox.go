@@ -20,6 +20,9 @@ type Checkbox struct {
 	// The text to be displayed before the input area.
 	label string
 
+	// The text to be displayed after the checkbox
+	message string
+
 	// The screen width of the label area. A value of 0 means use the width of
 	// the label text.
 	labelWidth int
@@ -97,6 +100,17 @@ func (c *Checkbox) SetLabel(label string) *Checkbox {
 // GetLabel returns the text to be displayed before the input area.
 func (c *Checkbox) GetLabel() string {
 	return c.label
+}
+
+// SetMessage sets the text to be displayed after the checkbox
+func (c *Checkbox) SetMessage(message string) *Checkbox {
+	c.message = message
+	return c
+}
+
+// GetMessage returns the text to be displayed after the checkbox
+func (c *Checkbox) GetMessage() string {
+	return c.message
 }
 
 // SetLabelWidth sets the screen width of the label. A value of 0 will cause the
@@ -183,7 +197,11 @@ func (c *Checkbox) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 
 // GetFieldWidth returns this primitive's field width.
 func (c *Checkbox) GetFieldWidth() int {
-	return 1
+	if c.message == "" {
+		return 1
+	} else {
+		return 2 + len(c.message)
+	}
 }
 
 // GetFieldHeight returns this primitive's field height.
@@ -282,7 +300,13 @@ func (c *Checkbox) Draw(screen tcell.Screen) {
 	if c.HasFocus() {
 		style = c.focusStyle
 	}
-	printWithStyle(screen, str, x, y, 0, width, AlignLeft, style, c.disabled)
+	_, _, drawnWidth := printWithStyle(screen, str, x, y, 0, width, AlignLeft, style, c.disabled)
+	x += drawnWidth
+	width -= drawnWidth
+
+	if c.message != "" {
+		printWithStyle(screen, c.message, x+1, y, 0, width, AlignLeft, c.labelStyle, labelBg == tcell.ColorDefault)
+	}
 }
 
 // InputHandler returns the handler for this primitive.
