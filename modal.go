@@ -106,6 +106,17 @@ func (m *Modal) SetText(text string) *Modal {
 	return m
 }
 
+/// AddInputText adds buttons to the window. There must be at least one button and
+// a "done" handler so the window can be closed again.
+func (m *Modal) AddInputText(labels []string) *Modal {
+	for index, label := range labels {
+		func(i int, l string) {
+			m.form.AddInputField(label, "", 20, nil, nil)
+		}(index, label)
+	}
+	return m
+}
+
 // AddButtons adds buttons to the window. There must be at least one button and
 // a "done" handler so the window can be closed again.
 func (m *Modal) AddButtons(labels []string) *Modal {
@@ -181,8 +192,13 @@ func (m *Modal) Draw(screen tcell.Screen) {
 		m.frame.AddText(line, true, AlignCenter, m.textColor)
 	}
 
+	lengthForm := 0
+	if len(m.form.items) > 0 {
+		lengthForm += len(m.form.items) + 1
+	}
+
 	// Set the modal's position and size.
-	height := len(lines) + 6
+	height := len(lines) + 6 + lengthForm
 	width += 4
 	x := (screenWidth - width) / 2
 	y := (screenHeight - height) / 2
