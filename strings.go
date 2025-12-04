@@ -157,6 +157,11 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 				// Swallow the first one.
 				cluster, rest, state.boundaries, state.unisegState = uniseg.StepString(rest, preState)
 				state.grossLength += len(cluster)
+				if rest == "" {
+					if !uniseg.HasTrailingLineBreakInString(cluster) {
+						state.boundaries &^= uniseg.MaskLine
+					}
+				}
 				if cluster[0] == ']' {
 					state.escapedTagState = etNone
 				} else {
