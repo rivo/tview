@@ -145,8 +145,9 @@ func (c *TableCell) SetBackgroundColor(color tcell.Color) *TableCell {
 }
 
 // SetTransparency sets the background transparency of this cell. A value of
-// "true" will cause the cell to use the table's background color. A value of
-// "false" will cause it to use its own background color.
+// "true" will cause the cell to use the table's background color, the cell's
+// own background color will be ignored. A value of "false" will cause it to use
+// its own background color.
 func (c *TableCell) SetTransparency(transparent bool) *TableCell {
 	c.Transparent = transparent
 	return c
@@ -1196,7 +1197,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 			if style == tcell.StyleDefault {
 				style = tcell.StyleDefault.Background(cell.BackgroundColor).Foreground(cell.Color).Attributes(cell.Attributes)
 			}
-			start, end, _ := printWithStyle(screen, cell.Text, x+columnX, y+rowY, 0, finalWidth, cell.Align, style, true)
+			start, end, _ := printWithStyle(screen, cell.Text, x+columnX, y+rowY, 0, finalWidth, cell.Align, style, cell.Transparent)
 			printed := end - start
 			if TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
 				_, _, style, _ := screen.GetContent(x+columnX+finalWidth-1, y+rowY)
