@@ -264,6 +264,7 @@ func (i *InputField) SetAutocompleteUseTags(useTags bool) *InputField {
 
 // SetFormAttributes sets attributes shared by all form items.
 func (i *InputField) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldTextColor, fieldBgColor tcell.Color) FormItem {
+	i.backgroundColor = bgColor
 	i.textArea.SetFormAttributes(labelWidth, labelColor, bgColor, fieldTextColor, fieldBgColor)
 	return i
 }
@@ -494,8 +495,9 @@ func (i *InputField) Draw(screen tcell.Screen) {
 		labelWidth = TaggedStringWidth(i.textArea.GetLabel())
 	}
 	fieldWidth := i.fieldWidth
-	if fieldWidth == 0 {
-		fieldWidth = width - labelWidth
+	maxWidth := width - labelWidth
+	if fieldWidth == 0 || fieldWidth > maxWidth {
+		fieldWidth = maxWidth
 	}
 	i.textArea.SetRect(x, y, labelWidth+fieldWidth, 1)
 	i.textArea.setMinCursorPadding(fieldWidth-1, 1)
