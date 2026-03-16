@@ -71,7 +71,6 @@ func NewGrid() *Grid {
 		bordersColor: Styles.GraphicsColor,
 	}
 	g.Box = NewBox()
-	g.Box.dontClear = true
 	g.Box.Primitive = g
 	return g
 }
@@ -275,6 +274,7 @@ func (g *Grid) focusChain(chain *[]Primitive) bool {
 
 // Draw draws this primitive onto the screen.
 func (g *Grid) Draw(screen tcell.Screen) {
+	g.Box.dontClear = !g.Box.border // Avoid transparent parts inside a border.
 	g.Box.DrawForSubclass(screen, g)
 	x, y, width, height := g.GetInnerRect()
 	screenWidth, screenHeight := screen.Size()
