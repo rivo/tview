@@ -98,8 +98,8 @@ func (p *Pages) AddPage(name string, item Primitive, resize, visible bool) *Page
 	return p
 }
 
-// AddAndSwitchToPage calls AddPage(), then SwitchToPage() on that newly added
-// page.
+// AddAndSwitchToPage calls [Pages.AddPage], then [Pages.SwitchToPage] on that
+// newly added page.
 func (p *Pages) AddAndSwitchToPage(name string, item Primitive, resize bool) *Pages {
 	p.AddPage(name, item, resize, true)
 	p.SwitchToPage(name)
