@@ -144,6 +144,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [lxz: A powerful DevOps graphical command-line interface tool](https://github.com/liangzhaoliang95/lxz)
 - [vaulty: Terminal UI for Azure Keyvault](https://github.com/declan-whiting/vaulty)
 - [pago: Command-line password manager](https://github.com/dbohdan/pago)
+- [run-cli: Cloud Run CLI](https://github.com/JulienBreux/run-cli)
 
 ## Documentation
 
