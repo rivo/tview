@@ -15,6 +15,9 @@ func main() {
 		AddItem("Quit", "Press to exit", 'q', func() {
 			app.Stop()
 		})
+
+	list.UpdateItem(1, "List updated item 2", "Some explanatory text", 'b', nil)
+	list.UpdateItemMainText(2, "List item main text updated 3")
 	if err := app.SetRoot(list, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
