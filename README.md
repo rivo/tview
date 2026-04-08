@@ -144,6 +144,8 @@ For a presentation highlighting this package, compile and run the program found 
 - [lxz: A powerful DevOps graphical command-line interface tool](https://github.com/liangzhaoliang95/lxz)
 - [vaulty: Terminal UI for Azure Keyvault](https://github.com/declan-whiting/vaulty)
 - [pago: Command-line password manager](https://github.com/dbohdan/pago)
+- [tvxterm: provides terminal widgets for tview](https://github.com/blacknon/tvxterm)
+- [lssh: TUI SSH/SCP/SFTP client with list-based host selection](https://github.com/blacknon/lssh)
 
 ## Documentation
 
