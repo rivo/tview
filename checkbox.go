@@ -63,7 +63,7 @@ func NewCheckbox() *Checkbox {
 		labelStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
 		uncheckedStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		checkedStyle:    tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
-		focusStyle:      tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
+		focusStyle:      tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.ContrastBackgroundColor).Reverse(true),
 		uncheckedString: " ",
 		checkedString:   "X",
 	}
@@ -122,7 +122,12 @@ func (c *Checkbox) SetLabelStyle(style tcell.Style) *Checkbox {
 func (c *Checkbox) SetFieldBackgroundColor(color tcell.Color) *Checkbox {
 	c.uncheckedStyle = c.uncheckedStyle.Background(color)
 	c.checkedStyle = c.checkedStyle.Background(color)
-	c.focusStyle = c.focusStyle.Foreground(color)
+	_, _, attrs := c.focusStyle.Decompose()
+	if attrs&tcell.AttrReverse != 0 {
+		c.focusStyle = c.focusStyle.Background(color)
+	} else {
+		c.focusStyle = c.focusStyle.Foreground(color)
+	}
 	return c
 }
 
@@ -130,7 +135,12 @@ func (c *Checkbox) SetFieldBackgroundColor(color tcell.Color) *Checkbox {
 func (c *Checkbox) SetFieldTextColor(color tcell.Color) *Checkbox {
 	c.uncheckedStyle = c.uncheckedStyle.Foreground(color)
 	c.checkedStyle = c.checkedStyle.Foreground(color)
-	c.focusStyle = c.focusStyle.Background(color)
+	_, _, attrs := c.focusStyle.Decompose()
+	if attrs&tcell.AttrReverse != 0 {
+		c.focusStyle = c.focusStyle.Foreground(color)
+	} else {
+		c.focusStyle = c.focusStyle.Background(color)
+	}
 	return c
 }
 

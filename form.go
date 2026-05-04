@@ -121,7 +121,7 @@ func NewForm() *Form {
 		labelColor:           Styles.SecondaryTextColor,
 		fieldStyle:           tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
 		buttonStyle:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
-		buttonActivatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
+		buttonActivatedStyle: tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.ContrastBackgroundColor).Reverse(true),
 		buttonDisabledStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
 		requestedFocus:       -1,
 		setFocus:             func(Primitive) {},
@@ -186,7 +186,12 @@ func (f *Form) SetButtonsAlign(align int) *Form {
 // also the text color of the buttons when they are focused.
 func (f *Form) SetButtonBackgroundColor(color tcell.Color) *Form {
 	f.buttonStyle = f.buttonStyle.Background(color)
-	f.buttonActivatedStyle = f.buttonActivatedStyle.Foreground(color)
+	_, _, attrs := f.buttonActivatedStyle.Decompose()
+	if attrs&tcell.AttrReverse != 0 {
+		f.buttonActivatedStyle = f.buttonActivatedStyle.Background(color)
+	} else {
+		f.buttonActivatedStyle = f.buttonActivatedStyle.Foreground(color)
+	}
 	return f
 }
 
@@ -194,7 +199,12 @@ func (f *Form) SetButtonBackgroundColor(color tcell.Color) *Form {
 // background of the buttons when they are focused.
 func (f *Form) SetButtonTextColor(color tcell.Color) *Form {
 	f.buttonStyle = f.buttonStyle.Foreground(color)
-	f.buttonActivatedStyle = f.buttonActivatedStyle.Background(color)
+	_, _, attrs := f.buttonActivatedStyle.Decompose()
+	if attrs&tcell.AttrReverse != 0 {
+		f.buttonActivatedStyle = f.buttonActivatedStyle.Foreground(color)
+	} else {
+		f.buttonActivatedStyle = f.buttonActivatedStyle.Background(color)
+	}
 	return f
 }
 

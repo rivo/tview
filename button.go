@@ -42,7 +42,7 @@ func NewButton(label string) *Button {
 		Box:            box,
 		text:           label,
 		style:          tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
-		activatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.InverseTextColor),
+		activatedStyle: tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.InverseTextColor).Reverse(true),
 		disabledStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
 	}
 	b.Box.Primitive = b
@@ -75,14 +75,24 @@ func (b *Button) SetStyle(style tcell.Style) *Button {
 // SetLabelColorActivated sets the color of the button text when the button is
 // in focus.
 func (b *Button) SetLabelColorActivated(color tcell.Color) *Button {
-	b.activatedStyle = b.activatedStyle.Foreground(color)
+	_, _, attrs := b.activatedStyle.Decompose()
+	if attrs&tcell.AttrReverse != 0 {
+		b.activatedStyle = b.activatedStyle.Background(color)
+	} else {
+		b.activatedStyle = b.activatedStyle.Foreground(color)
+	}
 	return b
 }
 
 // SetBackgroundColorActivated sets the background color of the button text when
 // the button is in focus.
 func (b *Button) SetBackgroundColorActivated(color tcell.Color) *Button {
-	b.activatedStyle = b.activatedStyle.Background(color)
+	_, _, attrs := b.activatedStyle.Decompose()
+	if attrs&tcell.AttrReverse != 0 {
+		b.activatedStyle = b.activatedStyle.Foreground(color)
+	} else {
+		b.activatedStyle = b.activatedStyle.Background(color)
+	}
 	return b
 }
 

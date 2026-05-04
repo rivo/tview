@@ -97,7 +97,7 @@ func NewDropDown() *DropDown {
 	list := NewList()
 	list.ShowSecondaryText(false).
 		SetMainTextStyle(tcell.StyleDefault.Background(Styles.MoreContrastBackgroundColor).Foreground(Styles.PrimitiveBackgroundColor)).
-		SetSelectedStyle(tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.PrimitiveBackgroundColor)).
+		SetSelectedStyle(tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor).Reverse(true)).
 		SetHighlightFullLine(true).
 		SetBackgroundColor(Styles.MoreContrastBackgroundColor)
 
@@ -111,9 +111,9 @@ func NewDropDown() *DropDown {
 		prefix:        prefix,
 		labelStyle:    tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
 		fieldStyle:    tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor),
-		focusedStyle:  tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
+		focusedStyle:  tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.ContrastBackgroundColor).Reverse(true),
 		disabledStyle: tcell.StyleDefault.Background(box.backgroundColor).Foreground(Styles.SecondaryTextColor),
-		prefixStyle:   tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
+		prefixStyle:   tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.ContrastBackgroundColor).Reverse(true),
 	}
 
 	d.Box.Primitive = d

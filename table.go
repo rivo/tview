@@ -48,8 +48,7 @@ type TableCell struct {
 
 	// The style of the cell when it is selected. If this is uninitialized
 	// (tcell.StyleDefault), the table's selected style is used instead. If that
-	// is uninitialized as well, the cell's background and text color are
-	// swapped.
+	// is uninitialized as well, reverse attributes are toggled.
 	SelectedStyle tcell.Style
 
 	// If set to true, the BackgroundColor is not used and the cell will have
@@ -175,8 +174,7 @@ func (c *TableCell) SetStyle(style tcell.Style) *TableCell {
 
 // SetSelectedStyle sets the cell's style when it is selected. If this is
 // uninitialized (tcell.StyleDefault), the table's selected style is used
-// instead. If that is uninitialized as well, the cell's background and text
-// color are swapped.
+// instead. If that is uninitialized as well, reverse attributes are toggled.
 func (c *TableCell) SetSelectedStyle(style tcell.Style) *TableCell {
 	c.SelectedStyle = style
 	return c
@@ -585,7 +583,7 @@ func (t *Table) SetBordersColor(color tcell.Color) *Table {
 }
 
 // SetSelectedStyle sets a specific style for selected cells. If no such style
-// is set, the cell's background and text color are swapped. If a cell defines
+// is set, reverse attributes are toggled. If a cell defines
 // its own selected style, that will be used instead.
 //
 // To reset a previous setting to its default, make the following call:
@@ -1260,15 +1258,14 @@ func (t *Table) Draw(screen tcell.Screen) {
 	// backgroundTransparent == true => Don't modify background color (when invert == false).
 	// textTransparent == true => Don't modify text color (when invert == false).
 	// attr == 0 => Don't change attributes.
-	// invert == true => Ignore attr, set text to backgroundColor or t.backgroundColor;
-	//                   set background to textColor.
+	// invert == true => Ignore attr and toggle reverse attributes.
 	colorBackground := func(fromX, fromY, w, h int, backgroundColor, textColor tcell.Color, backgroundTransparent, textTransparent bool, attr tcell.AttrMask, invert bool) {
 		for by := 0; by < h && fromY+by < y+height; by++ {
 			for bx := 0; bx < w && fromX+bx < x+width; bx++ {
 				m, c, style, _ := screen.GetContent(fromX+bx, fromY+by)
 				fg, bg, a := style.Decompose()
 				if invert {
-					style = style.Background(textColor).Foreground(backgroundColor)
+					style = style.Reverse(a&tcell.AttrReverse == 0)
 				} else {
 					if !backgroundTransparent {
 						bg = backgroundColor
