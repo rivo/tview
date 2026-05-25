@@ -1392,8 +1392,22 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 		}
 		var (
 			// Move the selection forward, don't go beyond final cell, return
-			// true if a selection was found.
+			// true if a selection was found. finalRow/finalColumn are clamped
+			// to the valid table range so the loop is guaranteed to terminate
+			// even when the caller asks for an unreachable bound (e.g. after
+			// a previous Draw left t.selectedRow == rowCount because nothing
+			// in the table is selectable).
 			forward = func(finalRow, finalColumn int) bool {
+				if finalRow < 0 {
+					finalRow = 0
+				} else if finalRow > rowCount-1 {
+					finalRow = rowCount - 1
+				}
+				if finalColumn < 0 {
+					finalColumn = 0
+				} else if finalColumn > lastColumn {
+					finalColumn = lastColumn
+				}
 				row, column := t.selectedRow, t.selectedColumn
 				for {
 					// Stop if the current selection is fine.
@@ -1421,8 +1435,19 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			}
 
 			// Move the selection backwards, don't go beyond final cell, return
-			// true if a selection was found.
+			// true if a selection was found. See forward for the rationale
+			// behind clamping finalRow/finalColumn.
 			backwards = func(finalRow, finalColumn int) bool {
+				if finalRow < 0 {
+					finalRow = 0
+				} else if finalRow > rowCount-1 {
+					finalRow = rowCount - 1
+				}
+				if finalColumn < 0 {
+					finalColumn = 0
+				} else if finalColumn > lastColumn {
+					finalColumn = lastColumn
+				}
 				row, column := t.selectedRow, t.selectedColumn
 				for {
 					// Stop if the current selection is fine.
