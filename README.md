@@ -144,6 +144,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [lxz: A powerful DevOps graphical command-line interface tool](https://github.com/liangzhaoliang95/lxz)
 - [vaulty: Terminal UI for Azure Keyvault](https://github.com/declan-whiting/vaulty)
 - [pago: Command-line password manager](https://github.com/dbohdan/pago)
+- [crypto-ticker: Real-time crypto futures & spot dashboard with live tables, ASCII candlestick charts, order book overlay, and keyboard-driven panels (Binance, Gate.io, OKX, Bitget).](https://github.com/byteoxo/crypto-ticker)
 
 ## Documentation
 
