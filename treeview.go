@@ -317,6 +317,11 @@ type TreeView struct {
 	// scrolling.
 	step int
 
+	// Set to true when the user scrolls with the mouse wheel without moving the
+	// selection. While set, Draw() will not scroll the selected node back into
+	// view (which would undo the scroll). Reset when the selection changes.
+	userScrolled bool
+
 	// The top hierarchical level shown. (0 corresponds to the root level.)
 	topLevel int
 
@@ -654,13 +659,25 @@ func (t *TreeView) process(drawingAfter bool) {
 		}
 		t.currentNode = t.nodes[selectedIndex]
 
-		// Move selection into viewport.
+		// A change of the selection cancels a user scroll, so the selected node
+		// is moved back into the viewport below.
+		if t.currentNode != t.lastNode {
+			t.userScrolled = false
+		}
+
+		// Move the selection into the viewport, unless the user has scrolled with
+		// the mouse wheel: doing so here would undo that scroll on the redraw
+		// caused by the mouse button-press, and the following click would then
+		// select the wrong node. A resize or a change to the tree still moves the
+		// selection into view, as neither sets userScrolled.
 		if t.movement != treeScroll {
-			if selectedIndex-t.offsetY >= height {
-				t.offsetY = selectedIndex - height + 1
-			}
-			if selectedIndex < t.offsetY {
-				t.offsetY = selectedIndex
+			if !t.userScrolled {
+				if selectedIndex-t.offsetY >= height {
+					t.offsetY = selectedIndex - height + 1
+				}
+				if selectedIndex < t.offsetY {
+					t.offsetY = selectedIndex
+				}
 			}
 			if t.movement != treeHome && t.movement != treeEnd {
 				// treeScroll, treeHome, and treeEnd are handled by Draw().
@@ -900,10 +917,12 @@ func (t *TreeView) MouseHandler() func(action MouseAction, event *tcell.EventMou
 		case MouseScrollUp:
 			t.movement = treeScroll
 			t.step = -1
+			t.userScrolled = true
 			consumed = true
 		case MouseScrollDown:
 			t.movement = treeScroll
 			t.step = 1
+			t.userScrolled = true
 			consumed = true
 		}
 
