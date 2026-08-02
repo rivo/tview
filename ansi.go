@@ -73,15 +73,15 @@ func (a *ansi) Write(text []byte) (int, error) {
 		// CSI Sequences.
 		case ansiControlSequence:
 			switch {
-			case r >= 0x30 && r <= 0x3f: // Parameter bytes.
+			case r >= 0x30 && r <= 0x3f: // '0' - '?' (includes numbers), parameter bytes.
 				if _, err := a.csiParameter.WriteRune(r); err != nil {
 					return 0, err
 				}
-			case r >= 0x20 && r <= 0x2f: // Intermediate bytes.
+			case r >= 0x20 && r <= 0x2f: // ' ' - '/', intermediate bytes.
 				if _, err := a.csiIntermediate.WriteRune(r); err != nil {
 					return 0, err
 				}
-			case r >= 0x40 && r <= 0x7e: // Final byte.
+			case r >= 0x40 && r <= 0x7e: // '@' - '~' (includes all letters), final byte.
 				switch r {
 				case 'E': // Next line.
 					count, _ := strconv.Atoi(a.csiParameter.String())
@@ -125,6 +125,10 @@ func (a *ansi) Write(text []byte) (int, error) {
 				FieldLoop:
 					for index, field := range fields {
 						switch field {
+						case "0", "00":
+							foreground = "-"
+							background = "-"
+							a.attributes = "-"
 						case "1", "01":
 							if !strings.ContainsRune(a.attributes, 'b') {
 								a.attributes += "b"
