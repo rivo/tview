@@ -1394,6 +1394,8 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			// Move the selection forward, don't go beyond final cell, return
 			// true if a selection was found.
 			forward = func(finalRow, finalColumn int) bool {
+				finalRow = max(0, min(rowCount-1, finalRow))
+				finalColumn = max(0, min(lastColumn, finalColumn))
 				row, column := t.selectedRow, t.selectedColumn
 				for {
 					// Stop if the current selection is fine.
@@ -1423,6 +1425,8 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			// Move the selection backwards, don't go beyond final cell, return
 			// true if a selection was found.
 			backwards = func(finalRow, finalColumn int) bool {
+				finalRow = max(0, min(rowCount-1, finalRow))
+				finalColumn = max(0, min(lastColumn, finalColumn))
 				row, column := t.selectedRow, t.selectedColumn
 				for {
 					// Stop if the current selection is fine.
