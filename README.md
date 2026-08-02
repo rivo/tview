@@ -146,6 +146,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [pago: Command-line password manager](https://github.com/dbohdan/pago)
 - [tvxterm: provides terminal widgets for tview](https://github.com/blacknon/tvxterm)
 - [lssh: TUI SSH/SCP/SFTP client with list-based host selection](https://github.com/blacknon/lssh)
+- [neo: Terminal based extensible code editor](https://github.com/jayantjha/neo)
 
 ## Documentation
 
