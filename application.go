@@ -403,6 +403,8 @@ EventLoop:
 						pasteBuffer.WriteRune(event.Rune())
 					case tcell.KeyEnter:
 						pasteBuffer.WriteRune('\n')
+					case tcell.KeyCtrlJ:
+						pasteBuffer.WriteRune('\n')
 					case tcell.KeyTab:
 						pasteBuffer.WriteRune('\t')
 					}

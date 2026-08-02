@@ -145,6 +145,9 @@ For a presentation highlighting this package, compile and run the program found 
 - [vaulty: Terminal UI for Azure Keyvault](https://github.com/declan-whiting/vaulty)
 - [pago: Command-line password manager](https://github.com/dbohdan/pago)
 - [run-cli: Cloud Run CLI](https://github.com/JulienBreux/run-cli)
+- [tvxterm: provides terminal widgets for tview](https://github.com/blacknon/tvxterm)
+- [lssh: TUI SSH/SCP/SFTP client with list-based host selection](https://github.com/blacknon/lssh)
+- [neo: Terminal based extensible code editor](https://github.com/jayantjha/neo)
 
 ## Documentation
 
