@@ -288,7 +288,9 @@ func (p *Pages) Focus(delegate func(p Primitive)) {
 			topItem = page.Item
 		}
 	}
-	if topItem != nil {
+	// Focus may get called without having a delegate. We cannot pass it on
+	// reliably in that case.
+	if topItem != nil && delegate != nil {
 		delegate(topItem)
 	} else {
 		p.Box.Focus(delegate)
