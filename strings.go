@@ -618,6 +618,10 @@ func WordWrap(text string, width int) (lines []string) {
 //
 //	box.SetTitle(tview.Escape("[squarebrackets]"))
 //	fmt.Fprint(textView, tview.Escape(`["quoted"]`))
+//
+// Avoid escaping strings that contain ANSI escape sequences or similar, as they
+// can contain characters that will be interpreted as tags, leading to
+// unexpected results.
 func Escape(text string) string {
 	return escapePattern.ReplaceAllString(text, "$1[]")
 }

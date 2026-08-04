@@ -14,6 +14,11 @@ const (
 	ansiEscape
 	ansiSubstring
 	ansiControlSequence
+	ansiStyleTagOpened
+	ansiStyleTagForeground
+	ansiStyleTagBackground
+	ansiStyleTagAttrs
+	ansiStyleTagURL
 )
 
 // ansi is a io.Writer which translates ANSI escape codes into tview color
@@ -51,10 +56,18 @@ func (a *ansi) Write(text []byte) (int, error) {
 		a.buffer.Reset()
 	}()
 
+	// Helper function which checks if the given byte is one of a list of
+	// characters, including letters and digits.
+	isOneOf := func(r rune, chars string) bool {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			return true
+		}
+		return strings.IndexRune(chars, r) >= 0
+	}
+
 	for _, r := range string(text) {
 		switch a.state {
 
-		// We just entered an escape sequence.
 		case ansiEscape:
 			switch r {
 			case '[': // Control Sequence Introducer.
@@ -70,7 +83,6 @@ func (a *ansi) Write(text []byte) (int, error) {
 				a.state = ansiText
 			}
 
-		// CSI Sequences.
 		case ansiControlSequence:
 			switch {
 			case r >= 0x30 && r <= 0x3f: // '0' - '?' (includes numbers), parameter bytes.
@@ -249,19 +261,114 @@ func (a *ansi) Write(text []byte) (int, error) {
 				a.state = ansiText // Abort CSI.
 			}
 
-			// We just entered a substring/command sequence.
 		case ansiSubstring:
 			if r == 27 { // Most likely the end of the substring.
 				a.state = ansiEscape
 			} // Ignore all other characters.
 
-			// "ansiText" and all others.
+		case ansiStyleTagOpened:
+			switch {
+			case isOneOf(r, "#-"):
+				a.state = ansiStyleTagForeground
+			case r == ':':
+				a.state = ansiStyleTagBackground
+			case r == 27:
+				a.state = ansiEscape
+			default:
+				a.state = ansiText // Nevermind. Not a style tag.
+			}
+			if _, err := a.buffer.WriteRune(r); err != nil {
+				return 0, err
+			}
+
+		case ansiStyleTagForeground:
+			switch {
+			case isOneOf(r, "#-"):
+				break
+			case r == ':':
+				a.state = ansiStyleTagBackground
+			case r == ']':
+				// This is the end of a style tag. Escape it.
+				if _, err := a.buffer.WriteRune('['); err != nil {
+					return 0, err
+				}
+				a.state = ansiText
+			case r == 27:
+				a.state = ansiEscape
+			default:
+				a.state = ansiText // Nevermind. Not a style tag.
+			}
+			if _, err := a.buffer.WriteRune(r); err != nil {
+				return 0, err
+			}
+
+		case ansiStyleTagBackground:
+			switch {
+			case isOneOf(r, "#-"):
+				break
+			case r == ':':
+				a.state = ansiStyleTagAttrs
+			case r == ']':
+				// This is the end of a style tag. Escape it.
+				if _, err := a.buffer.WriteRune('['); err != nil {
+					return 0, err
+				}
+				a.state = ansiText
+			case r == 27:
+				a.state = ansiEscape
+			default:
+				a.state = ansiText // Nevermind. Not a style tag.
+			}
+			if _, err := a.buffer.WriteRune(r); err != nil {
+				return 0, err
+			}
+
+		case ansiStyleTagAttrs:
+			switch {
+			case isOneOf(r, "-"):
+				break
+			case r == ':':
+				a.state = ansiStyleTagURL
+			case r == ']':
+				// This is the end of a style tag. Escape it.
+				if _, err := a.buffer.WriteRune('['); err != nil {
+					return 0, err
+				}
+				a.state = ansiText
+			case r == 27:
+				a.state = ansiEscape
+			default:
+				a.state = ansiText // Nevermind. Not a style tag.
+			}
+			if _, err := a.buffer.WriteRune(r); err != nil {
+				return 0, err
+			}
+
+		case ansiStyleTagURL:
+			switch {
+			case r == ']':
+				// This is the end of a style tag. Escape it.
+				if _, err := a.buffer.WriteRune('['); err != nil {
+					return 0, err
+				}
+				a.state = ansiText
+			case r == 27:
+				a.state = ansiEscape
+			}
+			if _, err := a.buffer.WriteRune(r); err != nil {
+				return 0, err
+			}
+
 		default:
 			if r == 27 {
 				// This is the start of an escape sequence.
 				a.state = ansiEscape
 			} else {
-				// Just a regular rune. Send to buffer.
+				// Just a regular rune. Keep track of style tags so we can
+				// escape them if they are part of the text.
+				if r == '[' {
+					a.state = ansiStyleTagOpened
+				}
 				if _, err := a.buffer.WriteRune(r); err != nil {
 					return 0, err
 				}

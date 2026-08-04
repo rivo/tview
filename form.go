@@ -737,7 +737,7 @@ func (f *Form) finished(key tcell.Key) {
 	switch key {
 	case tcell.KeyTab, tcell.KeyEnter:
 		// Find the next focusable item.
-		for index := 0; index < totalCount; index++ {
+		for range totalCount {
 			focus = (focus + 1) % totalCount
 			if focus < len(f.items) {
 				if !f.items[focus].GetDisabled() {
@@ -753,7 +753,7 @@ func (f *Form) finished(key tcell.Key) {
 		}
 	case tcell.KeyBacktab:
 		// Find the previous focusable item.
-		for index := 0; index < totalCount; index++ {
+		for range totalCount {
 			focus = (focus + totalCount - 1) % totalCount
 			if focus < len(f.items) {
 				if !f.items[focus].GetDisabled() {
