@@ -81,15 +81,12 @@ type DropDown struct {
 	// shift-tab, or escape).
 	done func(tcell.Key)
 
-	// A callback function set by the Form class and called when the user leaves
-	// this form item.
-	finished func(tcell.Key)
-
 	// A callback function which is called when the user changes the drop-down's
 	// selection.
 	selected func(text string, index int)
 
-	dragging bool // Set to true when mouse dragging is in progress.
+	// Set to true when mouse dragging is in progress.
+	dragging bool
 }
 
 // NewDropDown returns a new [DropDown].
@@ -307,9 +304,6 @@ func (d *DropDown) GetFieldHeight() int {
 // SetDisabled sets whether or not the item is disabled / read-only.
 func (d *DropDown) SetDisabled(disabled bool) FormItem {
 	d.disabled = disabled
-	if d.finished != nil {
-		d.finished(-1)
-	}
 	return d
 }
 
@@ -379,10 +373,10 @@ func (d *DropDown) SetDoneFunc(handler func(key tcell.Key)) *DropDown {
 	return d
 }
 
-// SetFinishedFunc sets a callback invoked when the user leaves this form item.
-func (d *DropDown) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	d.finished = handler
-	return d
+// AllowExit returns whether or not this primitive will allow a containing form
+// to move focus away from this primitive.
+func (d *DropDown) AllowExit(event *tcell.EventKey) bool {
+	return !d.open && event.Key() != tcell.KeyEnter
 }
 
 // Draw draws this primitive onto the screen.
@@ -563,9 +557,6 @@ func (d *DropDown) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			if d.done != nil {
 				d.done(key)
 			}
-			if d.finished != nil {
-				d.finished(key)
-			}
 			d.closeList(setFocus)
 		default:
 			// Pass other key events to the input field.
@@ -664,14 +655,7 @@ func (d *DropDown) IsOpen() bool {
 
 // Focus is called by the application when the primitive receives focus.
 func (d *DropDown) Focus(delegate func(p Primitive)) {
-	// If we're part of a form and this item is disabled, there's nothing the
-	// user can do here so we're finished.
-	if d.finished != nil && d.disabled {
-		d.finished(-1)
-		return
-	}
-
-	if d.open {
+	if !d.disabled && d.open {
 		delegate(d.list)
 	} else {
 		d.Box.Focus(delegate)

@@ -121,10 +121,6 @@ type InputField struct {
 	// are done entering text. The key which was pressed is provided (tab,
 	// shift-tab, enter, or escape).
 	done func(tcell.Key)
-
-	// A callback function set by the Form class and called when the user leaves
-	// this form item.
-	finished func(tcell.Key)
 }
 
 // NewInputField returns a new [InputField].
@@ -288,9 +284,6 @@ func (i *InputField) GetFieldHeight() int {
 // SetDisabled sets whether or not the item is disabled / read-only.
 func (i *InputField) SetDisabled(disabled bool) FormItem {
 	i.textArea.SetDisabled(disabled)
-	if i.finished != nil {
-		i.finished(-1)
-	}
 	return i
 }
 
@@ -443,21 +436,14 @@ func (i *InputField) SetDoneFunc(handler func(key tcell.Key)) *InputField {
 	return i
 }
 
-// SetFinishedFunc sets a callback invoked when the user leaves this form item.
-func (i *InputField) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	i.finished = handler
-	return i
+// AllowExit returns whether or not this primitive will allow a containing form
+// to move focus away from this primitive.
+func (i *InputField) AllowExit(event *tcell.EventKey) bool {
+	return true
 }
 
 // Focus is called when this primitive receives focus.
 func (i *InputField) Focus(delegate func(p Primitive)) {
-	// If we're part of a form and this item is disabled, there's nothing the
-	// user can do here so we're finished.
-	if i.finished != nil && i.textArea.GetDisabled() {
-		i.finished(-1)
-		return
-	}
-
 	delegate(i.textArea)
 }
 
@@ -607,9 +593,6 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		finish := func(key tcell.Key) {
 			if i.done != nil {
 				i.done(key)
-			}
-			if i.finished != nil {
-				i.finished(key)
 			}
 		}
 

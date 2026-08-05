@@ -2,6 +2,7 @@ package tview
 
 import (
 	"math"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -195,6 +196,9 @@ type TextArea struct {
 	// Whether or not this text area is disabled/read-only.
 	disabled bool
 
+	// Whether or not this text area is an element in a form.
+	isFormItem bool
+
 	// The size of the text area. If set to 0, the text area will use the entire
 	// available space.
 	width, height int
@@ -340,10 +344,6 @@ type TextArea struct {
 	// An optional function which is called when the position of the cursor or
 	// the selection has changed.
 	moved func()
-
-	// A callback function set by the Form class and called when the user leaves
-	// this form item.
-	finished func(tcell.Key)
 }
 
 // NewTextArea returns a new [TextArea]. Use [TextArea.SetText] to set the
@@ -834,9 +834,6 @@ func (t *TextArea) GetFieldHeight() int {
 // SetDisabled sets whether or not the item is disabled / read-only.
 func (t *TextArea) SetDisabled(disabled bool) FormItem {
 	t.disabled = disabled
-	if t.finished != nil {
-		t.finished(-1)
-	}
 	return t
 }
 
@@ -962,21 +959,17 @@ func (t *TextArea) SetMovedFunc(handler func()) *TextArea {
 	return t
 }
 
-// SetFinishedFunc sets a callback invoked when the user leaves this form item.
-func (t *TextArea) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	t.finished = handler
-	return t
+// AllowExit returns whether or not this primitive will allow a containing form
+// to move focus away from this primitive.
+func (t *TextArea) AllowExit(event *tcell.EventKey) bool {
+	t.isFormItem = true
+	return slices.Contains([]tcell.Key{
+		tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape,
+	}, event.Key())
 }
 
 // Focus is called when this primitive receives focus.
 func (t *TextArea) Focus(delegate func(p Primitive)) {
-	// If we're part of a form and this item is disabled, there's nothing the
-	// user can do here so we're finished.
-	if t.finished != nil && t.disabled {
-		t.finished(-1)
-		return
-	}
-
 	t.Box.Focus(delegate)
 }
 
@@ -986,6 +979,7 @@ func (t *TextArea) SetFormAttributes(labelWidth int, labelColor, bgColor, fieldT
 	t.backgroundColor = bgColor
 	t.labelStyle = t.labelStyle.Foreground(labelColor)
 	t.textStyle = tcell.StyleDefault.Foreground(fieldTextColor).Background(fieldBgColor)
+	t.isFormItem = true
 	return t
 }
 
@@ -1231,7 +1225,7 @@ func (t *TextArea) Draw(screen tcell.Screen) {
 	}()
 
 	// No text, show placeholder.
-	if t.length == 0 {
+	if !t.disabled && t.length == 0 {
 		t.lastHeight, t.lastWidth = height, width
 		t.cursor.row, t.cursor.column, t.cursor.actualColumn, t.cursor.pos = 0, 0, 0, [3]int{1, 0, -1}
 		t.rowOffset, t.columnOffset = 0, 0
@@ -2117,12 +2111,9 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.selectionStart = t.cursor
 			newLastAction = taActionTypeSpace
 		case tcell.KeyTab: // Insert a tab character. It will be rendered as TabSize spaces.
-			// But forwarding takes precedence.
-			if t.finished != nil {
-				t.finished(key)
-				return
+			if t.isFormItem {
+				break // Tab is used to advance to the next form item. We don't want to insert a tab character in that case.
 			}
-
 			from, to, row := t.getSelection()
 			t.cursor.pos = t.replace(from, to, "\t", t.lastAction == taActionTypeSpace)
 			t.cursor.row = -1
@@ -2130,11 +2121,6 @@ func (t *TextArea) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			t.findCursor(true, row)
 			t.selectionStart = t.cursor
 			newLastAction = taActionTypeSpace
-		case tcell.KeyBacktab, tcell.KeyEscape: // Only used in forms.
-			if t.finished != nil {
-				t.finished(key)
-				return
-			}
 		case tcell.KeyRune:
 			if event.Modifiers()&tcell.ModAlt > 0 {
 				// We accept some Alt- key combinations.

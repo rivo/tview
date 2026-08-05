@@ -2,6 +2,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/rivo/tview"
 )
 
@@ -15,9 +17,21 @@ func main() {
 		AddTextView("Notes", "This is just a demo.\nYou can enter whatever you wish.", 40, 2, true, false).
 		AddCheckbox("Age 18+", false, nil).
 		AddPasswordField("Password", "", 10, '*', nil).
-		AddButton("Save", nil).
+		AddButton("Save", func() {
+			app.Stop()
+			fmt.Println("User clicked Save")
+		}).
 		AddButton("Quit", func() {
 			app.Stop()
+			fmt.Println("User clicked Quit")
+		}).
+		SetCancelFunc(func() {
+			app.Stop()
+			fmt.Println("Form entry was canceled")
+		}).
+		SetSubmitFunc(func() {
+			app.Stop()
+			fmt.Println("Form was submitted")
 		})
 	form.SetBorder(true).SetTitle("Enter some data").SetTitleAlign(tview.AlignLeft)
 	if err := app.SetRoot(form, true).EnableMouse(true).EnablePaste(true).Run(); err != nil {

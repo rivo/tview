@@ -38,13 +38,24 @@ type FormItem interface {
 	// is manipulated by the user). This value must be greater than 0.
 	GetFieldHeight() int
 
-	// SetFinishedFunc sets the handler function for when the user finished
-	// entering data into the item. The handler may receive events for the
-	// Enter key (we're done), the Escape key (cancel input), the Tab key (move
-	// to next field), the Backtab key (move to previous field), or a negative
-	// value, indicating that the action for the last known key should be
-	// repeated.
-	SetFinishedFunc(handler func(key tcell.Key)) FormItem
+	// AllowExit returns true if the form may use the given key event to exit
+	// the item. The function is called before the item receives the key event
+	// but the form will processes exit keys after the item has processed the
+	// key event. Exiting means that the focus moves on to another item or form
+	// entry is submitted or cancelled. Most of the time, true should be
+	// returned. However, if the key is essential to the proper ongoing
+	// functioning of the item, for example the Enter key in a text area, false
+	// should be returned. No need to check whether the item is disabled or not
+	// (assume it is not). At this point, all keys may be passed but only the
+	// following keys are relevant:
+	//
+	//  - Enter (finish)
+	//  - Escape (cancel)
+	//  - Tab (next)
+	//  - Backtab (previous)
+	//
+	// This list might be extended in the future.
+	AllowExit(event *tcell.EventKey) bool
 
 	// SetDisabled sets whether or not the item is disabled / read-only. A form
 	// must have at least one item that is not disabled.
@@ -99,13 +110,8 @@ type Form struct {
 	// specific item was requested.
 	requestedFocus int
 
-	// A function to set the application's current focus. Does nothing
-	// initially.
-	setFocus func(Primitive)
-
-	// The last (valid) key that wsa sent to a "finished" handler or -1 if no
-	// such key is known yet.
-	lastFinishedKey tcell.Key
+	// An optional function which is called when the user hits Enter.
+	submit func()
 
 	// An optional function which is called when the user hits Escape.
 	cancel func()
@@ -124,8 +130,6 @@ func NewForm() *Form {
 		buttonActivatedStyle: tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.ContrastBackgroundColor),
 		buttonDisabledStyle:  tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor),
 		requestedFocus:       -1,
-		setFocus:             func(Primitive) {},
-		lastFinishedKey:      tcell.KeyTab, // To skip over inactive elements at the beginning of the form.
 	}
 
 	f.Box.Primitive = f
@@ -252,7 +256,6 @@ func (f *Form) AddTextArea(label, text string, fieldWidth, fieldHeight, maxLengt
 			changed(textArea.GetText())
 		})
 	}
-	textArea.SetFinishedFunc(f.finished)
 	f.items = append(f.items, textArea)
 	return f
 }
@@ -273,7 +276,6 @@ func (f *Form) AddTextView(label, text string, fieldWidth, fieldHeight int, dyna
 		SetDynamicColors(dynamicColors).
 		SetScrollable(scrollable).
 		SetText(text)
-	textArea.SetFinishedFunc(f.finished)
 	f.items = append(f.items, textArea)
 	return f
 }
@@ -290,7 +292,6 @@ func (f *Form) AddInputField(label, value string, fieldWidth int, accept func(te
 		SetFieldWidth(fieldWidth).
 		SetAcceptanceFunc(accept).
 		SetChangedFunc(changed)
-	inputField.SetFinishedFunc(f.finished)
 	f.items = append(f.items, inputField)
 	return f
 }
@@ -311,7 +312,6 @@ func (f *Form) AddPasswordField(label, value string, fieldWidth int, mask rune, 
 		SetFieldWidth(fieldWidth).
 		SetMaskCharacter(mask).
 		SetChangedFunc(changed)
-	password.SetFinishedFunc(f.finished)
 	f.items = append(f.items, password)
 	return f
 }
@@ -325,7 +325,6 @@ func (f *Form) AddDropDown(label string, options []string, initialOption int, se
 		SetLabel(label).
 		SetOptions(options, selected).
 		SetCurrentOption(initialOption)
-	dropDown.SetFinishedFunc(f.finished)
 	f.items = append(f.items, dropDown)
 	return f
 }
@@ -338,7 +337,6 @@ func (f *Form) AddCheckbox(label string, checked bool, changed func(checked bool
 		SetLabel(label).
 		SetChecked(checked).
 		SetChangedFunc(changed)
-	checkbox.SetFinishedFunc(f.finished)
 	f.items = append(f.items, checkbox)
 	return f
 }
@@ -355,7 +353,6 @@ func (f *Form) AddImage(label string, image image.Image, width, height, colors i
 		SetSize(height, width).
 		SetAlign(AlignTop, AlignLeft).
 		SetColors(colors)
-	img.SetFinishedFunc(f.finished)
 	f.items = append(f.items, img)
 	return f
 }
@@ -364,8 +361,7 @@ func (f *Form) AddImage(label string, image image.Image, width, height, colors i
 // when the user selects this button. It may be nil.
 func (f *Form) AddButton(label string, selected func()) *Form {
 	button := NewButton(label).
-		SetSelectedFunc(selected).
-		SetExitFunc(f.finished)
+		SetSelectedFunc(selected)
 	f.buttons = append(f.buttons, button)
 	return f
 }
@@ -428,7 +424,6 @@ func (f *Form) ClearButtons() *Form {
 //   - The field text color
 //   - The field background color
 func (f *Form) AddFormItem(item FormItem) *Form {
-	item.SetFinishedFunc(f.finished)
 	f.items = append(f.items, item)
 	return f
 }
@@ -491,8 +486,15 @@ func (f *Form) GetFocusedItemIndex() (formItem, button int) {
 	return -1, index - len(f.items)
 }
 
+// SetSubmitFunc sets a handler which is called when the user hits the Enter
+// key. It typically signals that the user wants to submit the form.
+func (f *Form) SetSubmitFunc(callback func()) *Form {
+	f.submit = callback
+	return f
+}
+
 // SetCancelFunc sets a handler which is called when the user hits the Escape
-// key.
+// key. It typically signals that the user wants to cancel form entry.
 func (f *Form) SetCancelFunc(callback func()) *Form {
 	f.cancel = callback
 	return f
@@ -699,8 +701,6 @@ func (f *Form) Draw(screen tcell.Screen) {
 
 // Focus is called by the application when the primitive receives focus.
 func (f *Form) Focus(delegate func(p Primitive)) {
-	f.setFocus = delegate
-
 	// If there is no current focus, pick one.
 	focus := f.focusIndex()
 	if f.requestedFocus >= 0 {
@@ -724,59 +724,6 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 	}
 
 	f.Box.Focus(delegate)
-}
-
-// finished handles a form item's "finished" event.
-func (f *Form) finished(key tcell.Key) {
-	focus := f.focusIndex()
-	if key >= 0 {
-		f.lastFinishedKey = key
-	}
-
-	totalCount := len(f.items) + len(f.buttons)
-	switch key {
-	case tcell.KeyTab, tcell.KeyEnter:
-		// Find the next focusable item.
-		for range totalCount {
-			focus = (focus + 1) % totalCount
-			if focus < len(f.items) {
-				if !f.items[focus].GetDisabled() {
-					f.setFocus(f.items[focus])
-					return
-				}
-			} else {
-				if !f.buttons[focus-len(f.items)].GetDisabled() {
-					f.setFocus(f.buttons[focus-len(f.items)])
-					return
-				}
-			}
-		}
-	case tcell.KeyBacktab:
-		// Find the previous focusable item.
-		for range totalCount {
-			focus = (focus + totalCount - 1) % totalCount
-			if focus < len(f.items) {
-				if !f.items[focus].GetDisabled() {
-					f.setFocus(f.items[focus])
-					return
-				}
-			} else {
-				if !f.buttons[focus-len(f.items)].GetDisabled() {
-					f.setFocus(f.buttons[focus-len(f.items)])
-					return
-				}
-			}
-		}
-	case tcell.KeyEscape:
-		if f.cancel != nil {
-			f.cancel()
-		}
-	default:
-		if key < 0 && f.lastFinishedKey >= 0 {
-			// Repeat the last action.
-			f.finished(f.lastFinishedKey)
-		}
-	}
 }
 
 // focusIndex returns the index of the currently focused item, counting form
@@ -853,21 +800,72 @@ func (f *Form) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 // InputHandler returns the handler for this primitive.
 func (f *Form) InputHandler() func(event *tcell.EventKey, setFocus func(p Primitive)) {
 	return f.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p Primitive)) {
-		for _, item := range f.items {
-			if item.HasFocus() {
-				if handler := item.InputHandler(); handler != nil {
-					handler(event, setFocus)
-					return
-				}
-			}
+		current := f.focusIndex()
+		if current < 0 {
+			return // Nothing is selected
+		}
+		var item Primitive
+		if current < len(f.items) {
+			item = f.items[current]
+		} else {
+			item = f.buttons[current-len(f.items)]
 		}
 
-		for _, button := range f.buttons {
-			if button.HasFocus() {
-				if handler := button.InputHandler(); handler != nil {
-					handler(event, setFocus)
-					return
+		// Check first if the item allows exiting on this key event.
+		allowExit := true
+		if formItem, ok := item.(FormItem); ok {
+			allowExit = formItem.AllowExit(event)
+		}
+
+		// Handle input.
+		if handler := item.InputHandler(); handler != nil {
+			handler(event, setFocus)
+		}
+
+		if !allowExit {
+			return
+		}
+
+		switch event.Key() {
+		case tcell.KeyTab: // Move to next item.
+			for range len(f.items) + len(f.buttons) {
+				current = (current + 1) % (len(f.items) + len(f.buttons))
+				if current < len(f.items) {
+					if !f.items[current].GetDisabled() {
+						setFocus(f.items[current])
+						return
+					}
+				} else {
+					buttonIndex := current - len(f.items)
+					if !f.buttons[buttonIndex].GetDisabled() {
+						setFocus(f.buttons[buttonIndex])
+						return
+					}
 				}
+			}
+		case tcell.KeyBacktab: // Move to previous item.
+			for range len(f.items) + len(f.buttons) {
+				current = (current - 1 + len(f.items) + len(f.buttons)) % (len(f.items) + len(f.buttons))
+				if current < len(f.items) {
+					if !f.items[current].GetDisabled() {
+						setFocus(f.items[current])
+						return
+					}
+				} else {
+					buttonIndex := current - len(f.items)
+					if !f.buttons[buttonIndex].GetDisabled() {
+						setFocus(f.buttons[buttonIndex])
+						return
+					}
+				}
+			}
+		case tcell.KeyEnter: // Submit form.
+			if current < len(f.items) && f.submit != nil {
+				f.submit()
+			}
+		case tcell.KeyEscape: // Cancel form.
+			if f.cancel != nil {
+				f.cancel()
 			}
 		}
 	})

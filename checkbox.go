@@ -50,10 +50,6 @@ type Checkbox struct {
 	// are done entering text. The key which was pressed is provided (tab,
 	// shift-tab, or escape).
 	done func(tcell.Key)
-
-	// A callback function set by the Form class and called when the user leaves
-	// this form item.
-	finished func(tcell.Key)
 }
 
 // NewCheckbox returns a new [Checkbox].
@@ -194,9 +190,6 @@ func (c *Checkbox) GetFieldHeight() int {
 // SetDisabled sets whether or not the item is disabled / read-only.
 func (c *Checkbox) SetDisabled(disabled bool) FormItem {
 	c.disabled = disabled
-	if c.finished != nil {
-		c.finished(-1)
-	}
 	return c
 }
 
@@ -224,21 +217,14 @@ func (c *Checkbox) SetDoneFunc(handler func(key tcell.Key)) *Checkbox {
 	return c
 }
 
-// SetFinishedFunc sets a callback invoked when the user leaves this form item.
-func (c *Checkbox) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	c.finished = handler
-	return c
+// AllowExit returns whether or not this primitive will allow a containing form
+// to move focus away from this primitive.
+func (c *Checkbox) AllowExit(event *tcell.EventKey) bool {
+	return event.Key() != tcell.KeyEnter // Don't change selection right before submitting the form.
 }
 
 // Focus is called when this primitive receives focus.
 func (c *Checkbox) Focus(delegate func(p Primitive)) {
-	// If we're part of a form and this item is disabled, there's nothing the
-	// user can do here so we're finished.
-	if c.finished != nil && c.disabled {
-		c.finished(-1)
-		return
-	}
-
 	c.Box.Focus(delegate)
 }
 
@@ -305,9 +291,6 @@ func (c *Checkbox) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		case tcell.KeyTab, tcell.KeyBacktab, tcell.KeyEscape: // We're done.
 			if c.done != nil {
 				c.done(key)
-			}
-			if c.finished != nil {
-				c.finished(key)
 			}
 		}
 	})

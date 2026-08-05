@@ -251,10 +251,6 @@ type TextView struct {
 	// An optional function which is called when one or more regions were
 	// highlighted.
 	highlighted func(added, removed, remaining []string)
-
-	// A callback function set by the Form class and called when the user leaves
-	// this form item.
-	finished func(tcell.Key)
 }
 
 // NewTextView returns a new [TextView].
@@ -551,10 +547,10 @@ func (t *TextView) SetHighlightedFunc(handler func(added, removed, remaining []s
 	return t
 }
 
-// SetFinishedFunc sets a callback invoked when the user leaves this form item.
-func (t *TextView) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	t.finished = handler
-	return t
+// AllowExit returns whether or not this primitive will allow a containing form
+// to move focus away from this primitive.
+func (t *TextView) AllowExit(event *tcell.EventKey) bool {
+	return true
 }
 
 // SetFormAttributes sets attributes shared by all form items.
@@ -862,17 +858,9 @@ func (t *TextView) GetRegions(startRow int, tail bool) []*Region {
 func (t *TextView) Focus(delegate func(p Primitive)) {
 	// Implemented here with locking because this is used by layout primitives.
 	t.Lock()
-
-	// But if we're part of a form and not scrollable, there's nothing the user
-	// can do here so we're finished.
-	if finished := t.finished; finished != nil && !t.scrollable {
-		t.Unlock()
-		finished(-1)
-		return
-	}
+	defer t.Unlock()
 
 	t.Box.Focus(delegate)
-	t.Unlock()
 }
 
 // focusChain implements the [Primitive]'s focusChain method.
@@ -1430,9 +1418,6 @@ func (t *TextView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 		if key == tcell.KeyEscape || key == tcell.KeyEnter || key == tcell.KeyTab || key == tcell.KeyBacktab {
 			if t.done != nil {
 				t.done(key)
-			}
-			if t.finished != nil {
-				t.finished(key)
 			}
 			return
 		}

@@ -103,10 +103,6 @@ type Image struct {
 	// The actual image (in cells) when it was drawn the last time. The size of
 	// this slice is lastWidth * lastHeight, indexed by y*lastWidth + x.
 	pixels []pixel
-
-	// A callback function set by the Form class and called when the user leaves
-	// this form item.
-	finished func(tcell.Key)
 }
 
 // NewImage returns a new [Image] widget with an empty image (use
@@ -284,21 +280,14 @@ func (i *Image) GetLabelStyle() tcell.Style {
 	return i.labelStyle
 }
 
-// SetFinishedFunc sets a callback invoked when the user leaves this form item.
-func (i *Image) SetFinishedFunc(handler func(key tcell.Key)) FormItem {
-	i.finished = handler
-	return i
+// AllowExit returns whether or not this primitive will allow a containing form
+// to move focus away from this primitive.
+func (i *Image) AllowExit(event *tcell.EventKey) bool {
+	return true
 }
 
 // Focus is called when this primitive receives focus.
 func (i *Image) Focus(delegate func(p Primitive)) {
-	// If we're part of a form, there's nothing the user can do here so we're
-	// finished.
-	if i.finished != nil {
-		i.finished(-1)
-		return
-	}
-
 	i.Box.Focus(delegate)
 }
 
