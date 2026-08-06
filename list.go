@@ -35,7 +35,9 @@ type listItem struct {
 //
 // See [List.SetChangedFunc] for a way to be notified when the user navigates
 // to a list item. See [List.SetSelectedFunc] for a way to be notified when a
-// list item was selected.
+// list item was selected. Note that the first item is selected by default but
+// since this is neither a change nor a selection, neither of the two functions
+// is called for the first item.
 //
 // See https://github.com/rivo/tview/wiki/List for an example.
 type List struct {
