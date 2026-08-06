@@ -500,19 +500,10 @@ func (l *List) Clear() *List {
 	return l
 }
 
-// Draw draws this primitive onto the screen.
-func (l *List) Draw(screen tcell.Screen) {
-	l.Box.DrawForSubclass(screen, l)
-
-	// Determine the dimensions.
-	x, y, width, height := l.GetInnerRect()
-	bottomLimit := y + height
-	_, totalHeight := screen.Size()
-	if bottomLimit > totalHeight {
-		bottomLimit = totalHeight
-	}
-
-	// Adjust offsets to keep the current item in view.
+// adjustOffset adjusts the vertical offset to keep the current selection in
+// view.
+func (l *List) adjustOffset() {
+	_, _, _, height := l.GetInnerRect()
 	if height == 0 {
 		return
 	}
@@ -527,8 +518,41 @@ func (l *List) Draw(screen tcell.Screen) {
 			l.itemOffset = l.currentItem + 1 - height
 		}
 	}
+}
+
+// Draw draws this primitive onto the screen.
+func (l *List) Draw(screen tcell.Screen) {
+	l.Box.DrawForSubclass(screen, l)
+
+	// Determine the dimensions.
+	x, y, width, height := l.GetInnerRect()
+	if height == 0 {
+		return
+	}
+	bottomLimit := y + height
+	_, totalHeight := screen.Size()
+	if bottomLimit > totalHeight {
+		bottomLimit = totalHeight
+	}
+
+	// Make sure the list is not scrolled out of view.
+	if l.itemOffset >= len(l.items) {
+		l.itemOffset = len(l.items) - 1
+	}
 	if l.horizontalOffset < 0 {
 		l.horizontalOffset = 0
+	}
+	if !l.showSecondaryText {
+		if len(l.items)-l.itemOffset < height {
+			l.itemOffset = len(l.items) - height
+		}
+	} else {
+		if 2*(len(l.items)-l.itemOffset) < height {
+			l.itemOffset = (2*len(l.items) - height + 1) / 2
+		}
+	}
+	if l.itemOffset < 0 {
+		l.itemOffset = 0
 	}
 
 	// Do we show any shortcuts?
@@ -702,6 +726,7 @@ func (l *List) InputHandler() func(event *tcell.EventKey, setFocus func(p Primit
 				item := l.items[l.currentItem]
 				l.changed(l.currentItem, item.MainText, item.SecondaryText, item.Shortcut)
 			}
+			l.adjustOffset()
 		}
 	})
 }
@@ -755,18 +780,10 @@ func (l *List) MouseHandler() func(action MouseAction, event *tcell.EventMouse, 
 			}
 			consumed = true
 		case MouseScrollUp:
-			if l.itemOffset > 0 {
-				l.itemOffset--
-			}
+			l.itemOffset--
 			consumed = true
 		case MouseScrollDown:
-			lines := len(l.items) - l.itemOffset
-			if l.showSecondaryText {
-				lines *= 2
-			}
-			if _, _, _, height := l.GetInnerRect(); lines > height {
-				l.itemOffset++
-			}
+			l.itemOffset++
 			consumed = true
 		case MouseScrollLeft:
 			l.horizontalOffset--
