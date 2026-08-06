@@ -61,6 +61,9 @@ func (b *Button) GetLabel() string {
 }
 
 // SetLabelColor sets the color of the button text.
+//
+// This function is only here for backwards compatibility. Use [Button.SetStyle]
+// instead.
 func (b *Button) SetLabelColor(color tcell.Color) *Button {
 	b.style = b.style.Foreground(color)
 	return b
@@ -74,6 +77,9 @@ func (b *Button) SetStyle(style tcell.Style) *Button {
 
 // SetLabelColorActivated sets the color of the button text when the button is
 // in focus.
+//
+// This function is only here for backwards compatibility. Use
+// [Button.SetActivatedStyle] instead.
 func (b *Button) SetLabelColorActivated(color tcell.Color) *Button {
 	b.activatedStyle = b.activatedStyle.Foreground(color)
 	return b
@@ -81,6 +87,9 @@ func (b *Button) SetLabelColorActivated(color tcell.Color) *Button {
 
 // SetBackgroundColorActivated sets the background color of the button text when
 // the button is in focus.
+//
+// This function is only here for backwards compatibility. Use
+// [Button.SetActivatedStyle] instead.
 func (b *Button) SetBackgroundColorActivated(color tcell.Color) *Button {
 	b.activatedStyle = b.activatedStyle.Background(color)
 	return b
