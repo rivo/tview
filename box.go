@@ -96,6 +96,11 @@ func NewBox() *Box {
 	return b
 }
 
+// GetBox returns the box itself implementing the BoxedPrimitive interface.
+func (b *Box) GetBox() *Box {
+	return b
+}
+
 // SetBorderPadding sets the size of the borders around the box content.
 func (b *Box) SetBorderPadding(top, bottom, left, right int) *Box {
 	b.paddingTop, b.paddingBottom, b.paddingLeft, b.paddingRight = top, bottom, left, right
