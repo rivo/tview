@@ -84,6 +84,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [The personal information dashboard for your terminal. ](https://github.com/wtfutil/wtf)
 - [MySQL database to Golang struct](https://github.com/xxjwxc/gormt)
 - [Discord, TUI and SIXEL.](https://gitlab.com/diamondburned/6cord)
+- [A terminal based blogs reader](https://github.com/ezeoleaf/tblogs)
 - [A CLI Audio Player](https://www.github.com/dhulihan/grump)
 - [GLab, a GitLab CLI tool](https://gitlab.com/profclems/glab)
 - [Browse your AWS ECS Clusters in the Terminal](https://github.com/swartzrock/ecsview)
