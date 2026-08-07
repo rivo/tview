@@ -137,7 +137,7 @@ func NewInputField() *InputField {
 	i.textArea.textStyle = tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.PrimaryTextColor)
 	i.textArea.placeholderStyle = tcell.StyleDefault.Background(Styles.ContrastBackgroundColor).Foreground(Styles.ContrastSecondaryTextColor)
 	i.autocompleteStyles.main = tcell.StyleDefault.Background(Styles.MoreContrastBackgroundColor).Foreground(Styles.PrimitiveBackgroundColor)
-	i.autocompleteStyles.selected = tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.PrimitiveBackgroundColor)
+	i.autocompleteStyles.selected = tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor).Reverse(true)
 	i.autocompleteStyles.background = Styles.MoreContrastBackgroundColor
 	i.autocompleteStyles.useTags = true
 	i.Box.Primitive = i
