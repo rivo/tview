@@ -180,6 +180,17 @@ func (i *InputField) SetPlaceholder(text string) *InputField {
 	return i
 }
 
+// Select selects a section of the text. The start and end positions refer to
+// index positions within the entire text string (as a half-open interval). They
+// may be the same, in which case the cursor is placed at the given position.
+// Any previous selection is removed. Scroll offsets will be preserved.
+//
+// Index positions will be shifted to line up with character boundaries.
+func (i *InputField) Select(start, end int) *InputField {
+	i.textArea.Select(start, end)
+	return i
+}
+
 // SetLabelColor sets the text color of the label.
 func (i *InputField) SetLabelColor(color tcell.Color) *InputField {
 	i.textArea.SetLabelStyle(i.textArea.GetLabelStyle().Foreground(color))
