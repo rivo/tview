@@ -108,7 +108,7 @@ func NewList() *List {
 		mainTextStyle:      tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor),
 		secondaryTextStyle: tcell.StyleDefault.Foreground(Styles.TertiaryTextColor).Background(Styles.PrimitiveBackgroundColor),
 		shortcutStyle:      tcell.StyleDefault.Foreground(Styles.SecondaryTextColor).Background(Styles.PrimitiveBackgroundColor),
-		selectedStyle:      tcell.StyleDefault.Foreground(Styles.PrimitiveBackgroundColor).Background(Styles.PrimaryTextColor),
+		selectedStyle:      tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor).Reverse(true),
 		mainStyleTags:      true,
 		secondaryStyleTags: true,
 	}
@@ -263,13 +263,23 @@ func (l *List) SetShortcutStyle(style tcell.Style) *List {
 // color of main text characters that are different from the main text color
 // (e.g. style tags) is maintained.
 func (l *List) SetSelectedTextColor(color tcell.Color) *List {
-	l.selectedStyle = l.selectedStyle.Foreground(color)
+	_, _, attrs := l.selectedStyle.Decompose()
+	if attrs&tcell.AttrReverse != 0 {
+		l.selectedStyle = l.selectedStyle.Background(color)
+	} else {
+		l.selectedStyle = l.selectedStyle.Foreground(color)
+	}
 	return l
 }
 
 // SetSelectedBackgroundColor sets the background color of selected items.
 func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
-	l.selectedStyle = l.selectedStyle.Background(color)
+	_, _, attrs := l.selectedStyle.Decompose()
+	if attrs&tcell.AttrReverse != 0 {
+		l.selectedStyle = l.selectedStyle.Foreground(color)
+	} else {
+		l.selectedStyle = l.selectedStyle.Background(color)
+	}
 	return l
 }
 

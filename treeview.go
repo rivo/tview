@@ -60,7 +60,7 @@ func NewTreeNode(text string) *TreeNode {
 	return &TreeNode{
 		text:              text,
 		textStyle:         tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor),
-		selectedTextStyle: tcell.StyleDefault.Foreground(Styles.PrimitiveBackgroundColor).Background(Styles.PrimaryTextColor),
+		selectedTextStyle: tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor).Reverse(true),
 		indent:            2,
 		expanded:          true,
 		selectable:        true,
@@ -219,7 +219,12 @@ func (n *TreeNode) GetColor() tcell.Color {
 // styles, use [TreeNode.SetTextStyle] and [TreeNode.SetSelectedTextStyle].
 func (n *TreeNode) SetColor(color tcell.Color) *TreeNode {
 	n.textStyle = n.textStyle.Foreground(color)
-	n.selectedTextStyle = n.selectedTextStyle.Background(color)
+	_, _, attrs := n.selectedTextStyle.Decompose()
+	if attrs&tcell.AttrReverse != 0 {
+		n.selectedTextStyle = n.selectedTextStyle.Foreground(color)
+	} else {
+		n.selectedTextStyle = n.selectedTextStyle.Background(color)
+	}
 	return n
 }
 

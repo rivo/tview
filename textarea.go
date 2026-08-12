@@ -356,7 +356,7 @@ func NewTextArea() *TextArea {
 		placeholderStyle: tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.TertiaryTextColor),
 		labelStyle:       tcell.StyleDefault.Foreground(Styles.SecondaryTextColor),
 		textStyle:        tcell.StyleDefault.Background(Styles.PrimitiveBackgroundColor).Foreground(Styles.PrimaryTextColor),
-		selectedStyle:    tcell.StyleDefault.Background(Styles.PrimaryTextColor).Foreground(Styles.PrimitiveBackgroundColor),
+		selectedStyle:    tcell.StyleDefault.Foreground(Styles.PrimaryTextColor).Background(Styles.PrimitiveBackgroundColor).Reverse(true),
 		spans:            make([]textAreaSpan, 2, pieceChainMinCap), // We reserve some space to avoid reallocations right when editing starts.
 		lastAction:       taActionOther,
 		minCursorPrefix:  minCursorPrefixDefault,
