@@ -229,6 +229,15 @@ func (g *Grid) Clear() *Grid {
 	return g
 }
 
+// ClearAfter removes all items starting with the given index.
+func (g *Grid) ClearAfter(index int) *Grid {
+	if len(g.items) <= index {
+		return g
+	}
+	g.items = g.items[:index]
+	return g
+}
+
 // SetOffset sets the number of rows and columns which are skipped before
 // drawing the first grid cell in the top-left corner. As the grid will never
 // completely move off the screen, these values may be adjusted the next time
