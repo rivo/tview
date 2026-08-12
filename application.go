@@ -1,6 +1,7 @@
 package tview
 
 import (
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -325,6 +326,16 @@ func (a *Application) Run() error {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		debug.SetPanicOnFault(true)
+		defer func() {
+			if p := recover(); p != nil {
+				if a.screen != nil {
+					a.screen.Fini()
+				}
+				panic(p)
+			}
+		}()
+
 		defer wg.Done()
 		for {
 			a.RLock()
