@@ -149,6 +149,7 @@ For a presentation highlighting this package, compile and run the program found 
 - [tvxterm: provides terminal widgets for tview](https://github.com/blacknon/tvxterm)
 - [lssh: TUI SSH/SCP/SFTP client with list-based host selection](https://github.com/blacknon/lssh)
 - [neo: Terminal based extensible code editor](https://github.com/jayantjha/neo)
+- [gurl: A Postman-style HTTP client that runs in your terminal](https://github.com/mdrehan369/gurl)
 
 ## Documentation
 
