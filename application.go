@@ -112,6 +112,9 @@ type Application struct {
 	// Functions queued from goroutines, used to serialize updates to primitives.
 	updates chan queuedUpdate
 
+	// Closed when the event loop stops accepting queued updates.
+	updatesDone chan struct{}
+
 	// An object that the screen variable will be set to after Fini() was called.
 	// Use this channel to set a new screen object for the application
 	// (screen.Init() and draw() will be called implicitly). A value of nil will
@@ -306,6 +309,9 @@ func (a *Application) Run() error {
 			a.screen.SetTitle(a.title)
 		}
 	}
+	a.updates = make(chan queuedUpdate, queueSize)
+	a.updatesDone = make(chan struct{})
+	updatesDone := a.updatesDone
 
 	// We catch panics to clean up because they mess up the terminal.
 	defer func() {
@@ -315,6 +321,15 @@ func (a *Application) Run() error {
 			}
 			panic(p)
 		}
+	}()
+
+	defer func() {
+		a.Lock()
+		close(updatesDone)
+		if a.updatesDone == updatesDone {
+			a.updatesDone = nil
+		}
+		a.Unlock()
 	}()
 
 	// Draw the screen for the first time.
@@ -751,15 +766,18 @@ func (a *Application) draw() *Application {
 // corrupted so you may want to offer your users a keyboard shortcut to refresh
 // the screen.
 func (a *Application) Sync() *Application {
-	a.updates <- queuedUpdate{f: func() {
+	a.QueueUpdate(func() {
 		a.RLock()
 		screen := a.screen
 		a.RUnlock()
+
 		if screen == nil {
 			return
 		}
+
 		screen.Sync()
-	}}
+	})
+
 	return a
 }
 
@@ -912,11 +930,29 @@ func (a *Application) GetFocus() Primitive {
 // refreshed after each update. Alternatively, use QueueUpdateDraw() to follow
 // up with an immediate refresh of the screen.
 //
-// This function returns after f has executed.
+// This function returns after f has executed. If the application is not
+// running or stops before f executes, f is not called.
 func (a *Application) QueueUpdate(f func()) *Application {
 	ch := make(chan struct{})
-	a.updates <- queuedUpdate{f: f, done: ch}
-	<-ch
+	a.RLock()
+	updates, updatesDone := a.updates, a.updatesDone
+	a.RUnlock()
+
+	if updatesDone == nil {
+		return a
+	}
+
+	select {
+	case updates <- queuedUpdate{f: f, done: ch}:
+	case <-updatesDone:
+		return a
+	}
+
+	select {
+	case <-ch:
+	case <-updatesDone:
+	}
+
 	return a
 }
 
