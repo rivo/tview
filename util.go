@@ -18,11 +18,15 @@ const (
 )
 
 var (
-	// Regular expression used to escape style/region tags.
-	escapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
+	// Regular expression used to escape style/region tags. The content of a tag
+	// is anything but brackets, matching escapedTagPattern in strings.go, which
+	// decides what the print functions treat as an escaped tag. A narrower set
+	// here would leave text unescaped that those functions still unescape.
+	escapePattern = regexp.MustCompile(`(\[[^\[\]]+\[*)\]`)
 
-	// Regular expression used to unescape escaped style/region tags.
-	unescapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\[\]`)
+	// Regular expression used to unescape escaped style/region tags. Its tag
+	// content matches escapePattern above, so that unescaping undoes escaping.
+	unescapePattern = regexp.MustCompile(`(\[[^\[\]]+\[*)\[\]`)
 
 	// The number of colors available in the terminal.
 	availableColors = 256
