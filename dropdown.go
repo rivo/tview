@@ -76,6 +76,9 @@ type DropDown struct {
 	// possible.
 	fieldWidth int
 
+	// Whether to display an arrow at the right end of the field.
+	showArrow bool
+
 	// An optional function which is called when the user indicated that they
 	// are done selecting options. The key which was pressed is provided (tab,
 	// shift-tab, or escape).
@@ -281,10 +284,22 @@ func (d *DropDown) SetFieldWidth(width int) *DropDown {
 	return d
 }
 
+// ShowArrow determines whether to display a downward arrow at the right end of
+// the field. The arrow is hidden by default. When shown, it reserves two screen
+// cells for a space and the arrow. Automatic widths grow accordingly; explicit
+// widths include these cells. A one-cell field shows only the arrow.
+func (d *DropDown) ShowArrow(show bool) *DropDown {
+	d.showArrow = show
+	return d
+}
+
 // GetFieldWidth returns this primitive's field screen width.
 func (d *DropDown) GetFieldWidth() int {
 	if d.fieldWidth > 0 {
 		return d.fieldWidth
+	}
+	if d.showArrow {
+		return d.getAutoFieldWidth(d.getOptionWidth())
 	}
 	fieldWidth := 0
 	for _, option := range d.options {
@@ -292,6 +307,45 @@ func (d *DropDown) GetFieldWidth() int {
 		if width > fieldWidth {
 			fieldWidth = width
 		}
+	}
+	return fieldWidth
+}
+
+// getOptionWidth returns the widest option, including its decorations, in both
+// the field and the list.
+func (d *DropDown) getOptionWidth() int {
+	useStyleTags, _ := d.list.GetUseStyleTags()
+	maxWidth := 0
+	for _, option := range d.options {
+		for _, text := range []string{
+			d.optionPrefix + option.Text + d.optionSuffix,
+			d.currentOptionPrefix + option.Text + d.currentOptionSuffix,
+		} {
+			if !useStyleTags {
+				text = Escape(text)
+			}
+			maxWidth = max(maxWidth, TaggedStringWidth(text))
+		}
+	}
+	return maxWidth
+}
+
+// getAutoFieldWidth returns the automatic field width, accounting for the
+// placeholder and the optional arrow in addition to the widest option.
+func (d *DropDown) getAutoFieldWidth(optionWidth int) int {
+	fieldWidth := optionWidth
+	if d.currentOption < 0 {
+		text := d.noSelection
+		if useStyleTags, _ := d.list.GetUseStyleTags(); d.showArrow && !useStyleTags {
+			text = Escape(text)
+		}
+		fieldWidth = max(fieldWidth, TaggedStringWidth(text))
+	} else if d.currentOption < len(d.options) {
+		text := d.currentOptionPrefix + d.options[d.currentOption].Text + d.currentOptionSuffix
+		fieldWidth = max(fieldWidth, TaggedStringWidth(text))
+	}
+	if d.showArrow {
+		fieldWidth += 2
 	}
 	return fieldWidth
 }
@@ -405,41 +459,12 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	}
 
 	// What's the longest option text?
-	maxWidth := 0
-	for _, option := range d.options {
-		str := d.optionPrefix + option.Text + d.optionSuffix
-		if !useStyleTags {
-			str = Escape(str)
-		}
-		strWidth := TaggedStringWidth(str)
-		if strWidth > maxWidth {
-			maxWidth = strWidth
-		}
-		str = d.currentOptionPrefix + option.Text + d.currentOptionSuffix
-		if !useStyleTags {
-			str = Escape(str)
-		}
-		strWidth = TaggedStringWidth(str)
-		if strWidth > maxWidth {
-			maxWidth = strWidth
-		}
-	}
+	maxWidth := d.getOptionWidth()
 
 	// Draw selection area.
 	fieldWidth := d.fieldWidth
 	if fieldWidth == 0 {
-		fieldWidth = maxWidth
-		if d.currentOption < 0 {
-			noSelectionWidth := TaggedStringWidth(d.noSelection)
-			if noSelectionWidth > fieldWidth {
-				fieldWidth = noSelectionWidth
-			}
-		} else if d.currentOption < len(d.options) {
-			currentOptionWidth := TaggedStringWidth(d.currentOptionPrefix + d.options[d.currentOption].Text + d.currentOptionSuffix)
-			if currentOptionWidth > fieldWidth {
-				fieldWidth = currentOptionWidth
-			}
-		}
+		fieldWidth = d.getAutoFieldWidth(maxWidth)
 	}
 	if rightLimit-x < fieldWidth {
 		fieldWidth = rightLimit - x
@@ -453,6 +478,34 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 	for index := 0; index < fieldWidth; index++ {
 		screen.SetContent(x+index, y, ' ', nil, fieldStyle)
 	}
+	if d.showArrow && fieldWidth > 0 {
+		screen.SetContent(x+fieldWidth-1, y, '▾', nil, fieldStyle)
+		fieldWidth = max(0, fieldWidth-2)
+	}
+
+	// Keep whole grapheme clusters within the text area when an arrow is shown.
+	// Otherwise, a wide character could occupy the space reserved for the arrow.
+	printFieldText := func(text string, x, skipWidth, maxWidth int, style tcell.Style) int {
+		if d.showArrow {
+			var state *stepState
+			end, remaining, skip := 0, maxWidth, skipWidth
+			for rest := text; len(rest) > 0; {
+				_, rest, state = step(rest, state, stepOptionsStyle)
+				if skip > 0 {
+					skip -= state.Width()
+				} else {
+					remaining -= state.Width()
+					if remaining < 0 {
+						break
+					}
+				}
+				end = len(text) - len(rest)
+			}
+			text = text[:end]
+		}
+		_, _, width := printWithStyle(screen, text, x, y, skipWidth, maxWidth, AlignLeft, style, false)
+		return width
+	}
 
 	// Draw selected text.
 	prefix := Escape(d.prefix.GetText())
@@ -465,10 +518,10 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 			currentOptionPrefix = Escape(currentOptionPrefix)
 			currentOptionSuffix = Escape(currentOptionSuffix)
 		}
-		_, _, copWidth := printWithStyle(screen, currentOptionPrefix, x, y, 0, fieldWidth, AlignLeft, d.fieldStyle, false)
+		copWidth := printFieldText(currentOptionPrefix, x, 0, fieldWidth, d.fieldStyle)
 		if copWidth < fieldWidth {
 			// Then draw the prefix.
-			_, _, prefixWidth := printWithStyle(screen, prefix, x+copWidth, y, 0, fieldWidth-copWidth, AlignLeft, d.prefixStyle, false)
+			prefixWidth := printFieldText(prefix, x+copWidth, 0, fieldWidth-copWidth, d.prefixStyle)
 			if copWidth+prefixWidth < fieldWidth {
 				// Then the current option remainder.
 				var corWidth int
@@ -478,11 +531,11 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 					if !useStyleTags {
 						text = Escape(text)
 					}
-					_, _, corWidth = printWithStyle(screen, text, x+copWidth+prefixWidth, y, prefixWidth, fieldWidth-copWidth-prefixWidth, AlignLeft, d.fieldStyle, false)
+					corWidth = printFieldText(text, x+copWidth+prefixWidth, prefixWidth, fieldWidth-copWidth-prefixWidth, d.fieldStyle)
 				}
 				if copWidth+prefixWidth+corWidth < fieldWidth {
 					// And finally the current option suffix.
-					printWithStyle(screen, currentOptionSuffix, x+copWidth+prefixWidth+corWidth, y, 0, fieldWidth-copWidth-prefixWidth-corWidth, AlignLeft, d.fieldStyle, false)
+					printFieldText(currentOptionSuffix, x+copWidth+prefixWidth+corWidth, 0, fieldWidth-copWidth-prefixWidth-corWidth, d.fieldStyle)
 				}
 			}
 		}
@@ -495,7 +548,7 @@ func (d *DropDown) Draw(screen tcell.Screen) {
 		if !useStyleTags {
 			text = Escape(text)
 		}
-		printWithStyle(screen, text, x, y, 0, fieldWidth, AlignLeft, fieldStyle, false)
+		printFieldText(text, x, 0, fieldWidth, fieldStyle)
 	}
 
 	// Draw options list.
