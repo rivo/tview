@@ -1002,6 +1002,10 @@ func (t *Table) Draw(screen tcell.Screen) {
 	)
 	includesSelection := !t.clampToSelection || !t.columnsSelectable
 
+	// Whether the column most recently added by indexColumn() did not fit fully
+	// and was therefore truncated.
+	var lastColumnTruncated bool
+
 	// Helper function that evaluates one column. Returns true if the column
 	// didn't fit at all.
 	indexColumn := func(column int) bool {
@@ -1032,6 +1036,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 		if tableWidth+maxWidth > netWidth {
 			clampedMaxWidth = netWidth - tableWidth
 		}
+		lastColumnTruncated = clampedMaxWidth < maxWidth
 		columns = append(columns, column)
 		widths = append(widths, clampedMaxWidth)
 		expansions = append(expansions, expansion)
@@ -1089,6 +1094,28 @@ func (t *Table) Draw(screen tcell.Screen) {
 		columns = columns[:t.fixedColumns]
 		widths = widths[:t.fixedColumns]
 		expansions = expansions[:t.fixedColumns]
+		lastColumnTruncated = false
+	}
+
+	// Helper function that fits as many columns on the screen as possible,
+	// ending with column "end", and returns the resulting column offset. When
+	// evaluating backwards, the left-most column may only fit partially. It
+	// cannot be shown truncated on its left side, however, because the column
+	// offset always starts with a full column, so the next call to Draw() would
+	// scroll back to the left. In that case, we start with the next column
+	// instead.
+	fitColumnsEndingWith := func(end int) int {
+		resetColumns()
+		leftmost := t.fixedColumns
+		if column := indexColumns(end, t.fixedColumns); column >= 0 {
+			leftmost = column + 1
+		}
+		if lastColumnTruncated && leftmost < end {
+			leftmost++
+			resetColumns()
+			indexColumns(leftmost, columnCount)
+		}
+		return leftmost - t.fixedColumns
 	}
 
 	// Add fixed columns.
@@ -1108,20 +1135,11 @@ func (t *Table) Draw(screen tcell.Screen) {
 					indexColumns(t.fixedColumns+t.columnOffset, columnCount)
 				} else {
 					// It's on the right. End with the selection.
-					if column := indexColumns(t.selectedColumn, t.fixedColumns); column >= 0 {
-						t.columnOffset = column + 1 - t.fixedColumns
-					} else {
-						t.columnOffset = 0
-					}
+					t.columnOffset = fitColumnsEndingWith(t.selectedColumn)
 				}
 			} else if tableWidth < netWidth {
 				// Don't waste space. Try to fit as much on screen as possible.
-				resetColumns()
-				if column := indexColumns(columnCount-1, t.fixedColumns); column >= 0 {
-					t.columnOffset = column + 1 - t.fixedColumns
-				} else {
-					t.columnOffset = 0
-				}
+				t.columnOffset = fitColumnsEndingWith(columnCount - 1)
 			}
 		}
 	}
