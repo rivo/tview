@@ -118,6 +118,9 @@ type Application struct {
 	// stop the application.
 	screenReplacement chan tcell.Screen
 
+	// Closed when the application stops, releasing queued updates.
+	closed chan struct{}
+
 	// An optional capture function which receives a mouse event and returns the
 	// event to be forwarded to the default mouse handler (nil if nothing should
 	// be forwarded).
@@ -136,6 +139,7 @@ func NewApplication() *Application {
 		events:            make(chan tcell.Event, queueSize),
 		updates:           make(chan queuedUpdate, queueSize),
 		screenReplacement: make(chan tcell.Screen, 1),
+		closed:            make(chan struct{}),
 	}
 }
 
@@ -265,6 +269,57 @@ func (a *Application) EnablePaste(enable bool) *Application {
 	return a
 }
 
+// getClosed returns the channel that is closed when the application stops.
+// It initializes the channel if it has not been created yet.
+func (a *Application) getClosed() chan struct{} {
+	a.RLock()
+	closed := a.closed
+	a.RUnlock()
+	if closed != nil {
+		return closed
+	}
+
+	a.Lock()
+	defer a.Unlock()
+	if a.closed == nil {
+		a.closed = make(chan struct{})
+	}
+	return a.closed
+}
+
+// stopUpdates closes the closed channel and drains any remaining queued updates
+// so that blocked goroutines are released.
+func (a *Application) stopUpdates() {
+	a.Lock()
+	if a.closed == nil {
+		a.closed = make(chan struct{})
+		close(a.closed)
+	} else {
+		select {
+		case <-a.closed:
+			// Already closed.
+		default:
+			close(a.closed)
+		}
+	}
+	a.Unlock()
+
+	// Drain any updates remaining in the channel.
+	for {
+		select {
+		case update := <-a.updates:
+			if update.done != nil {
+				select {
+				case update.done <- struct{}{}:
+				default:
+				}
+			}
+		default:
+			return
+		}
+	}
+}
+
 // Run starts the application and thus the event loop. This function returns
 // when [Application.Stop] was called.
 //
@@ -281,15 +336,28 @@ func (a *Application) Run() error {
 	)
 	a.Lock()
 
+	// Reset closed channel if it was closed in a previous run.
+	if a.closed == nil {
+		a.closed = make(chan struct{})
+	} else {
+		select {
+		case <-a.closed:
+			a.closed = make(chan struct{})
+		default:
+		}
+	}
+
 	// Make a screen if there is none yet.
 	if a.screen == nil {
 		a.screen, err = tcell.NewScreen()
 		if err != nil {
 			a.Unlock()
+			a.stopUpdates()
 			return err
 		}
 		if err = a.screen.Init(); err != nil {
 			a.Unlock()
+			a.stopUpdates()
 			return err
 		}
 		if a.enableMouse {
@@ -310,9 +378,13 @@ func (a *Application) Run() error {
 	// We catch panics to clean up because they mess up the terminal.
 	defer func() {
 		if p := recover(); p != nil {
+			a.Lock()
 			if a.screen != nil {
 				a.screen.Fini()
+				a.screen = nil
 			}
+			a.Unlock()
+			a.stopUpdates()
 			panic(p)
 		}
 	}()
@@ -506,7 +578,9 @@ EventLoop:
 
 		// If we have updates, now is the time to execute them.
 		case update := <-a.updates:
-			update.f()
+			if update.f != nil {
+				update.f()
+			}
 			if update.done != nil {
 				update.done <- struct{}{}
 			}
@@ -515,7 +589,13 @@ EventLoop:
 
 	// Wait for the event loop to finish.
 	wg.Wait()
+	if redrawTimer != nil {
+		redrawTimer.Stop()
+	}
+	a.Lock()
 	a.screen = nil
+	a.Unlock()
+	a.stopUpdates()
 
 	return appErr
 }
@@ -623,6 +703,13 @@ func (a *Application) fireMouseActions(event *tcell.EventMouse) (consumed, isMou
 func (a *Application) Stop() {
 	a.Lock()
 	defer a.Unlock()
+	if a.closed != nil {
+		select {
+		case <-a.closed:
+		default:
+			close(a.closed)
+		}
+	}
 	screen := a.screen
 	if screen == nil {
 		return
@@ -751,7 +838,15 @@ func (a *Application) draw() *Application {
 // corrupted so you may want to offer your users a keyboard shortcut to refresh
 // the screen.
 func (a *Application) Sync() *Application {
-	a.updates <- queuedUpdate{f: func() {
+	closed := a.getClosed()
+	select {
+	case <-closed:
+		return a
+	default:
+	}
+
+	select {
+	case a.updates <- queuedUpdate{f: func() {
 		a.RLock()
 		screen := a.screen
 		a.RUnlock()
@@ -759,7 +854,9 @@ func (a *Application) Sync() *Application {
 			return
 		}
 		screen.Sync()
-	}}
+	}}:
+	case <-closed:
+	}
 	return a
 }
 
@@ -912,11 +1009,27 @@ func (a *Application) GetFocus() Primitive {
 // refreshed after each update. Alternatively, use QueueUpdateDraw() to follow
 // up with an immediate refresh of the screen.
 //
-// This function returns after f has executed.
+// This function returns after f has executed. If the application has stopped
+// or terminates before f can execute, this function returns without executing f.
 func (a *Application) QueueUpdate(f func()) *Application {
-	ch := make(chan struct{})
-	a.updates <- queuedUpdate{f: f, done: ch}
-	<-ch
+	closed := a.getClosed()
+	select {
+	case <-closed:
+		return a
+	default:
+	}
+
+	ch := make(chan struct{}, 1)
+	select {
+	case a.updates <- queuedUpdate{f: f, done: ch}:
+	case <-closed:
+		return a
+	}
+
+	select {
+	case <-ch:
+	case <-closed:
+	}
 	return a
 }
 
@@ -924,7 +1037,9 @@ func (a *Application) QueueUpdate(f func()) *Application {
 // immediately after executing f.
 func (a *Application) QueueUpdateDraw(f func()) *Application {
 	a.QueueUpdate(func() {
-		f()
+		if f != nil {
+			f()
+		}
 		a.draw()
 	})
 	return a
