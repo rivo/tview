@@ -315,9 +315,12 @@ func (t *TextView) SetDisabled(disabled bool) FormItem {
 	return t // Text views are always read-only.
 }
 
-// GetDisabled returns whether or not the item is disabled / read-only.
+// GetDisabled returns whether or not the item is disabled. A text view is
+// always read-only. It can still be focused when it is scrollable, because
+// that is how the user scrolls it. A text view that is not scrollable cannot
+// be focused.
 func (t *TextView) GetDisabled() bool {
-	return true // Text views are always read-only.
+	return !t.scrollable
 }
 
 // SetScrollable sets the flag that decides whether or not the text view is
