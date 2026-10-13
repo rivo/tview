@@ -500,6 +500,13 @@ ItemLoop:
 		offsetX += width + add
 	}
 
+	if offsetY > rowY-height {
+		offsetY = max(0, rowY-height)
+	}
+	if offsetX > columnX-width {
+		offsetX = max(0, columnX-width)
+	}
+
 	// The focused item must be within the visible area.
 	if focus != nil {
 		if focus.y+focus.h-offsetY >= height {
