@@ -446,8 +446,10 @@ func parseTag(str string, state *stepState, opts stepOptions) (length int, style
 					switch {
 					case ch == 'u':
 						tStyle = tStyle.Underline(true)
+						a |= tcell.AttrUnderline
 					case ch == 'U':
 						tStyle = tStyle.Underline(false)
+						a &^= tcell.AttrUnderline
 					case ch >= 'a' && ch <= 'z':
 						a |= attrs[ch-('a'-'A')]
 					default:

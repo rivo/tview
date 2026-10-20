@@ -29,7 +29,6 @@ type ansi struct {
 	// Reusable buffers.
 	buffer                        *bytes.Buffer // The entire output text of one Write().
 	csiParameter, csiIntermediate *bytes.Buffer // Partial CSI strings.
-	attributes                    string        // The buffer's current text attributes (a tview attribute string).
 
 	// The current state of the parser. One of the ansi constants.
 	state int
@@ -102,14 +101,16 @@ func (a *ansi) Write(text []byte) (int, error) {
 					}
 					fmt.Fprint(a.buffer, strings.Repeat("\n", count))
 				case 'm': // Select Graphic Rendition.
-					var background, foreground string
+					var background, foreground, attributes string
+					var resetAttributes bool
 					params := a.csiParameter.String()
 					fields := strings.Split(params, ";")
 					if len(params) == 0 || fields[0] == "" || fields[0] == "0" {
 						// Reset.
 						foreground = "-"
 						background = "-"
-						a.attributes = "-"
+						attributes = ""
+						resetAttributes = true
 					}
 					lookupColor := func(colorNumber int) string {
 						if colorNumber < 0 || colorNumber > 15 {
@@ -140,62 +141,34 @@ func (a *ansi) Write(text []byte) (int, error) {
 						case "0", "00":
 							foreground = "-"
 							background = "-"
-							a.attributes = "-"
+							attributes = ""
+							resetAttributes = true
 						case "1", "01":
-							if !strings.ContainsRune(a.attributes, 'b') {
-								a.attributes += "b"
-							}
+							attributes += "b"
 						case "2", "02":
-							if !strings.ContainsRune(a.attributes, 'd') {
-								a.attributes += "d"
-							}
+							attributes += "d"
 						case "3", "03":
-							if !strings.ContainsRune(a.attributes, 'i') {
-								a.attributes += "i"
-							}
+							attributes += "i"
 						case "4", "04":
-							if !strings.ContainsRune(a.attributes, 'u') {
-								a.attributes += "u"
-							}
+							attributes += "u"
 						case "5", "05":
-							if !strings.ContainsRune(a.attributes, 'l') {
-								a.attributes += "l"
-							}
+							attributes += "l"
 						case "7", "07":
-							if !strings.ContainsRune(a.attributes, 'r') {
-								a.attributes += "r"
-							}
+							attributes += "r"
 						case "9", "09":
-							if !strings.ContainsRune(a.attributes, 's') {
-								a.attributes += "s"
-							}
+							attributes += "s"
 						case "22":
-							if i := strings.IndexRune(a.attributes, 'b'); i >= 0 {
-								a.attributes = a.attributes[:i] + a.attributes[i+1:]
-							}
-							if i := strings.IndexRune(a.attributes, 'd'); i >= 0 {
-								a.attributes = a.attributes[:i] + a.attributes[i+1:]
-							}
+							attributes += "BD"
 						case "23":
-							if i := strings.IndexRune(a.attributes, 'i'); i >= 0 {
-								a.attributes = a.attributes[:i] + a.attributes[i+1:]
-							}
+							attributes += "I"
 						case "24":
-							if i := strings.IndexRune(a.attributes, 'u'); i >= 0 {
-								a.attributes = a.attributes[:i] + a.attributes[i+1:]
-							}
+							attributes += "U"
 						case "25":
-							if i := strings.IndexRune(a.attributes, 'l'); i >= 0 {
-								a.attributes = a.attributes[:i] + a.attributes[i+1:]
-							}
+							attributes += "L"
 						case "27":
-							if i := strings.IndexRune(a.attributes, 'r'); i >= 0 {
-								a.attributes = a.attributes[:i] + a.attributes[i+1:]
-							}
+							attributes += "R"
 						case "29":
-							if i := strings.IndexRune(a.attributes, 's'); i >= 0 {
-								a.attributes = a.attributes[:i] + a.attributes[i+1:]
-							}
+							attributes += "S"
 						case "30", "31", "32", "33", "34", "35", "36", "37":
 							colorNumber, _ := strconv.Atoi(field)
 							foreground = lookupColor(colorNumber - 30)
@@ -245,15 +218,17 @@ func (a *ansi) Write(text []byte) (int, error) {
 							break FieldLoop
 						}
 					}
-					var colon string
-					if len(a.attributes) > 1 && a.attributes[0] == '-' {
-						a.attributes = a.attributes[1:]
+					// Style flags are incremental operations, not a snapshot of
+					// all active attributes. Apply a reset before any later flags.
+					if resetAttributes {
+						fmt.Fprint(a.buffer, "[::-]")
 					}
-					if len(a.attributes) > 0 {
+					var colon string
+					if len(attributes) > 0 {
 						colon = ":"
 					}
-					if len(foreground) > 0 || len(background) > 0 || len(a.attributes) > 0 {
-						fmt.Fprintf(a.buffer, "[%s:%s%s%s]", foreground, background, colon, a.attributes)
+					if len(foreground) > 0 || len(background) > 0 || len(attributes) > 0 {
+						fmt.Fprintf(a.buffer, "[%s:%s%s%s]", foreground, background, colon, attributes)
 					}
 				}
 				a.state = ansiText
