@@ -40,6 +40,7 @@ type stepState struct {
 	initialForeground tcell.Color
 	initialBackground tcell.Color
 	initialAttributes tcell.AttrMask
+	initialUnderline  tcell.UnderlineStyle
 }
 
 // IsWordBoundary returns true if the boundary between the returned grapheme
@@ -117,6 +118,7 @@ func step(str string, state *stepState, opts stepOptions) (cluster, rest string,
 	}
 	if state.unisegState < 0 {
 		state.initialForeground, state.initialBackground, state.initialAttributes = state.style.Decompose()
+		state.initialUnderline = state.style.GetUnderlineStyle()
 	}
 	if len(str) == 0 {
 		newState = state
@@ -426,7 +428,7 @@ func parseTag(str string, state *stepState, opts stepOptions) (length int, style
 			case ch == ']': // End of tag.
 				tagState = tagStateDoneTag
 			case ch == '-': // Reset attributes.
-				tStyle = tStyle.Attributes(state.initialAttributes)
+				tStyle = tStyle.Underline(state.initialUnderline).Attributes(state.initialAttributes)
 				tagState = tagStateEndAttributes
 			case ch == ':': // Start of URL.
 				tagState = tagStateStartURL
