@@ -139,11 +139,14 @@ func NewApplication() *Application {
 	}
 }
 
-// SetInputCapture sets a function which captures all key events before they are
-// forwarded to the key event handler of the primitive which currently has
-// focus. This function can then choose to forward that key event (or a
-// different one) by returning it or stop the key event processing by returning
-// nil.
+// SetInputCapture sets a function that receives key events before the
+// application processes them. Return the event to continue processing it,
+// return a new event to replace it, or return nil to consume it.
+//
+// The application passes unconsumed key events to the root's input handler
+// when the root or one of its descendants has focus. Containers such as [Flex]
+// then forward the event to the focused child. Use [Box.SetInputCapture] to
+// intercept events as they pass through a particular primitive.
 //
 // The only default global key event is Ctrl-C which stops the application. It
 // requires special handling:
@@ -829,13 +832,15 @@ func (a *Application) ResizeToFullScreen(p Primitive) *Application {
 	return a
 }
 
-// SetFocus sets the focus to a new primitive. All key events will be directed
-// down the hierarchy (starting at the root) until a primitive handles them,
-// which per default goes towards the focused primitive.
+// SetFocus changes the focused primitive. A container can delegate focus to
+// one of its children. Choose a primitive in the tree installed with
+// [Application.SetRoot] so that it can receive key events. Pass nil to clear
+// focus.
 //
-// Blur will be called on the previously focused [Primitive] and all of its
-// parents (including the root). Then Focus will be called on the new
-// [Primitive] and all of its parents (including the root).
+// The application calls Blur on the previously focused [Primitive] and Focus
+// on the new target. The callbacks registered with
+// [Box.SetBlurFunc] and [Box.SetFocusFunc] also notify ancestors of the
+// primitive that lost or received focus.
 func (a *Application) SetFocus(p Primitive) *Application {
 	a.RLock()
 	root := a.root
@@ -887,8 +892,8 @@ func (a *Application) SetFocus(p Primitive) *Application {
 	return a
 }
 
-// GetFocus returns the primitive which has the current focus. If none has it,
-// nil is returned.
+// GetFocus returns the focused primitive in the current root's tree, or nil
+// if no primitive in that tree has focus.
 func (a *Application) GetFocus() Primitive {
 	a.RLock()
 	defer a.RUnlock()
