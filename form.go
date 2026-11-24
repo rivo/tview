@@ -706,18 +706,17 @@ func (f *Form) Focus(delegate func(p Primitive)) {
 	if f.requestedFocus >= 0 {
 		focus = f.requestedFocus
 	}
+	f.requestedFocus = -1
 
 	// Delegate focus.
 	for index, item := range f.items {
 		if (focus < 0 || focus == index) && !item.GetDisabled() {
-			f.requestedFocus = index
 			delegate(item)
 			return
 		}
 	}
 	for index, button := range f.buttons {
 		if (focus < 0 || focus == len(f.items)+index) && !button.GetDisabled() {
-			f.requestedFocus = len(f.items) + index
 			delegate(button)
 			return
 		}
